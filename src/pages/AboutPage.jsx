@@ -1,0 +1,131 @@
+import { useState } from "react"
+import { Zap, Link2, MessageCircle, Compass, ChevronDown } from "lucide-react";
+import { Footer } from "../components/Footer";
+
+const AboutPage = () => {
+    const [openFaq, setOpenFaq] = useState(null)
+
+    const faqs = [
+        {
+        question: "What is SocialFeed?",
+        answer:
+            "SocialFeed is a community-driven platform where you can share your thoughts, connect with others, and engage in meaningful conversations. Whether you want to reach your local community or a global audience, we give you the tools to make your voice heard.",
+        },
+        {
+        question: "How do I get started?",
+        answer:
+            "Simply sign up for an account, choose a username, and start posting! You can customize your profile, follow other users, join communities, and participate in discussions right away.",
+        },
+        {
+        question: "What types of content can I share?",
+        answer:
+            "You can share regular posts, voice posts about concerning issues, videos, create polls, organize events, broadcast live, and much more. Choose your target audience from local to global reach.",
+        },
+        {
+        question: "Is SocialFeed free to use?",
+        answer:
+            "Yes, SocialFeed is free to use. We believe in making social connections accessible to everyone without barriers.",
+        },
+        {
+        question: "How do I control who sees my content?",
+        answer:
+            "When creating a post, you can select your target audience: Local (your city), State, Country, Global, or Followers Only. This gives you precise control over who can see your content.",
+        },
+    ]
+    
+  return (
+    <div className="flex min-h-screen flex-col">
+      <main className="mx-auto w-full max-w-4xl space-y-8 px-4 py-8">
+        {/* Hero Section */}
+        <div className="text-center space-y-6 py-12">
+          <div className="inline-block">
+            <h1 className="text-6xl font-bold text-balance title-custom">
+              Kollective<span className="text-[#1D9BF0]">99</span>
+            </h1>
+            <div className="mt-2 inline-block rounded-full bg-primary px-4 py-1 text-sm font-medium text-primary-foreground">
+              SOCIAL MEDIA APP. FOR THE PEOPLE, OF THE PEOPLE.
+            </div>
+          </div>
+          <p className="text-xl text-muted-foreground text-balance leading-relaxed">
+            If 'X','Threads' and 'Truth' feel like some one's private property and decentralized apps make us disconnected,
+            Join Kollective to share your 'Voice'.
+          </p>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-3 rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Zap className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-semibold text-lg">Create a profile</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Choose a username, add a bio, and you're good to go. Share your thoughts locally or globally.
+            </p>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Link2 className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-semibold text-lg">Share your voice</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Post content that matters to you. Target your audience from local communities to the entire world.
+            </p>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <MessageCircle className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-semibold text-lg">Ask and answer questions</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Engage with the community in an open and friendly way. Share knowledge and learn from others.
+            </p>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Compass className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-semibold text-lg">Discover</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Keep an eye on the people you admire, explore communities, and expand your circle.
+            </p>
+          </div>
+        </div>
+
+        <div className="py-12 space-y-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold">Frequently Asked Questions</h2>
+            <p className="text-muted-foreground">Everything you need to know about SocialFeed</p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <div key={index} className="rounded-lg border border-border bg-card overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full flex items-center justify-between p-6 text-left hover:bg-accent/50 transition-colors"
+                >
+                  <span className="font-medium text-lg">{faq.question}</span>
+                  <ChevronDown
+                    className={`h-5 w-5 text-muted-foreground transition-transform ${
+                      openFaq === index ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {openFaq === index && (
+                  <div className="px-6 pb-6 text-muted-foreground leading-relaxed">{faq.answer}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default AboutPage;

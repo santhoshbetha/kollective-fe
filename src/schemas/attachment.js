@@ -1,0 +1,119 @@
+// Stub for blurhash validation (package not installed)
+const isBlurhashValid = (value) => {
+  if (typeof value !== "string" || value.length < 6) {
+    return { result: false, errorReason: "Invalid blurhash format" };
+  }
+  return { result: true };
+};
+
+import { z } from "zod";
+
+import { mimeSchema } from "./utils.js";
+
+const blurhashSchema = z.string().superRefine((value, ctx) => {
+  const r = isBlurhashValid(value);
+
+  if (!r.result) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: r.errorReason,
+    });
+  }
+});
+
+const baseAttachmentSchema = z.object({
+  blurhash: blurhashSchema.nullable().catch(null),
+  description: z.string().catch(""),
+  id: z.string(),
+  pleroma: z
+    .object({
+      mime_type: mimeSchema,
+    })
+    .optional()
+    .catch(undefined),
+  preview_url: z.string().url().catch(""),
+  remote_url: z.string().url().nullable().catch(null),
+  type: z.string(),
+  url: z.string().url(),
+});
+
+const imageMetaSchema = z
+  .object({
+    width: z.number(),
+    height: z.number(),
+    aspect: z.number().optional().catch(undefined),
+  })
+  .transform((meta) => ({
+    ...meta,
+    aspect:
+      typeof meta.aspect === "number" ? meta.aspect : meta.width / meta.height,
+  }));
+
+const imageAttachmentSchema = baseAttachmentSchema.extend({
+  type: z.literal("image"),
+  meta: z
+    .object({
+      original: imageMetaSchema.optional().catch(undefined),
+    })
+    .catch({}),
+});
+
+const videoAttachmentSchema = baseAttachmentSchema.extend({
+  type: z.literal("video"),
+  meta: z
+    .object({
+      duration: z.number().optional().catch(undefined),
+      original: imageMetaSchema.optional().catch(undefined),
+    })
+    .catch({}),
+});
+
+const gifvAttachmentSchema = baseAttachmentSchema.extend({
+  type: z.literal("gifv"),
+  meta: z
+    .object({
+      duration: z.number().optional().catch(undefined),
+      original: imageMetaSchema.optional().catch(undefined),
+    })
+    .catch({}),
+});
+
+const audioAttachmentSchema = baseAttachmentSchema.extend({
+  type: z.literal("audio"),
+  meta: z
+    .object({
+      duration: z.number().optional().catch(undefined),
+      colors: z
+        .object({
+          background: z.string().optional().catch(undefined),
+          foreground: z.string().optional().catch(undefined),
+          accent: z.string().optional().catch(undefined),
+          duration: z.number().optional().catch(undefined),
+        })
+        .optional()
+        .catch(undefined),
+    })
+    .catch({}),
+});
+
+const unknownAttachmentSchema = baseAttachmentSchema.extend({
+  type: z.literal("unknown"),
+});
+
+const attachmentSchema = z
+  .discriminatedUnion("type", [
+    imageAttachmentSchema,
+    videoAttachmentSchema,
+    gifvAttachmentSchema,
+    audioAttachmentSchema,
+    unknownAttachmentSchema,
+  ])
+  .transform((attachment) => {
+    if (!attachment.preview_url) {
+      attachment.preview_url = attachment.url;
+    }
+
+    return attachment;
+  });
+
+export { attachmentSchema };
