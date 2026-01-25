@@ -3,42 +3,44 @@ import { Suspense } from "react";
 import StickyBox from "react-sticky-box";
 
 /** Layout container, to hold Sidebar, Main, and Aside. */
-const LayouX = ({ children }) => (
-  <div className="relative flex grow flex-col">
-    <div className="mx-auto w-full max-w-3xl grow sm:px-6 md:grid md:max-w-7xl md:grid-cols-12 md:gap-8 md:px-8">
-      {children}
-    </div>
-  </div>
-);
-
 const Layout = ({ children }) => (
   <div className="relative flex grow flex-col">
-    <div className="mx-auto w-full max-w-3xl grow xl:px-6 md:grid lg:max-w-7xl md:grid-cols-12 md:gap-8">
+    {/* Increase max-width on xl to give more room */}
+    <div className="mx-auto w-full max-w-3xl grow md:grid lg:max-w-screen-2xl xl:max-w-screen-2xl md:grid-cols-12 md:gap-8 xl:px-6">
       {children}
     </div>
   </div>
 );
 
-/*
-md:grid md:grid-cols-12 md:gap-8 
-mx-auto w-full max-w-3xl grow lg:px-6 md:grid lg:max-w-7xl md:grid-cols-12 md:gap-8
-*/
-
 /** Left sidebar container in the UI. */
-const Sidebar = ({ children }) => (
-  <div className="hidden lg:col-span-3 lg:block">
-    <StickyBox>
-      {children}
-    </StickyBox>
-  </div>
-);
+const Sidebar = ({ children }) => {
+  return (
+    <>
+      {/* Fixed sidebar for MD and XL screens */}
+      <div className="hidden md:block fixed left-0 top-0 z-40 h-screen w-64 xl:w-80 xl:bg-background">
+        <div className="h-full pt-14 px-8 overflow-y-auto">
+          {children}
+        </div>
+      </div>
+
+      {/* Grid-based sidebar - hidden since we use fixed sidebar */}
+      <div className="hidden">
+        <StickyBox offsetTop={20} offsetBottom={20}>
+          <div className="px-4">
+            {children}
+          </div>
+        </StickyBox>
+      </div>
+    </>
+  );
+};
 
 /** Center column container in the UI. */
 const Main = ({ children, className }) => (
   <main
     className={clsx(
-       "bg-background pb-36 border-none \
-      dark:bg-primary-900 sm:pb-6 md:col-span-12 lg:col-span-9 lg:border-l xl:col-span-6 xl:border-r",
+      "bg-background pb-36 dark:bg-primary-900 sm:pb-6",
+      "md:col-span-12 lg:col-span-12 xl:col-span-10 md:ml-64 lg:ml-64 xl:ml-80 xl:border-l xl:border-r",
       className,
     )}
   >

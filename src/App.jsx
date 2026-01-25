@@ -11,6 +11,13 @@ import StatusPage from "./pages/StatusPage";
 import CommunitiesPage from "./pages/CommunitiesPage";
 import DefaultPage from "./pages/DefaultPage";
 import AboutPage from "./pages/AboutPage";
+import EventsPage from "./pages/EventsPage";
+import BroadcastingPage from "./pages/BroadcastingPage";
+import VideosPage from "./pages/VideosPage";
+import PollsPage from "./pages/PollsPage";
+import BusinessesPage from "./pages/BusinessesPage";
+import SettingsPage from "./pages/SettingsPage";
+import CreateEventPage from "./pages/CreateEventPage";
 
 function App() {
   const node = useRef(null);
@@ -53,7 +60,7 @@ function App() {
               }
             </div>
             {pathname != '/about' && (
-              <div className="px-4 py-4">
+              <div className="px-4 py-4 ">
                 <Layout>
                   <Layout.Sidebar>
                     <SidebarNavigation 
@@ -92,6 +99,13 @@ function App() {
                     <Route path="/" element={<WrappedRoute page={HomePage} />} />
                     <Route path="/statuses" element={<WrappedRoute page={StatusPage} />} />
                     <Route path="/communities" element={<WrappedRoute page={CommunitiesPage} />} />
+                    <Route path="/events" element={<EventsPage />} />
+                    <Route path="/events/create" element={<CreateEventPage />} />
+                    <Route path="/broadcasting" element={<WrappedRoute page={BroadcastingPage} />} />
+                    <Route path="/videos" element={<WrappedRoute page={VideosPage} />} />
+                    <Route path="/polls" element={<WrappedRoute page={PollsPage} />} />
+                    <Route path="/businesses" element={<WrappedRoute page={BusinessesPage} />} />
+                    <Route path="/settings" element={<WrappedRoute page={SettingsPage} />} />
                   </Routes>
                 </Layout>
               </div>

@@ -80,7 +80,7 @@ export const ContentTabs = ({
               value={tab.id}
               className={cn(getTabsTriggerClasses(), getSizeClasses())}
             >
-              {Icon && <Icon className="h-4 w-4 flex-shrink-0" />}
+              {Icon && <Icon className="h-4 w-4 shrink-0" />}
               <span className="hidden sm:inline truncate">{tab.label}</span>
               <span className="sm:hidden truncate">{tab.label.split(' ')[0]}</span>
               {tab.badge && (

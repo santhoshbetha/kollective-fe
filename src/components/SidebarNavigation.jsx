@@ -19,6 +19,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+import CreatePostModal from "./create-post-modal";
 
 const navItems = [
   {
@@ -105,6 +107,19 @@ const SidebarNavigation = ({ onItemClick, onCreatePost }) => {
   //const intl = useIntl();
   const location = useLocation();
   const pathname = location.pathname;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCreatePostClick = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleCreatePost = (postData) => {
+    onCreatePost(postData);
+  };
 
   return (
     <div className="sticky top-6 h-fit">
@@ -142,7 +157,7 @@ const SidebarNavigation = ({ onItemClick, onCreatePost }) => {
 
           {/* Sidebar Footer */}
           <div className="p-4 border-t border-border space-y-2">
-            <Button className="w-full gap-2 mb-2" size="lg" onClick={onCreatePost}>
+            <Button className="w-full gap-2 mb-2" size="lg" onClick={handleCreatePostClick}>
               <Plus className="h-5 w-5" />
               Create Post
             </Button>
@@ -161,6 +176,11 @@ const SidebarNavigation = ({ onItemClick, onCreatePost }) => {
           </div>
         </div>
       </div>
+      <CreatePostModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onCreatePost={handleCreatePost}
+      />
     </div>
   );
 };

@@ -12,6 +12,14 @@
   font-family: Protest Riot, sans-serif;
 }
 
+.icon {
+  background-color: blue; /* Set the desired color */
+  -webkit-mask-image: url('icon.svg');
+  mask-image: url('icon.svg');
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
