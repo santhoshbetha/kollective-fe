@@ -37,18 +37,18 @@ const AboutPage = () => {
     <div className="flex min-h-screen flex-col">
       <main className="mx-auto w-full max-w-4xl space-y-8 px-4 py-8">
         {/* Hero Section */}
-        <div className="text-center space-y-6 py-12">
-          <div className="inline-block">
-            <h1 className="text-6xl font-bold text-balance title-custom">
-              Kollective<span className="text-[#1D9BF0]">99</span>
+        <div className="text-center space-y-8 py-16">
+          <div className="inline-block space-y-4">
+            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-red-700 via-purple-700 to-red-900 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+              Kollective99
             </h1>
-            <div className="mt-2 inline-block rounded-full bg-primary px-4 py-1 text-sm font-medium text-primary-foreground">
-              SOCIAL MEDIA APP. FOR THE PEOPLE, OF THE PEOPLE.
+            <div className="inline-block rounded-full bg-gradient-to-r from-red-700 via-purple-700 to-red-900 px-6 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-300" style={{ fontFamily: "Protest Riot, sans-serif" }}>
+              FOR THE PEOPLE, OF THE PEOPLE
             </div>
           </div>
-          <p className="text-xl text-muted-foreground text-balance leading-relaxed">
+          <p className="text-xl md:text-2xl text-muted-foreground text-balance leading-relaxed max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-500">
             If 'X','Threads' and 'Truth' feel like some one's private property and decentralized apps make us disconnected,
-            Join Kollective to share your 'Voice'.
+            <span className="font-semibold text-foreground"> Join Kollective to share your 'Voice'.</span>
           </p>
         </div>
 

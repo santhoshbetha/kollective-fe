@@ -14,9 +14,14 @@ const NavbarMain = ({  }) => {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
                     <span className="text-lg font-bold text-primary-foreground">K</span>
                 </div>
-                <span className="hidden text-xl font-bold sm:inline-block title-custom text-primary" style={{ fontSize: "28px" }}>
-                    Kollective<span className="text-[#1D9BF0]">99</span>
-                </span>
+                <div className="flex flex-col">
+                    <span className="hidden text-xl font-bold sm:inline-block bg-linear-to-r from-red-700 via-purple-700 to-red-900 bg-clip-text text-transparent" style={{ fontSize: "28px", fontFamily: "Protest Riot, sans-serif" }}>
+                        Kollective99
+                    </span>
+                    <p className="hidden text-xs text-muted-foreground sm:inline-block -mt-1" style={{ fontFamily: "Protest Riot, sans-serif" }}>
+                        for the people, of the people
+                    </p>
+                </div>
             </Link>
 
             {/* Navigation */}

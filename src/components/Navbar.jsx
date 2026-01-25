@@ -20,9 +20,14 @@ const Navbar = ({ onMenuClick, isMobileNavOpen }) => {
             <Link to="/">
               <div className="flex items-center gap-0">
                 <img src="/K99.png" alt="Kollective99 Logo" className="h-12 w-14" />
-                <h1 className="text-xl font-bold text-primary cursor-pointer title-custom" style={{ fontSize: "28px" }}>
-                  Kollective<span className="text-[#1D9BF0]">99</span>
-                </h1>
+                <div className="flex flex-col">
+                  <h1 className="text-xl font-bold cursor-pointer bg-linear-to-r from-red-700 via-purple-700 to-red-900 bg-clip-text text-transparent" style={{ fontSize: "28px", fontFamily: "Protest Riot, sans-serif" }}>
+                    Kollective99
+                  </h1>
+                  <p className="text-xs text-muted-foreground -mt-1" style={{ fontFamily: "Protest Riot, sans-serif" }}>
+                    for the people, of the people
+                  </p>
+                </div>
               </div>
             </Link>
           </div>

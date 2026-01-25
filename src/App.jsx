@@ -58,6 +58,10 @@ function App() {
                   <Layout.Sidebar>
                     <SidebarNavigation 
                       onItemClick={() => setIsMobileNavOpen(false)}
+                      onCreatePost={() => {
+                        // Handle create post action
+                        console.log('Create post clicked')
+                      }}
                     />
                   </Layout.Sidebar>
 
