@@ -31,10 +31,10 @@ const NavbarMain = ({  }) => {
                 </Button>
             </Link>
             <Link to="/login">
-                <Button variant="ghost">Log in</Button>
+                <Button variant="ghost">Voice in</Button>
             </Link>
             <Link to="/signup">
-                <Button variant="default">Register</Button>
+                <Button variant="default">Join</Button>
             </Link>
             <ThemeToggle />
             </div>

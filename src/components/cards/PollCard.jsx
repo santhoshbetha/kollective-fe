@@ -107,7 +107,7 @@ const PollCard = ({ poll }) => {
                   <div
                     className={cn(
                       "absolute inset-0 transition-all duration-1000 ease-out rounded-lg",
-                      isWinner ? "bg-gradient-to-r from-primary/20 to-primary/10" : "bg-primary/5"
+                      isWinner ? "bg-linear-to-r from-primary/20 to-primary/10" : "bg-primary/5"
                     )}
                     style={{
                       width: `${option.percentage}%`,

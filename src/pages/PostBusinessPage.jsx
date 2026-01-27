@@ -102,10 +102,10 @@ export default function PostBusinessPage() {
         </Link>
         
         {/* Enhanced Header with Gradient */}
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/20 via-primary/10 to-accent/20 p-8 mb-8 border border-primary/20">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent"></div>
+        <div className="relative overflow-hidden rounded-xl bg-linear-to-r from-primary/20 via-primary/10 to-accent/20 p-8 mb-8 border border-primary/20">
+          <div className="absolute inset-0 bg-linear-to-r from-primary/5 to-transparent"></div>
           <div className="relative">
-            <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold mb-3 bg-linear-to-r from-primary to-primary/80 bg-clip-text text-transparent">
               Post to Community
             </h1>
             <p className="text-muted-foreground text-lg">
@@ -530,7 +530,7 @@ export default function PostBusinessPage() {
               </div>
 
               {/* Collaboration Info */}
-              <div className="rounded-xl bg-gradient-to-r from-primary/5 to-accent/5 p-6 border border-primary/10">
+              <div className="rounded-xl bg-linear-to-r from-primary/5 to-accent/5 p-6 border border-primary/10">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                     <Users className="h-5 w-5 text-primary" />

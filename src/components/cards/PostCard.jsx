@@ -73,7 +73,7 @@ export function PostCard({ post }) {
           "group relative flex flex-col gap-4 rounded-xl border bg-card p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer",
           "hover:border-primary/30 hover:bg-card/80",
           isVoicePost
-            ? "border-primary/40 bg-gradient-to-r from-primary/5 to-primary/10 hover:border-primary/60 hover:from-primary/10 hover:to-primary/15"
+            ? "border-primary/40 bg-linear-to-r from-primary/5 to-primary/10 hover:border-primary/60 hover:from-primary/10 hover:to-primary/15"
             : "border-border hover:border-primary/50",
           post.authorType === "institution" && !isVoicePost && "border-primary/20 bg-card/50",
         )}

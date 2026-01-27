@@ -91,7 +91,7 @@ const BusinessProposalCard = ({ proposal, onInterested }) => {
         </div>
         <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
           <div
-            className="bg-gradient-to-r from-primary to-primary/80 h-full rounded-full transition-all duration-1000 ease-out"
+            className="bg-linear-to-r from-primary to-primary/80 h-full rounded-full transition-all duration-1000 ease-out"
             style={{ width: `${fundingProgress}%` }}
           />
         </div>

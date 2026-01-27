@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { ContentTabs } from '../components/ContentTabs';
 import { VoiceSpinner } from '../components/ui/VoiceSpinner';
 import { PostCard } from "../components/cards/PostCard";
+
 const mockPosts = [
   {
     id: 1,

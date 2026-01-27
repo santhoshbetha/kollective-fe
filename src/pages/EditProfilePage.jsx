@@ -54,10 +54,10 @@ export default function EditProfilePage() {
         </Link>
         
         {/* Enhanced Header with Gradient */}
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/20 via-primary/10 to-accent/20 p-8 mb-8 border border-primary/20">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent"></div>
+        <div className="relative overflow-hidden rounded-xl bg-linear-to-r from-primary/20 via-primary/10 to-accent/20 p-8 mb-8 border border-primary/20">
+          <div className="absolute inset-0 bg-linear-to-r from-primary/5 to-transparent"></div>
           <div className="relative">
-            <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold mb-3 bg-linear-to-r from-primary to-primary/80 bg-clip-text text-transparent">
               Edit Profile
             </h1>
             <p className="text-muted-foreground text-lg">
@@ -267,7 +267,7 @@ export default function EditProfilePage() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-primary/10">
-              <Button className="flex-1 h-12 text-base font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 transition-all duration-300 shadow-lg hover:shadow-xl">
+              <Button className="flex-1 h-12 text-base font-semibold bg-linear-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 transition-all duration-300 shadow-lg hover:shadow-xl">
                 <Edit3 className="h-5 w-5 mr-2" />
                 Save Changes
               </Button>

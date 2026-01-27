@@ -268,7 +268,7 @@ export default function ChatsPage() {
               {currentConversation ? (
                 <>
                   {/* Chat Header */}
-                  <div className="border-b border-primary/10 p-6 flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent">
+                  <div className="border-b border-primary/10 p-6 flex items-center justify-between bg-linear-to-r from-primary/5 to-transparent">
                     <div className="flex items-center gap-4">
                       <Button
                         variant="ghost"

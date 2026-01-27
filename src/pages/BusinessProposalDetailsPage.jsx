@@ -208,7 +208,7 @@ export default function BusinessProposalDetailsPage() {
 
         <div className="rounded-lg border bg-card overflow-hidden">
           {/* Proposal Header */}
-          <div className="p-6 border-b bg-gradient-to-r from-primary/10 to-primary/5">
+          <div className="p-6 border-b bg-linear-to-r from-primary/10 to-primary/5">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="flex-1">
                 <Badge variant="secondary" className="mb-3">

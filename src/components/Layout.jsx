@@ -6,7 +6,7 @@ import StickyBox from "react-sticky-box";
 const Layout = ({ children }) => (
   <div className="relative flex grow flex-col">
     {/* Increase max-width on xl to give more room */}
-    <div className="mx-auto w-full max-w-3xl grow md:grid lg:max-w-screen-2xl xl:max-w-screen-2xl md:grid-cols-12 md:gap-8 xl:px-6">
+    <div className="mx-auto w-full grow md:grid lg:max-w-screen-2xl xl:max-w-screen-2xl md:grid-cols-12 md:gap-8 xl:px-6">
       {children}
     </div>
   </div>

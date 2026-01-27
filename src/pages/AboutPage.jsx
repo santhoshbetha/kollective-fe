@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { Zap, Link2, MessageCircle, Compass, ChevronDown } from "lucide-react";
 import { Footer } from "../components/Footer";
-import DarkBackgroundShowcase from "../components/DarkBackgroundShowcase";
 
 const AboutPage = () => {
     const [openFaq, setOpenFaq] = useState(null)
@@ -43,8 +42,21 @@ const AboutPage = () => {
             <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
               Kollective99
             </h1>
-            <div className="inline-block rounded-full bg-linear-to-r from-red-700 via-purple-700 to-red-900 px-6 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-300" style={{ fontFamily: "Protest Riot, sans-serif" }}>
-              FOR THE PEOPLE, OF THE PEOPLE
+            <div className="relative inline-block">
+              {/* Glow effect background */}
+              <div className="absolute inset-0 rounded-full bg-[#E2023F] blur-lg opacity-30 animate-pulse"></div>
+
+              {/* Main badge */}
+              <div className="relative rounded-full bg-[#E2023F] px-6 py-2 text-xl font-bold text-white shadow-2xl border-2 border-white/30 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-300 hover:scale-105 transition-transform duration-300" style={{ fontFamily: "Protest Riot, sans-serif" }}>
+                <span className="relative z-10 tracking-wider">FOR THE PEOPLE, OF THE PEOPLE</span>
+
+                {/* Inner shine effect */}
+                <div className="absolute inset-0 rounded-full bg-linear-to-r from-transparent via-white/15 to-transparent animate-pulse"></div>
+              </div>
+
+              {/* Decorative elements */}
+              <div className="absolute -top-3 -right-3 w-5 h-5 bg-yellow-400 rounded-full animate-bounce delay-500 shadow-lg"></div>
+              <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-orange-400 rounded-full animate-bounce delay-700 shadow-lg"></div>
             </div>
           </div>
           <p className="text-xl md:text-2xl text-muted-foreground text-balance leading-relaxed max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-500">
@@ -124,12 +136,6 @@ const AboutPage = () => {
           </div>
         </div>
       </main>
-
-      {/* Dark Background Showcase */}
-      <div className="border-t border-gray-800">
-        <DarkBackgroundShowcase />
-      </div>
-
       <Footer />
     </div>
   );
