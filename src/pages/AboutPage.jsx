@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Zap, Link2, MessageCircle, Compass, ChevronDown } from "lucide-react";
 import { Footer } from "../components/Footer";
+import DarkBackgroundShowcase from "../components/DarkBackgroundShowcase";
 
 const AboutPage = () => {
     const [openFaq, setOpenFaq] = useState(null)
@@ -39,7 +40,7 @@ const AboutPage = () => {
         {/* Hero Section */}
         <div className="text-center space-y-8 py-16">
           <div className="inline-block space-y-4">
-            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-red-700 via-purple-700 to-red-900 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
               Kollective99
             </h1>
             <div className="inline-block rounded-full bg-linear-to-r from-red-700 via-purple-700 to-red-900 px-6 py-2 text-sm font-bold text-white shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-300" style={{ fontFamily: "Protest Riot, sans-serif" }}>
@@ -58,7 +59,7 @@ const AboutPage = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               <Zap className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg">Create a profile</h3>
+            <h3 className="font-semibold text-lg bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent">Create a profile</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Choose a username, add a bio, and you're good to go. Share your thoughts locally or globally.
             </p>
@@ -68,7 +69,7 @@ const AboutPage = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               <Link2 className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg">Share your voice</h3>
+            <h3 className="font-semibold text-lg bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent">Share your voice</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Post content that matters to you. Target your audience from local communities to the entire world.
             </p>
@@ -78,7 +79,7 @@ const AboutPage = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               <MessageCircle className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg">Ask and answer questions</h3>
+            <h3 className="font-semibold text-lg bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent">Ask and answer questions</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Engage with the community in an open and friendly way. Share knowledge and learn from others.
             </p>
@@ -88,7 +89,7 @@ const AboutPage = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
               <Compass className="h-6 w-6 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg">Discover</h3>
+            <h3 className="font-semibold text-lg bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent">Discover</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Keep an eye on the people you admire, explore communities, and expand your circle.
             </p>
@@ -97,7 +98,7 @@ const AboutPage = () => {
 
         <div className="py-12 space-y-8">
           <div className="text-center space-y-2">
-            <h2 className="text-3xl font-bold">Frequently Asked Questions</h2>
+            <h2 className="text-3xl font-bold bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent">Frequently Asked Questions</h2>
             <p className="text-muted-foreground">Everything you need to know about SocialFeed</p>
           </div>
 
@@ -123,9 +124,24 @@ const AboutPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Dark Background Showcase */}
+      <div className="border-t border-gray-800">
+        <DarkBackgroundShowcase />
+      </div>
+
       <Footer />
     </div>
   );
 }
 
 export default AboutPage;
+
+/*
+            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-red-700 via-purple-700 to-red-900 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+              Kollective99
+            </h1>
+            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+              Kollective99
+            </h1>
+*/

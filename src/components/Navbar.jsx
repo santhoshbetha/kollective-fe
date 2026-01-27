@@ -11,7 +11,7 @@ const Navbar = ({ onMenuClick, isMobileNavOpen }) => {
     return (
       <>
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
+        <div className="mx-auto xl:mx-0 flex h-16 max-w-7xl xl:max-w-none items-center justify-between gap-4 px-4 xl:px-6 xl:pl-8">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
               {isMobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -19,9 +19,9 @@ const Navbar = ({ onMenuClick, isMobileNavOpen }) => {
 
             <Link to="/">
               <div className="flex items-center gap-0">
-                <img src="/K99.png" alt="Kollective99 Logo" className="h-12 w-14" />
+                <img src="/K99G2.png" alt="Kollective99 Logo" className="h-12 w-14" />
                 <div className="flex flex-col">
-                  <h1 className="text-xl font-bold cursor-pointer bg-linear-to-r from-red-700 via-purple-700 to-red-900 bg-clip-text text-transparent" style={{ fontSize: "28px", fontFamily: "Protest Riot, sans-serif" }}>
+                  <h1 className="text-xl font-bold cursor-pointer bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent" style={{ fontSize: "28px", fontFamily: "Protest Riot, sans-serif" }}>
                     Kollective99
                   </h1>
                   <p className="text-xs text-muted-foreground -mt-1" style={{ fontFamily: "Protest Riot, sans-serif" }}>
@@ -49,8 +49,10 @@ const Navbar = ({ onMenuClick, isMobileNavOpen }) => {
               <Bell className="h-5 w-5" />
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={() => setShowLoginModal(true)}>
-              <User className="h-5 w-5" />
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/profile/edit">
+                <User className="h-5 w-5" />
+              </Link>
             </Button>
           </div>
         </div>

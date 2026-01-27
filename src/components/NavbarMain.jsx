@@ -11,9 +11,9 @@ const NavbarMain = ({  }) => {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
             {/* Logo */}
             <Link to="/about" className="flex items-center gap-0">
-                <img src="/K99.png" alt="Kollective99 Logo" className="h-12 w-14" />
+                <img src="/K99G2.png" alt="Kollective99 Logo" className="h-12 w-14" />
                 <div className="flex flex-col">
-                    <span className="hidden text-xl font-bold sm:inline-block bg-linear-to-r from-red-700 via-purple-700 to-red-900 bg-clip-text text-transparent" style={{ fontSize: "28px", fontFamily: "Protest Riot, sans-serif" }}>
+                    <span className="hidden text-xl font-bold sm:inline-block bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent" style={{ fontSize: "28px", fontFamily: "Protest Riot, sans-serif" }}>
                         Kollective99
                     </span>
                     <p className="hidden text-xs text-muted-foreground sm:inline-block -mt-1" style={{ fontFamily: "Protest Riot, sans-serif" }}>

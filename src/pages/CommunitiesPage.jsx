@@ -37,7 +37,7 @@ const CommunitiesPage = () => {
             <h1 className="text-3xl font-bold mb-2">Communities</h1>
             <p className="text-muted-foreground">Explore posts from your local area to the global community</p>
         </div>
-        <ContentTabs tabs={tabs} defaultValue="local" variant="default" size="lg" />
+        <ContentTabs tabs={tabs} defaultValue="local" variant="underline" size="lg" />
       </Layout.Main>
     </>
   );

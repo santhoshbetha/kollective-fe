@@ -103,11 +103,11 @@ const CreateEventPage = () => {
               <Sparkles className="h-4 w-4" />
               Create New Event
             </div>
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold mb-2 bg-linear-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               Share Your Event
             </h1>
             <p className="text-muted-foreground text-lg">
-              Bring your community together and create memorable experiences
+              Bring your community together on common causes
             </p>
           </div>
         </div>

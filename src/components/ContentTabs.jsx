@@ -1,5 +1,20 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
+import { useState } from "react"
+
+/**
+ * Enhanced ContentTabs component with multiple variants including animated underlines
+ *
+ * @example
+ * ```jsx
+ * const tabs = [
+ *   { id: 'info', label: 'Information', content: <InfoComponent /> },
+ *   { id: 'discussion', label: 'Discussion', content: <DiscussionComponent /> }
+ * ]
+ *
+ * <ContentTabs tabs={tabs} variant="underline" size="md" />
+ * ```
+ */
 
 /**
  * @typedef {Object} TabItem
@@ -16,7 +31,7 @@ import { cn } from "@/lib/utils"
  * @property {string} [defaultValue] - Default active tab ID
  * @property {string} [className] - Additional CSS classes
  * @property {(value: string) => void} [onValueChange] - Callback when tab changes
- * @property {'default'|'pills'|'underline'} [variant] - Visual style variant
+ * @property {'default'|'pills'|'underline'} [variant] - Visual style variant ('underline' shows animated underline on active tab)
  * @property {'sm'|'md'|'lg'} [size] - Size of the tabs
  */
 
@@ -28,6 +43,12 @@ export const ContentTabs = ({
   variant = 'default',
   size = 'md'
 }) => {
+  const [activeTab, setActiveTab] = useState(defaultValue || tabs[0]?.id)
+
+  const handleValueChange = (value) => {
+    setActiveTab(value)
+    onValueChange?.(value)
+  }
   const getTabsListClasses = () => {
     const baseClasses = "mb-6"
 
@@ -35,7 +56,7 @@ export const ContentTabs = ({
       case 'pills':
         return cn(baseClasses, "bg-muted/30 p-1 rounded-lg flex border border-border/50")
       case 'underline':
-        return cn(baseClasses, "bg-transparent border-b border-border rounded-none p-0 flex")
+        return cn(baseClasses, "bg-transparent border-b border-border/50 rounded-none p-0 flex")
       default:
         return cn(baseClasses, "bg-muted/30 p-1 rounded-lg flex border border-border/50")
     }
@@ -48,7 +69,7 @@ export const ContentTabs = ({
       case 'pills':
         return cn(baseClasses, "data-[state=active]:bg-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:scale-105 data-[state=active]:backdrop-blur-sm rounded-md hover:bg-muted/50")
       case 'underline':
-        return cn(baseClasses, "data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-primary/10 rounded-none border-b-2 border-transparent hover:text-foreground")
+        return cn(baseClasses, "text-muted-foreground hover:text-foreground rounded-none transition-all duration-300 relative")
       default:
         return cn(baseClasses, "data-[state=active]:bg-primary/80 data-[state=active]:text-primary-foreground data-[state=active]:shadow-md data-[state=active]:scale-105 data-[state=active]:backdrop-blur-sm rounded-md hover:bg-muted/50")
     }
@@ -67,9 +88,9 @@ export const ContentTabs = ({
 
   return (
     <Tabs
-      defaultValue={defaultValue || tabs[0]?.id}
+      value={activeTab}
+      onValueChange={handleValueChange}
       className={cn("w-full", className)}
-      onValueChange={onValueChange}
     >
       <TabsList className={getTabsListClasses()}>
         {tabs.map((tab) => {
@@ -87,6 +108,14 @@ export const ContentTabs = ({
                 <span className="ml-1 bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">
                   {tab.badge}
                 </span>
+              )}
+              {variant === 'underline' && (
+                <div
+                  className={cn(
+                    "absolute bottom-0 left-0 right-0 h-0.5 bg-primary transition-all duration-300 origin-left",
+                    activeTab === tab.id ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
+                  )}
+                />
               )}
             </TabsTrigger>
           )

@@ -203,7 +203,7 @@ const HomePage = () => {
   return (
     <>
     <Layout.Main>
-      <ContentTabs tabs={tabs} defaultValue="follows" variant="default" size="lg" />
+      <ContentTabs tabs={tabs} defaultValue="follows" variant="underline" size="lg" />
     </Layout.Main>
     </>
   );

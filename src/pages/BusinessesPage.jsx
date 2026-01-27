@@ -109,6 +109,8 @@ const mockProposals = [
     title: "Community Co-Working Space",
     description:
       "Looking for partners to open a modern co-working space in downtown. Target audience: freelancers and remote workers. Space includes private offices, meeting rooms, and common areas.",
+    fullDescription:
+      "This project aims to create a vibrant co-working community that brings together entrepreneurs, freelancers, and remote workers. The space will feature 50 dedicated desks, 10 private offices, 3 meeting rooms, a podcast recording studio, and a relaxation area. Our research shows strong demand in the area with over 5,000 potential members within a 5-mile radius.",
     category: "Real Estate",
     investment: "$50K - $100K",
     location: "Downtown San Francisco",
@@ -118,12 +120,25 @@ const mockProposals = [
     interested: 23,
     isInterested: false,
     postedDate: "2025-01-10",
+    timeline: "6-8 months to launch",
+    lookingFor: ["Co-founder", "Real Estate Partner", "Marketing Expert"],
+    projectedRevenue: "$200K - $300K annually",
+    businessModel: "Membership-based with tiered pricing",
+    targetMarket: "Tech professionals, freelancers, small startups (25-45 age group)",
+    milestones: [
+      "Q1 2025: Finalize location and partners",
+      "Q2 2025: Complete renovations and setup",
+      "Q3 2025: Soft launch with 50% capacity",
+      "Q4 2025: Full launch and marketing campaign",
+    ],
   },
   {
     id: 2,
     title: "Organic Food Delivery Service",
     description:
       "Seeking co-founders to launch farm-to-table delivery service connecting local farmers with health-conscious consumers. Initial phase covers Bay Area.",
+    fullDescription:
+      "Our mission is to make organic, locally-sourced food accessible to busy families and health-conscious individuals. We've established relationships with 15 organic farms in the region and developed a subscription-based model that guarantees fresh deliveries within 24 hours of harvest.",
     category: "Food & Beverage",
     investment: "$30K - $50K",
     location: "Bay Area, CA",
@@ -133,12 +148,25 @@ const mockProposals = [
     interested: 45,
     isInterested: true,
     postedDate: "2025-01-12",
+    timeline: "3-4 months to launch",
+    lookingFor: ["Operations Manager", "Marketing Specialist", "Tech Developer"],
+    projectedRevenue: "$150K - $250K in year one",
+    businessModel: "Weekly subscription boxes + on-demand ordering",
+    targetMarket: "Health-conscious families, fitness enthusiasts, age 28-55",
+    milestones: [
+      "Month 1: Build platform and onboard farms",
+      "Month 2: Beta testing with 50 customers",
+      "Month 3: Public launch and marketing",
+      "Month 4-6: Scale to 500 active subscribers",
+    ],
   },
   {
     id: 3,
     title: "Mobile Pet Grooming Franchise",
     description:
       "Expanding mobile pet grooming business looking for franchise partners. Proven business model with excellent margins. Training and equipment provided.",
+    fullDescription:
+      "Our mobile pet grooming service brings professional grooming directly to pet owners' doorsteps. We've developed proprietary techniques and equipment that ensure stress-free grooming experiences for pets. The franchise model includes comprehensive training, marketing support, and ongoing operational assistance.",
     category: "Services",
     investment: "$25K - $40K",
     location: "Multiple Locations",
@@ -148,12 +176,25 @@ const mockProposals = [
     interested: 18,
     isInterested: false,
     postedDate: "2025-01-08",
+    timeline: "2-3 months to launch",
+    lookingFor: ["Franchise Owner", "Operations Manager", "Marketing Coordinator"],
+    projectedRevenue: "$80K - $120K annually per location",
+    businessModel: "Mobile service with subscription options",
+    targetMarket: "Pet owners, busy professionals, age 25-65",
+    milestones: [
+      "Week 1-2: Complete training program",
+      "Week 3-4: Equipment setup and marketing",
+      "Month 2: Launch operations",
+      "Month 3: Reach profitability",
+    ],
   },
   {
     id: 4,
     title: "Eco-Friendly Cleaning Products",
     description:
       "Innovative line of biodegradable cleaning products ready for market. Need business partner with retail or distribution experience to scale operations.",
+    fullDescription:
+      "We've developed a complete line of eco-friendly cleaning products using plant-based ingredients and biodegradable packaging. Our products outperform traditional cleaners while being completely safe for children and pets. We've completed product development, packaging design, and initial testing.",
     category: "Manufacturing",
     investment: "$20K - $35K",
     location: "San Francisco, CA",
@@ -163,6 +204,17 @@ const mockProposals = [
     interested: 31,
     isInterested: false,
     postedDate: "2025-01-14",
+    timeline: "4-6 months to launch",
+    lookingFor: ["Business Partner", "Distribution Expert", "Marketing Manager"],
+    projectedRevenue: "$500K - $1M in year one",
+    businessModel: "Direct-to-consumer + retail partnerships",
+    targetMarket: "Eco-conscious consumers, families, age 25-55",
+    milestones: [
+      "Month 1: Finalize partnership agreements",
+      "Month 2: Manufacturing setup",
+      "Month 3: Marketing campaign launch",
+      "Month 4-6: Scale distribution network",
+    ],
   },
 ]
 
