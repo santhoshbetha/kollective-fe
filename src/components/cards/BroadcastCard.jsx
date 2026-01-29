@@ -12,7 +12,7 @@ const BroadcastCard = ({ broadcast }) => {
       onClick={() => navigate(`/broadcasting/${broadcast.id}`)}
     >
       {/* Gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+      <div className="absolute inset-0 bg-linear-to-r from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
 
       <div className="relative aspect-video overflow-hidden">
         <img

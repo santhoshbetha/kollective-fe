@@ -405,8 +405,7 @@ export function createNotificationsSlice(setScoped, getScoped, rootSet, rootGet)
       });
     },
 
-
-    deleteTimeline(id) {
+    deleteStatusFromNotifications(id) {
       setScoped((state) => {
         const newMap = new Map(state.items);
         newMap.delete(id);
@@ -457,7 +456,7 @@ export function createNotificationsSlice(setScoped, getScoped, rootSet, rootGet)
 
       if (showInColumn) {
         this.updateNotifications(notification);
-        this.userLists.updateNotifications(notification);
+        this.userLists.updateFollowRequestNotifications(notification);
         this.fetchRelatedRelationships([notification]);
       }
     },

@@ -364,7 +364,7 @@ export function createstatusListsSlice(setScoped, getScoped, rootSet, rootGet) {
       });
     },
 
-    createStatusSuccess(status) {
+    createStatusListStatusSuccess(status) {
       const statusId = getStatusId(status);
       set((state) => {
         if (!status.scheduled_at) {

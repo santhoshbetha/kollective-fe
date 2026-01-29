@@ -39,9 +39,11 @@ const AboutPage = () => {
         {/* Hero Section */}
         <div className="text-center space-y-8 py-16">
           <div className="inline-block space-y-4">
-            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
-              Kollective99
+
+            <h1 className="text-7xl md:text-8xl font-bold text-balance animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+              <span className="dark:bg-[linear-gradient(to_right,#FF0000,#4169E1,#FFFFFF,#FF0000)] bg-[linear-gradient(to_right,#FF0000,#0000FF)] bg-clip-text text-transparent">Kollective99</span>
             </h1>
+
             <div className="relative inline-block">
               {/* Glow effect background */}
               <div className="absolute inset-0 rounded-full bg-[#E2023F] blur-lg opacity-30 animate-pulse"></div>
@@ -150,4 +152,39 @@ export default AboutPage;
             <h1 className="text-7xl md:text-8xl font-bold text-balance bg-linear-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
               Kollective99
             </h1>
+
+            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-[linear-gradient(to_right,#E2023F,#3b82f6,#eab308,#E2023F)] bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+              Kollective99
+            </h1>
+
+            Original Red to yellow
+            <h1 className="text-7xl md:text-8xl font-bold text-balance 
+               bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 
+               bg-clip-text text-transparent animate-in fade-in 
+               slide-in-from-bottom-4 duration-1000" 
+               style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+              Kollective99
+            </h1>
+
+            American red blue to red yellow
+            <h1 className="text-7xl md:text-8xl font-bold text-balance bg-[linear-gradient(to_right,#FF0000,#0000FF,#FF0000,#FFFF00)] bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+              Kollective99
+            </h1>
+
+        <h1 className="text-7xl md:text-8xl font-bold text-balance bg-[linear-gradient(to_right,#FF0000,#0000FF)] bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+          Kollective99
+        </h1>
+
+
+        <h1 className="text-7xl md:text-8xl font-bold text-balance dark:bg-[linear-gradient(to_right,#003366,#FFFFFF,#BB133E)] bg-[linear-gradient(to_right,#FF0000,#0000FF)] bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+          Kollective99
+        </h1>
+
+                <h1 className="text-7xl md:text-8xl font-bold text-balance 
+        dark:bg-[linear-gradient(to_right,#003366,#FFFFFF,#BB133E)] 
+        bg-[linear-gradient(to_right,#FF0000,#0000FF)] 
+        bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-1000" style={{ fontFamily: "Protest Riot, sans-serif", lineHeight: "0.9" }}>
+          Kollective99
+        </h1>
+
 */

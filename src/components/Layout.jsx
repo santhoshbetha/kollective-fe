@@ -40,7 +40,7 @@ const Main = ({ children, className }) => (
   <main
     className={clsx(
       "bg-background pb-36 dark:bg-primary-900 sm:pb-6",
-      "md:col-span-12 lg:col-span-12 xl:col-span-10 md:ml-64 lg:ml-64 xl:ml-80 xl:border-lX xl:border-rX",
+      "md:col-span-12 lg:col-span-12 xl:col-span-10 md:ml-56 lg:ml-64 xl:ml-80 xl:border-lX xl:border-rX",
       className,
     )}
   >

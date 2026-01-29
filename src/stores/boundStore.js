@@ -71,7 +71,7 @@ const createScopedHelpers = (key, set, get) => {
   const scopedSet = (fn) => {
     set((state) => {
       // ensure slice object exists
-      state[key] = state[key] || {};
+      state[key] = state[key] || {}; // This line initializes "timelines" or "statuses" or others if they are missing
       const sliceState = state[key];
       const res = typeof fn === "function" ? fn(sliceState) : fn;
       if (res !== undefined) state[key] = res;
@@ -295,216 +295,215 @@ const useBoundStore = create(
       get,
     );
 
-    const statuses = createStatusesSlice(statusesSet, statusesGet, set, get);
-    const timelines = createTimelinesSlice(
+    const statusesActions = createStatusesSlice(statusesSet, statusesGet, set, get);
+    const timelinesActions = createTimelinesSlice(
       timelinesSet,
       timelinesGet,
       set,
       get,
     );
-    const compose = createComposeSlice(composeSet, composeGet, set, get);
-    const composeEvent = createComposeEventSlice(
+    const composeActions = createComposeSlice(composeSet, composeGet, set, get);
+    const composeEventActions = createComposeEventSlice(
       composeEventSet,
       composeEventGet,
       set,
       get,
     );
-    const groups = createGroupsSlice(groupsSet, groupsGet, set, get);
-    const followedTags = createFollowedTagsSlice(
+    const groupsActions = createGroupsSlice(groupsSet, groupsGet, set, get);
+    const followedTagsActions = createFollowedTagsSlice(
       followedTagsSet,
       followedTagsGet,
       set,
       get,
     );
-    const groupMemberships = createGroupMembershipsSlice(
+    const groupMembershipsActions = createGroupMembershipsSlice(
       groupMembershipsSet,
       groupMembershipsGet,
       set,
       get,
     );
-    const groupRelationships = createGroupRelationshipsSlice(
+    const groupRelationshipsActions = createGroupRelationshipsSlice(
       groupRelationshipsSet,
       groupRelationshipsGet,
       set,
       get,
     );
-    const history = createHistorySlice(historySet, historyGet, set, get);
-    const chats = createChatsSlice(chatsSet, chatsGet, set, get);
-    const chatMessages = createChatMessagesSlice(
+    const historyActions = createHistorySlice(historySet, historyGet, set, get);
+    const chatsActions = createChatsSlice(chatsSet, chatsGet, set, get);
+    const chatMessagesActions = createChatMessagesSlice(
       chatMessagesSet,
       chatMessagesGet,
       set,
       get,
     );
-    const chatMessageLists = createChatMessageListsSlice(
+    const chatMessageListsActions = createChatMessageListsSlice(
       chatMessageListsSet,
       chatMessageListsGet,
       set,
       get,
     );
-    const contexts = createContextsSlice(contextsSet, contextsGet, set, get);
-    const notifications = createNotificationsSlice(
+    const contextsActions = createContextsSlice(contextsSet, contextsGet, set, get);
+    const notificationsActions = createNotificationsSlice(
       notificationsSet,
       notificationsGet,
       set,
       get,
     );
-    const aliases = createAliasesSlice(aliasesSet, aliasesGet, set, get);
-    const filters = createFiltersSlice(filtersSet, filtersGet, set, get);
-    const listAdder = createListAdderSlice(listsSet, listsGet, set, get);
-    const lists = createListsSlice(listsSet, listsGet, set, get);
-    const locations = createLocationsSlice(locationsSet, locationsGet, set, get);
+    const aliasesActions = createAliasesSlice(aliasesSet, aliasesGet, set, get);
+    const filtersActions = createFiltersSlice(filtersSet, filtersGet, set, get);
+    const listAdderActions = createListAdderSlice(listsSet, listsGet, set, get);
+    const listsActions = createListsSlice(listsSet, listsGet, set, get);
+    const locationsActions = createLocationsSlice(locationsSet, locationsGet, set, get);
 
-
-    const tags = createTagsSlice(tagsSet, tagsGet, set, get);
-    const suggestions = createSuggestionsSlice(
+    const tagsActions = createTagsSlice(tagsSet, tagsGet, set, get);
+    const suggestionsActions = createSuggestionsSlice(
       suggestionsSet,
       suggestionsGet,
       set,
       get,
     );
-    const pendingStatuses = createPendingStatusesSlice(
+    const pendingStatusesActions = createPendingStatusesSlice(
       pendingStatusesSet,
       pendingStatusesGet,
       set,
       get,
     );
-    const relationships = createRelationshipsSlice(
+    const relationshipsActions = createRelationshipsSlice(
       relationshipsSet,
       relationshipsGet,
       set,
       get,
     );
-    const userLists = createUserListAdderSlice(
+    const userListsActions = createUserListAdderSlice(
       userListsSet,
       userListsGet,
       set,
       get,
     );
-    const accountsMeta = createAccountsMetaSlice(
+    const accountsMetaActions = createAccountsMetaSlice(
       accountsMetaSet,
       accountsMetaGet,
       set,
       get,
     );
-    const blocks = createBlocksSlice(blocksSet, blocksGet, set, get);
-    const directory = createDirectorySlice(directorySet, directoryGet, set, get);
-    const domainBlocks = createDomainBlocksSlice(
+    const blocksActions = createBlocksSlice(blocksSet, blocksGet, set, get);
+    const directoryActions = createDirectorySlice(directorySet, directoryGet, set, get);
+    const domainBlocksActions = createDomainBlocksSlice(
       domainBlocksSet,
       domainBlocksGet,
       set,
       get,
     );
-    const emojiReacts = createEmojiReactsSlice(
+    const emojiReactsActions = createEmojiReactsSlice(
       emojiReactsSet,
       emojiReactsGet,
       set,
       get,
     );
-    const emojis = createEmojisSlice(emojisSet, emojisGet, set, get);
-    const interactions = createInteractionsSlice(
+    const emojisActions = createEmojisSlice(emojisSet, emojisGet, set, get);
+    const interactionsActions = createInteractionsSlice(
       interactionsSet,
       interactionsGet,
       set,
       get,
     );
-    const events = createEventsSlice(eventsSet, eventsGet, set, get);
-    const exportData = createExportDataSlice(
+    const eventsActions = createEventsSlice(eventsSet, eventsGet, set, get);
+    const exportDataActions = createExportDataSlice(
       exportDataSet,
       exportDataGet,
       set,
       get,
     );
-    const familiarFollowers = createFamiliarFollowersSlice(
+    const familiarFollowersActions = createFamiliarFollowersSlice(
       familiarFollowersSet,
       familiarFollowersGet,
       set,
       get,
     );
-    const favourites = createFavouritesSlice(
+    const favouritesActions = createFavouritesSlice(
       favouritesSet,
       favouritesGet,
       set,
       get,
     );
-    const importData = createImportDataSlice(importDataSet, importDataGet, set, get);
-    const markers = createMarkersSlice(markersSet, markersGet, set, get);
-    const media = createMediaSlice(mediaSet, mediaGet, set, get);
-    const moderation = createModerationSlice(
+    const importDataActions = createImportDataSlice(importDataSet, importDataGet, set, get);
+    const markersActions = createMarkersSlice(markersSet, markersGet, set, get);
+    const mediaActions = createMediaSlice(mediaSet, mediaGet, set, get);
+    const moderationActions = createModerationSlice(
       moderationSet,
       moderationGet,
       set,
       get,
     );
-    const statusLists = createstatusListsSlice(
+    const statusListsActions = createstatusListsSlice(
       statusListsSet,
       statusListsGet,
       set,
       get,
     );
-    const trends = createTrendsSlice(trendsSet, trendsGet, set, get);
-    const trendingStatuses = createTrendingStatusesSlice(
+    const trendsActions = createTrendsSlice(trendsSet, trendsGet, set, get);
+    const trendingStatusesActions = createTrendingStatusesSlice(
       trendingStatusesSet,
       trendingStatusesGet,
       set,
       get,
     );
-    const sidebar = createSidebarSlice(sidebarSet, sidebarGet, set, get);
-    const settings = createSettingsSlice(settingsSet, settingsGet, set, get);
-    const modal = createModalSlice(modalSet, modalGet, set, get);
-    const conversations = createConversationsSlice(
+    const sidebarActions = createSidebarSlice(sidebarSet, sidebarGet, set, get);
+    const settingsActions = createSettingsSlice(settingsSet, settingsGet, set, get);
+    const modalActions = createModalSlice(modalSet, modalGet, set, get);
+    const conversationsActions = createConversationsSlice(
       conversationsSet,
       conversationsGet,
       set,
       get,
     );
-    const remoteTimeline = createRemoteTimelineSlice(
+    const remoteTimelineActions = createRemoteTimelineSlice(
       remoteTimelineSet,
       remoteTimelineGet,
       set,
       get,
     );
-    const backups = createBackupsSlice(backupsSet, backupsGet, set, get);
-    const admin = createAdminSlice(adminSet, adminGet, set, get);
-    const auth = createAuthSlice(authSet, authGet, set, get);
-    const me = createMeSlice(meSet, meGet, set, get);
-    const mutes = createMutesSlice(mutesSet, mutesGet, set, get);
-    const polls = createPollsSlice(pollsSet, pollsGet, set, get);
-    const statusHoverCards = createStatusHoverCardSlice(
+    const backupsActions = createBackupsSlice(backupsSet, backupsGet, set, get);
+    const adminActions = createAdminSlice(adminSet, adminGet, set, get);
+    const authActions = createAuthSlice(authSet, authGet, set, get);
+    const meActions = createMeSlice(meSet, meGet, set, get);
+    const mutesActions = createMutesSlice(mutesSet, mutesGet, set, get);
+    const pollsActions = createPollsSlice(pollsSet, pollsGet, set, get);
+    const statusHoverCardsActions = createStatusHoverCardSlice(
       statusHoverCardsSet,
       statusHoverCardsGet,
       set,
       get,
     );
-    const profileHoverCards = createProfileHoverCardSlice(
+    const profileHoverCardsActions = createProfileHoverCardSlice(
       profileHoverCardsSet,
       profileHoverCardsGet,
       set,
       get,
     );
-    const reports = createReportsSlice(reportsSet, reportsGet, set, get);
-    const search = createSearchSlice(searchStoreSet, searchStoreGet, set, get);
-    const security = createSecuritySlice(
+    const reportsActions = createReportsSlice(reportsSet, reportsGet, set, get);
+    const searchActions = createSearchSlice(searchStoreSet, searchStoreGet, set, get);
+    const securityActions = createSecuritySlice(
       securityStoreSet,
       securityStoreGet,
       set,
       get,
     );
-    const scheduledStatuses = createScheduledStatusesSlice(
+    const scheduledStatusesActions = createScheduledStatusesSlice(
       scheduledStatusesStoreSet,
       scheduledStatusesStoreGet,
       set,
       get,
     );
-    const patron = createPatronSlice(patronStoreSet, patronStoreGet, set, get);
-    const dropdownMenu = createDropdownMenuSlice(
+    const patronActions = createPatronSlice(patronStoreSet, patronStoreGet, set, get);
+    const dropdownMenuActions = createDropdownMenuSlice(
       dropdownMenuStoreSet,
       dropdownMenuStoreGet,
       set,
       get,
     );
 
-    const domainLists = createDomainListsSlice(
+    const domainListsActions = createDomainListsSlice(
       domainListsStoreSet,
       domainListsStoreGet,
       set,
@@ -515,71 +514,86 @@ const useBoundStore = create(
     const apps = {};
 
     return {
-      statuses,
-      timelines,
-      compose,
-      composeEvent,
-      groups,
-      history,
-      chats,
-      chatMessages,
-      chatMessageLists,
-      contexts,
-      notifications,
-      lists,
-      listAdder,
-      locations,
-      aliases,
-      filters,
-      tags,
-      suggestions,
-      pendingStatuses,
-      relationships,
-      userLists,
-      accountsMeta,
-      blocks,
-      directory,
-      domainBlocks,
-      emojiReacts,
-      emojis,
-      interactions,
-      events,
-      familiarFollowers,
-      favourites,
-      importData,
-      markers,
-      media,
-      moderation,
-      exportData,
-      followedTags,
-      groupMemberships,
-      groupRelationships,
-      statusLists,
-      trends,
-      trendingStatuses,
-      sidebar,
-      settings,
-      modal,
-      conversations,
-      remoteTimeline,
-      backups,
-      admin,
-      auth,
-      me,
-      mutes,
-      polls,
-      statusHoverCards,
-      profileHoverCards,
-      reports,
-      search,
-      security,
-      scheduledStatuses,
-      patron,
-      dropdownMenu,
-      domainLists,
-      apps,
+      ...statusesActions,
+      ...timelinesActions,
+      ...composeActions,
+      ...composeEventActions,
+      ...groupsActions,
+      ...historyActions,
+      ...chatsActions,
+      ...chatMessagesActions,
+      ...chatMessageListsActions,
+      ...contextsActions,
+      ...notificationsActions,
+      ...listsActions,
+      ...listAdderActions,
+      ...locationsActions,
+      ...aliasesActions,
+      ...filtersActions,
+      ...tagsActions,
+      ...suggestionsActions,
+      ...pendingStatusesActions,
+      ...relationshipsActions,
+      ...userListsActions,
+      ...accountsMetaActions,
+      ...blocksActions,
+      ...directoryActions,
+      ...domainBlocksActions,
+      ...emojiReactsActions,
+      ...emojisActions,
+      ...interactionsActions,
+      ...eventsActions,
+      ...familiarFollowersActions,
+      ...favouritesActions,
+      ...importDataActions,
+      ...markersActions,
+      ...mediaActions,
+      ...moderationActions,
+      ...exportDataActions,
+      ...followedTagsActions,
+      ...groupMembershipsActions,
+      ...groupRelationshipsActions,
+      ...statusListsActions,
+      ...trendsActions,
+      ...trendingStatusesActions,
+      ...sidebarActions,
+      ...settingsActions,
+      ...modalActions,
+      ...conversationsActions,
+      ...remoteTimelineActions,
+      ...backupsActions,
+      ...adminActions,
+      ...authActions,
+      ...meActions,
+      ...mutesActions,
+      ...pollsActions,
+      ...statusHoverCardsActions,
+      ...profileHoverCardsActions,
+      ...reportsActions,
+      ...searchActions,
+      ...securityActions,
+      ...scheduledStatusesActions,
+      ...patronActions,
+      ...dropdownMenuActions,
+      ...domainListsActions,
+      ...apps,
     };
   })))
 );
 
 export default useBoundStore;
+
+/*
+Usage:
+
+// Data access
+// This remains the same; it targets the data object created by the scoped helper
+const isLoading = useBoundStore(state => state.timelines[timelineId]?.isLoading ?? true);
+const items = useBoundStore(state => state.timelines[timelineId]?.items || []);
+
+// Action access (much cleaner)
+const createStatusRequest = useBoundStore(state => state.createStatusRequest);
+const setLoading = useBoundStore(state => state.setLoading);
+
+*/
+

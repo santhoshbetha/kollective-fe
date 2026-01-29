@@ -29,6 +29,10 @@ import BusinessDetailsPage from "./pages/BusinessDetailsPage";
 import BusinessProposalDetailsPage from "./pages/BusinessProposalDetailsPage";
 import BackgroundShowcasePage from "./pages/BackgroundShowcasePage";
 import FontShowcasePage from "./pages/FontShowcasePage";
+import SignupPage from "./pages/SignupPage";
+import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ConfirmationNewPage from "./pages/ConfirmationNewPage";
 
 function App() {
   const node = useRef(null);
@@ -60,7 +64,7 @@ function App() {
       <div ref={node}>
         <div className='z-10 flex min-h-screen flex-col'>
           <div className='sticky top-0 z-50'>
-            {pathname !== '/about' && pathname !== '/background-showcase' && pathname !== '/font-showcase'?
+            {pathname !== '/about' && pathname !== '/background-showcase' && pathname !== '/font-showcase' && pathname !== '/signup' && pathname !== '/login' && pathname !== '/auth/forgot-password' && pathname !== '/auth/confirmation/new'?
               <Navbar 
                 onMenuClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
                 isMobileNavOpen={isMobileNavOpen}
@@ -69,7 +73,7 @@ function App() {
               <NavbarMain />
             }
           </div>
-          {pathname != '/about' && pathname != '/background-showcase' && pathname != '/font-showcase' && (
+          {pathname != '/about' && pathname != '/background-showcase' && pathname != '/font-showcase' && pathname != '/signup' && pathname != '/login' && pathname != '/auth/forgot-password' && pathname != '/auth/confirmation/new' && (
             <div className="px-4 py-4 ">
               <Layout>
                 <Layout.Sidebar>
@@ -129,11 +133,15 @@ function App() {
               </Layout>
             </div>
           )}
-          {(pathname === '/about' || pathname === '/background-showcase' || pathname === '/font-showcase') && (
+          {(pathname === '/about' || pathname === '/background-showcase' || pathname === '/font-showcase' || pathname === '/signup' || pathname === '/login' || pathname === '/auth/forgot-password' || pathname === '/auth/confirmation/new') && (
             <Routes>
               <Route path="/about" element={<AboutPage />} />
               <Route path="/background-showcase" element={<BackgroundShowcasePage />} />
               <Route path="/font-showcase" element={<FontShowcasePage />} />
+              <Route path="/signup" element={<SignupPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/auth/confirmation/new" element={<ConfirmationNewPage />} />
             </Routes>
           )}
         </div>

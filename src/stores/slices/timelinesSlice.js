@@ -2,6 +2,7 @@
 import { normalizeStatus } from "../../normalizers/status.js";
 import { shouldFilter } from "../../utils/timelines.js";
 import { getIn } from "../../utils/immutableSafe.js";
+import { get } from "lodash";
 
 const sample = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -10,7 +11,8 @@ const TRUNCATE_SIZE = 20;
 
 const MAX_QUEUED_ITEMS = 40;
 
-const TimelineRecord = {
+//const TimelineRecord 
+const createDefaultTimeline = () => ({
   unread: 0,
   online: false,
   top: true,
@@ -18,12 +20,12 @@ const TimelineRecord = {
   hasMore: true,
   next: undefined,
   prev: undefined,
-  items: new Set(),
-  queuedItems: new Set(), //max= MAX_QUEUED_ITEMS
-  totalQueuedItemsCount: 0, //used for queuedItems overflow for MAX_QUEUED_ITEMS+
+  items: [],              // Standard Array
+  queuedItems: [],        // Standard Array
+  totalQueuedItemsCount: 0,
   loadingFailed: false,
   isPartial: false,
-};
+});
 
 const getTimelinesForStatus = (status) => {
   switch (status.visibility) {
@@ -77,7 +79,62 @@ const shouldDelete = (timelineId, excludeAccount) => {
   return true;
 };
 
+const performDelete = (state, statusId, references, excludeAccount) => {
+  // 1. Iterate through all timelines in the current slice
+  Object.keys(state).forEach(timelineId => {
+    if (shouldDelete(timelineId, excludeAccount)) {
+      const timeline = state[timelineId];
+      
+      // Use standard JS .filter() to remove the ID (OrderedSet.delete equivalent)
+      if (timeline?.items) {
+        timeline.items = timeline.items.filter(id => id !== statusId);
+      }
+      if (timeline?.queuedItems) {
+        timeline.queuedItems = timeline.queuedItems.filter(id => id !== statusId);
+      }
+    }
+  });
+
+  // 2. Recursively remove reblogs/references
+  if (references && Array.isArray(references)) {
+    references.forEach(ref => {
+      // ref[0] is the statusId of the reference
+      // We pass empty references [] for recursive calls per your original logic
+      performDelete(state, ref[0], [], excludeAccount);
+    });
+  }
+};
+
+// Internal helper to handle the recursive deletion
+// 'state' here is the Immer proxy of the timelines slice
+const performDeleteStatus = (state, statusId, references, excludeAccount) => {
+  // 1. Iterate over all timeline IDs in the current slice
+  Object.keys(state).forEach(timelineId => {
+    if (shouldDelete(timelineId, excludeAccount)) {
+      const timeline = state[timelineId];
+      if (timeline) {
+        // Standard JS filter replaces Immutable .delete()
+        timeline.items = timeline.items.filter(id => id !== statusId);
+        timeline.queuedItems = timeline.queuedItems.filter(id => id !== statusId);
+      }
+    }
+  });
+
+  // 2. Handle recursion for reblogs/references
+  if (references && (Array.isArray(references) || typeof references.forEach === 'function')) {
+    references.forEach(ref => {
+      // ref is [statusId, accountId]
+      performDeleteStatus(state, ref[0], [], excludeAccount);
+    });
+  }
+};
+
+const mergeIds = (current = [], incoming = []) => {
+  return [...new Set([...current, ...incoming])];
+};
+
 export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => {
+  const getActions = () => rootGet();
   const set = setScoped;
   const noOp = () => {};
   const noOpAsync = () => () => new Promise(f => f(undefined));
@@ -89,9 +146,10 @@ export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => 
   };
 
   return ({
-    createStatusRequest(params, idempotencyKey) {
+    createTimelineStatusRequest(params, idempotencyKey) {
       if (!idempotencyKey) return;
       const statusId = `末pending-${idempotencyKey}`;
+
       setScoped((state) => {
         if (params.scheduled_at) {
           return state;
@@ -99,568 +157,419 @@ export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => 
         const timelineIds = getTimelinesForStatus(params);
 
         timelineIds.forEach((timelineId) => {
-          const queuedIds = state[timelineId]?.queuedItems || new Set();
-          const listedIds = state[timelineId]?.items || new Set();
-          const queuedCount = state[timelineId]?.totalQueuedItemsCount || 0;
+          // Initialize the specific timeline if it doesn't exist
+          if (!state[timelineId]) {
+             state[timelineId] = createDefaultTimeline(); // Use the factory we made earlier
+          }
 
-          if (queuedIds.includes(statusId)) return state;
-          if (listedIds.includes(statusId)) return state;
+          const timeline = state[timelineId];
 
-          // 1. Calculate the new values using your existing pure JS logic
-          const newTotalCount = queuedCount + 1;
-          const newQueuedIds = addStatusId(queuedIds, statusId).slice(
-            0,
-            TRUNCATE_LIMIT,
-          ); // JS equivalent of .take()
+          // Standard JS Array checks
+          if (timeline.queuedItems.includes(statusId)) return;
+          if (timeline.items.includes(statusId)) return;
 
-          // 2. Create a *new* object for the specific timeline we are updating
-          const updatedTimelineData = {
-            // We assume the timeline record has other properties we want to preserve
-            ...state[timelineId],
-            totalQueuedItemsCount: newTotalCount,
-            queuedItems: newQueuedIds,
-          };
-
-          // 3. Update the main 'timelines' object immutably (shallow merge in set)
-          return {
-            ...state, // Spread existing timelines
-            [timelineId]: updatedTimelineData, // Overwrite only the specific timeline's object
-          };
-        });
-      });
-    },
-
-    createStatusSuccess(status, editing, idempotencyKey) {
-      if (editing) return;
-      if (!idempotencyKey) return;
-      const statusId = `末pending-${idempotencyKey}`;
-      const oldId = `末pending-${idempotencyKey}`;
-      setScoped((state) => {
-        if (status.scheduled_at || editing) {
-          return state;
-        }
-
-        const newTimelinesState = { ...state };
-
-        // Loop through timelines and replace the pending status with the real one
-        Object.keys(newTimelinesState).forEach((timelineId) => {
-          const currentTimeline = newTimelinesState[timelineId];
-
-          if (currentTimeline) {
-            const updatedItemsSet = replaceId(
-              currentTimeline.items,
-              oldId,
-              status.id,
-            );
-
-            // Update 'queuedItems' using the pure JS helper function
-            const updatedQueuedSet = replaceId(
-              currentTimeline.queuedItems,
-              oldId,
-              status.id,
-            );
-
-            // If either changed, create a *new* timeline object immutably
-            if (
-              updatedItemsSet !== currentTimeline.items ||
-              updatedQueuedSet !== currentTimeline.queuedItems
-            ) {
-              state[timelineId] = {
-                ...currentTimeline,
-                items: updatedItemsSet,
-                queuedItems: updatedQueuedSet,
-              };
-            }
+          // IMMER PATTERN: Just mutate the properties directly
+          timeline.totalQueuedItemsCount += 1;
+          
+          // Unshift adds to the beginning (like adding to top of timeline)
+          timeline.queuedItems.unshift(statusId);
+          
+          // Truncate if it exceeds limit
+          if (timeline.queuedItems.length > TRUNCATE_LIMIT) {
+            timeline.queuedItems = timeline.queuedItems.slice(0, TRUNCATE_LIMIT);
           }
         });
 
+        // With Immer, you don't need to return { ...state } 
+        // unless you are replacing the entire slice.
+      });
+    },
+
+    createTimelineStatusSuccess(status, editing, idempotencyKey) {
+      if (editing || !idempotencyKey || status.scheduled_at) return;
+      
+      const pendingId = `末pending-${idempotencyKey}`;
+
+      setScoped((state) => {
+        // 1. Replace pending IDs globally in all timelines
+        Object.values(state).forEach((timeline) => {
+          const itemIdx = timeline.items.indexOf(pendingId);
+          if (itemIdx !== -1) timeline.items[itemIdx] = status.id;
+
+          const queuedIdx = timeline.queuedItems.indexOf(pendingId);
+          if (queuedIdx !== -1) timeline.queuedItems[queuedIdx] = status.id;
+        });
+
+        // 2. Add to relevant timelines
         const timelineIds = getTimelinesForStatus(status);
-
         timelineIds.forEach((timelineId) => {
-          const top = state[timelineId].top;
-          const oldIds = state[timelineId]?.items || new Set();
-          const unread = state[timelineId]?.unread || 0;
+          const timeline = state[timelineId];
+          if (!timeline || timeline.items.includes(status.id)) return;
 
-          if (oldIds.includes(statusId)) return state;
-
-          const newIds = addStatusId(oldIds, statusId);
-
-          if (top) {
-            return {
-              ...state,
-              [timelineId]: {
-                items: truncateIds(newIds),
-              },
-            };
+          // Add to top or increment unread
+          timeline.items.unshift(status.id); // addStatusId equivalent
+          if (timeline.top) {
+            timeline.items = timeline.items.slice(0, TRUNCATE_LIMIT);
           } else {
-            return {
-              ...state,
-              [timelineId]: {
-                unread: unread + 1,
-                items: newIds,
-              },
-            };
+            timeline.unread += 1;
           }
         });
       });
     },
 
-    expandTimelineRequest(timeline) {
-      if (!timeline) return;
-
+    expandTimelineRequest(timelineId) {
       setScoped((state) => {
-        const existingTimeline = state[timeline] || {};
-        state[timeline] = { ...existingTimeline, isLoading: true };
+        if (!state[timelineId]) return;
+        state[timelineId].isLoading = true;
       });
     },
 
-    expandTimelineFail(timeline) {
-      if (!timeline) return;
-
+    expandTimelineFail(timelineId) {
       setScoped((state) => {
-        const existingTimeline = state[timeline] || {};
-        state[timeline] = {
-          ...existingTimeline,
-          isLoading: false,
-          loadingFailed: true,
-        };
+        if (!state[timelineId]) return;
+        state[timelineId].isLoading = false;
+        state[timelineId].loadingFailed = true;
       });
     },
 
-    expandTimelineSuccess(
-      timeline,
-      statuses,
-      next,
-      prev,
-      partial,
-      isLoadingRecent,
-    ) {
-      if (!timeline) return;
-
+    expandTimelineSuccess(timelineId, statuses, next, prev, partial, isLoadingRecent) {
       setScoped((state) => {
-        const newIds = getStatusIds(JSON.parse(JSON.stringify(statuses)));
-        const existingTimeline = state[timeline] || {};
-        state[timeline] = {
-          ...existingTimeline,
-          isLoading: false,
-          loadingFailed: false,
-          isPartial: partial,
-          next: next,
-          prev: prev,
-          hasMore: !next && !isLoadingRecent ? false : state[timeline]?.hasMore,
-          items: timeline.endsWith(":pinned")
-            ? newIds
-            : newIds?.union(existingTimeline.items),
-        };
-      });
-    },
+        const timeline = state[timelineId];
+        if (!timeline) return;
 
-    updateTimeline(timeline, statusId) {
-      if (!timeline || !statusId) return;
-      setScoped((state) => {
-        const top = state[timeline].top;
-        const oldIds = state[timeline]?.items || new Set();
-        const unread = state[timeline]?.unread || 0;
+        const newIds = getStatusIds(statuses); // Assumes this returns a plain array
 
-        if (oldIds.includes(statusId)) return state;
-        const newIds = addStatusId(oldIds, statusId);
+        timeline.isLoading = false;
+        timeline.loadingFailed = false;
+        timeline.isPartial = partial;
+        timeline.next = next;
+        timeline.prev = prev;
+        
+        if (!next && !isLoadingRecent) {
+          timeline.hasMore = false;
+        }
 
-        const existingTimeline = state[timeline] || {};
-
-        if (top) {
-          state[timeline] = {
-            ...existingTimeline,
-            items: truncateIds(newIds),
-          };
+        if (timelineId.endsWith(':pinned')) {
+          timeline.items = newIds;
         } else {
-          state[timeline] = {
-            ...existingTimeline,
-            unread: unread + 1,
-            items: newIds,
-          };
+          // Standard JS Union (OrderedSet replacement)
+          timeline.items = mergeIds(timeline.items, newIds);
         }
       });
     },
 
-    updateTimelineQueue(timeline, statusId) {
-      if (!timeline || !statusId) return;
+    updateTimeline(timelineId, statusId) {
       setScoped((state) => {
-        const queuedIds = state[timeline]?.queuedItems || new Set();
-        const listedIds = state[timeline]?.items || new Set();
-        const queuedCount = state[timeline]?.totalQueuedItemsCount || 0;
+        const timeline = state[timelineId];
+        if (!timeline || timeline.items.includes(statusId)) return;
 
-        if (queuedIds.includes(statusId)) return state;
-        if (listedIds.includes(statusId)) return state;
-
-        const newTotalCount = queuedCount + 1;
-        const newQueuedIds = addStatusId(queuedIds, statusId).slice(
-          0,
-          TRUNCATE_LIMIT,
-        );
-        const existingTimeline = state[timeline] || {};
-        state[timeline] = {
-          ...existingTimeline,
-          totalQueuedItemsCount: newTotalCount,
-          queuedItems: newQueuedIds,
-        };
+        timeline.items.unshift(statusId);
+        if (timeline.top) {
+          timeline.items = timeline.items.slice(0, TRUNCATE_LIMIT);
+        } else {
+          timeline.unread += 1;
+        }
       });
     },
 
-    dequeueTimeline(timeline) {
-      if (!timeline) return;
+    updateTimelineQueue(timelineId, statusId) {
       setScoped((state) => {
-        const top = state[timeline]?.top;
-        const queuedIds = state[timeline]?.queuedItems || new Set();
-        if (queuedIds.size === 0) return state;
+        const timeline = state[timelineId];
+        if (!timeline || timeline.queuedItems.includes(statusId) || timeline.items.includes(statusId)) return;
 
-        const ids = new Set(existingTimeline.items);
-        const existingTimeline = state[timeline] || {};
-        const newQueuedIds = queuedIds.union(ids);
-
-        state[timeline] = {
-          ...existingTimeline,
-          items: top ? truncateIds(newQueuedIds) : newQueuedIds,
-          queuedItems: newQueuedIds,
-          totalQueuedItemsCount: 0,
-        };
+        timeline.totalQueuedItemsCount += 1;
+        timeline.queuedItems.unshift(statusId);
+        timeline.queuedItems = timeline.queuedItems.slice(0, TRUNCATE_LIMIT);
       });
     },
 
-    deleteTimeline(id, references, reblogOf) {
-      if (!id) return;
+    dequeueTimeline(timelineId) {
       setScoped((state) => {
-        const newTimelinesState = JSON.parse(JSON.stringify(state));
+        const timeline = state[timelineId];
+        if (!timeline || timeline.queuedItems.length === 0) return;
 
-        // Define a recursive helper function to handle the original logic cleanly
-        const recursiveDelete = (currentStatusId, refs, excludeAccount) => {
-          // --- Original 'withMutations' Loop Logic ---
-          // Iterate over the timeline IDs using standard JS Object.keys
-          Object.keys(newTimelinesState).forEach((timelineId) => {
-            if (shouldDelete(timelineId, excludeAccount)) {
-              const currentTimeline = newTimelinesState[timelineId];
-
-              if (currentTimeline) {
-                // Convert JS Array to Set for the 'delete' operation (equivalent to ImmutableOrderedSet.delete)
-                currentTimeline.items = new Set(currentTimeline.items);
-                currentTimeline.queuedItems = new Set(
-                  currentTimeline.queuedItems,
-                );
-
-                // Perform the delete operation using standard JS Set.delete()
-                currentTimeline.items.delete(currentStatusId);
-                currentTimeline.queuedItems.delete(currentStatusId);
-              }
-            }
+        // Move queued to main items
+        timeline.items = mergeIds(timeline.queuedItems, timeline.items);
+        if (timeline.top) {
+          timeline.items = timeline.items.slice(0, TRUNCATE_LIMIT);
+        }
+        timeline.queuedItems = [];
+        timeline.totalQueuedItemsCount = 0;
+      });
+    },
+    
+    deleteTimelineX(id, references, reblogOf) {
+      setScoped((state) => {
+        const recursiveDelete = (statusIdToDelete) => {
+          Object.values(state).forEach((timeline) => {
+            // Standard Array filtering (replaces .delete)
+            timeline.items = timeline.items.filter(id => id !== statusIdToDelete);
+            timeline.queuedItems = timeline.queuedItems.filter(id => id !== statusIdToDelete);
           });
 
-          // --- Original 'references.forEach' Recursion Logic ---
-          // Ensure 'refs' is treated as an iterable array/map of tuples
-          // (Handling either Array or Map input type from the original TS signature)
-          const refsArray = Array.isArray(refs)
-            ? refs
-            : Array.from(refs.values());
-
-          refsArray.forEach((refTuple) => {
-            // refTuple is [refStatusId, refAccountId]
-            const [refStatusId, refAccountId] = refTuple;
-
-            // Recurse using the local helper function
-            // The empty array '[]' mirrors the original code's recursive call structure
-            recursiveDelete(refStatusId, refAccountId, [], excludeAccount);
-          });
+          // Handle recursion for references
+          if (references) {
+            references.forEach(([refId]) => recursiveDelete(refId));
+          }
+          if (reblogOf) {
+            recursiveDelete(reblogOf);
+          }
         };
 
-        const excludeAccount = reblogOf;
-        // Start the recursive process with the initial parameters
-        recursiveDelete(id, references, excludeAccount);
-
-        // 2. Return the new, fully updated state object to Zustand
-        return {
-          ...state,
-          ...newTimelinesState, // TODO check later
-        };
+        recursiveDelete(id);
       });
     },
 
-    clearTimeline(timeline) {
-      if (!timeline) return;
-      set((state) => {
-        state[timeline] = { ...TimelineRecord };
+    deleteStatusFromTimelines(statusId, accountId, references, excludeAccount) {
+      setScoped((state) => {
+        performDelete(state, statusId, references, excludeAccount);
+
+        getActions().deleteStatus(statusId, references);
+        getActions().deleteStatusesFromContext([statusId]);
+        getActions().deleteStatusFromNotifications(statusId);
+      });
+    },
+
+    clearTimeline(timelineId) {
+      setScoped((state) => {
+        if (state[timelineId]) {
+          state[timelineId].items = [];
+          state[timelineId].queuedItems = [];
+          state[timelineId].totalQueuedItemsCount = 0;
+          state[timelineId].unread = 0;
+        }
       });
     },
 
     blockOrMuteAccountSuccess(relationship, statuses) {
-      if (!relationship || !relationship.id) return;
-      if (!Array.isArray(statuses)) return;
+      if (!relationship?.id) return;
 
-      set((state) => {
-        statuses.forEach((status) => {
+      setScoped((state) => {
+        // statuses is likely the dictionary from state.statuses
+        // We iterate through all statuses to find ones belonging to the blocked/muted account
+        Object.values(statuses).forEach(status => {
           if (status.account !== relationship.id) return;
 
-          const references = statuses
-            .filter((reblog) => reblog.reblog === status.id)
-            .map((status) => [status.id, status.account]);
+          // buildReferencesTo logic: find statuses that are reblogs of this status
+          const references = Object.values(statuses)
+            .filter(s => s.reblog === status.id)
+            .map(s => [s.id, s.account]);
 
-          const newTimelinesState = JSON.parse(JSON.stringify(state));
-
-          // Define a recursive helper function to handle the original logic cleanly
-          const recursiveDelete = (currentStatusId, refs, excludeAccount) => {
-            // --- Original 'withMutations' Loop Logic ---
-            // Iterate over the timeline IDs using standard JS Object.keys
-            Object.keys(newTimelinesState).forEach((timelineId) => {
-              if (shouldDelete(timelineId, excludeAccount)) {
-                const currentTimeline = newTimelinesState[timelineId];
-
-                if (currentTimeline) {
-                  // Convert JS Array to Set for the 'delete' operation (equivalent to ImmutableOrderedSet.delete)
-                  currentTimeline.items = new Set(currentTimeline.items);
-                  currentTimeline.queuedItems = new Set(
-                    currentTimeline.queuedItems,
-                  );
-
-                  // Perform the delete operation using standard JS Set.delete()
-                  currentTimeline.items.delete(currentStatusId);
-                  currentTimeline.queuedItems.delete(currentStatusId);
-                }
-              }
-            });
-
-            // --- Original 'references.forEach' Recursion Logic ---
-            // Ensure 'refs' is treated as an iterable array/map of tuples
-            // (Handling either Array or Map input type from the original TS signature)
-            const refsArray = Array.isArray(refs)
-              ? refs
-              : Array.from(refs.values());
-
-            refsArray.forEach((refTuple) => {
-              // refTuple is [refStatusId, refAccountId]
-              const [refStatusId, refAccountId] = refTuple;
-
-              // Recurse using the local helper function
-              // The empty array '[]' mirrors the original code's recursive call structure
-              recursiveDelete(refStatusId, refAccountId, [], excludeAccount);
-            });
-          };
-
-          const excludeAccount = relationship.id;
-          // Start the recursive process with the initial parameters
-          recursiveDelete(status.id, references, excludeAccount);
-
-          // 2. Return the new, fully updated state object to Zustand
-          return {
-            ...state,
-            ...newTimelinesState, // TODO check later
-          };
+          // Trigger the recursive deletion on the draft state
+          performDeleteStatus(state, status.id, references, relationship.id);
         });
       });
     },
 
-    scrollTopTimeline(timeline, top) {
-      if (!timeline) return;
-      set((state) => {
-        let existingTimeline = state[timeline] || {};
+    scrollTopTimeline(timelineId, top) {
+      setScoped((state) => {
+        if (!state[timelineId]) return;
+        state[timelineId].top = top;
         if (top) {
-          existingTimeline = { ...existingTimeline, unread: 0 };
+          state[timelineId].unread = 0;
         }
-        state[timeline] = {
-          ...existingTimeline,
-          top: top,
-        };
       });
     },
 
-    connectTimeline(timeline) {
-      if (!timeline) return;
-      set((state) => {
-        const existingTimeline = state[timeline] || {};
-        state[timeline] = { ...existingTimeline, online: true };
+    connectTimeline(timelineId) {
+      setScoped((state) => {
+        if (!state[timelineId]) return;
+        state[timelineId].online = true;
       });
     },
 
-    disconnectTimeline(timeline) {
-      if (!timeline) return;
-      set((state) => {
-        const existingTimeline = state[timeline] || {};
-        state[timeline] = {
-          ...existingTimeline,
-          online: false,
-        };
+    disconnectTimeline(timelineId) {
+      setScoped((state) => {
+        if (!state[timelineId]) return;
+        state[timelineId].online = false;
       });
     },
 
-    inserttimeline(timeline) {
-      if (!timeline) return;
-      set((state) => {
-        // 1. Get the current timeline object (or a default empty object if it doesn't exist)
-        const currentTimeline = state[timeline] || {
-          items: new Set() /* default properties */,
-        };
+    inserttimeline(timelineId) {
+      setScoped((state) => {
+        const timeline = state[timelineId];
+        if (!timeline) return;
 
-        // We operate on the current items set, converting it to an array for easy manipulation
-        let itemsArray = Array.from(currentTimeline.items);
+        // 1. Remove existing suggestion if present (Array.filter is cleaner than splice)
+        timeline.items = timeline.items.filter(id => !id.includes("末suggestions"));
 
-        const existingSuggestionIndex = itemsArray.findIndex((key) =>
-          key.includes("末suggestions"),
-        );
-
-        if (existingSuggestionIndex > -1) {
-          itemsArray.splice(existingSuggestionIndex, 1);
-        }
-
-        // 3. Determine insertion position and create the new suggestion ID
-        const positionInTimeline = sample([5, 6, 7, 8, 9]); // Get a random number 5-9
-        const lastItemId = itemsArray[itemsArray.length - 1]; // Get the last item's ID
+        // 2. Determine insertion position
+        const positionInTimeline = Math.floor(Math.random() * (9 - 5 + 1)) + 5;
+        const lastItemId = timeline.items[timeline.items.length - 1];
 
         if (lastItemId) {
-          // Splice the new suggestion ID into the array at the random position
-          itemsArray.splice(positionInTimeline, 0, `末suggestions-${lastItemId}`);
+          // 3. Insert new suggestion at the random position
+          timeline.items.splice(positionInTimeline, 0, `末suggestions-${lastItemId}`);
         }
-
-        // 4. Convert the final modified array back into a Set (maintains order)
-        const updatedItemsSet = new Set(itemsArray);
-
-        // 5. Update the Zustand state immutably:
-        return {
-          ...state, // Keep all other timelines
-          [timeline]: {
-            ...currentTimeline, // Keep other properties of this specific timeline
-            items: updatedItemsSet, // Update only the 'items' set
-          },
-        };
       });
     },
 
-    processTimelineUpdate(timeline, status, accept) {
+    processTimelineUpdate(timelineId, status) {
       const root = rootGet();
       const me = root.me;
-
+      
+      // 1. Check if it's our own status and we have pending work
       const ownStatus = status.account?.id === me;
-      const hasPendingStatuses = !root.pending_statuses.isEmpty();
-
-      const columnSettings = this.settings[timeline] || {};//TODO check later
-      const shouldSkipQueue = shouldFilter(normalizeStatus(status), columnSettings);
+      // .size > 0 replaces .isEmpty() for standard JS Sets/Maps or .length for Arrays
+      const hasPendingStatuses = root.pending_statuses?.length > 0;
 
       if (ownStatus && hasPendingStatuses) {
-        // WebSockets push statuses without the Idempotency-Key,
-        // so if we have pending statuses, don't import it from here.
-        // We implement optimistic non-blocking statuses.
         return;
       }
 
-      root.importer.importFetchedStatus(status);
+      // 2. Get Settings (assuming they are in a root 'settings' slice)
+      const columnSettings = root.settings?.[timelineId] || {};
+      
+      // 3. Filtering logic
+      // Note: We use the status directly as it's now a standard JS object
+      const shouldSkipQueue = !shouldFilter(status, columnSettings);
 
+      // 4. Import the status into the global 'statuses' slice
+      getActions().importFetchedStatus(status);
+
+      // 5. Decide whether to show immediately or queue
       if (shouldSkipQueue) {
-        this.updateTimeline(timeline, status.id, accept);
+        getActions().updateTimeline(timelineId, status.id);
       } else {
-        this.updateTimelineQueue(timeline, status.id, accept);
+        getActions().updateTimelineQueue(timelineId, status.id);
       }
     },
 
-    updateTimelineAction(timeline, statusId, _accept) {
-      //if (accept) {
-        this.updateTimeline(timeline, statusId);
-      ///}
+    updateTimelineAction(timelineId, statusId) {
+      getActions().updateTimeline(timelineId, statusId);
     },
 
-    updateTimelineQueueAction(timeline, statusId, _accept) {
-      //if (!accept) {
-        this.updateTimelineQueue(timeline, statusId);
-      //}
+    updateTimelineQueueAction(timelineId, statusId) {
+      getActions().updateTimelineQueue(timelineId, statusId);
     },
 
     dequeueTimelineAction(timelineId, expandFunc, optionalExpandArgs) {
-      const root = rootGet();
-      const queuedCount = root.timelines?.[timelineId]?.totalQueuedItemsCount || 0;
+      const state = rootGet();
+      const timeline = state.timelines[timelineId];
+      const queuedCount = timeline?.totalQueuedItemsCount || 0;
 
       if (queuedCount <= 0) return;
 
+      // If the queue is manageable, just merge it
       if (queuedCount <= MAX_QUEUED_ITEMS) {
-        this.dequeueTimeline(timelineId);
+        getActions().dequeueTimeline(timelineId);
       }
 
+      // If a specific expand function was passed (e.g. for a custom search)
       if (typeof expandFunc === "function") {
-        this.clearTimeline(timelineId);
+        getActions().clearTimeline(timelineId);
         expandFunc();
       } else {
+        // Fallback to default timeline expansion logic
+        getActions().clearTimeline(timelineId);
         if (timelineId === 'home') {
-          this.clearTimeline(timelineId);
-          this.expandFollowsTimeline(optionalExpandArgs)
+          getActions().expandFollowsTimeline(optionalExpandArgs);
         } else if (timelineId === 'community') {
-          this.clearTimeline(timelineId);
-          this.expandCommunityTimeline(optionalExpandArgs)
+          getActions().expandCommunityTimeline(optionalExpandArgs);
         }
       }
     },
 
     deleteFromTimelines(id) {
       const root = rootGet();
-      const accountId = root.statuses[id]?.account?.id;
-      const references = root.statuses.filter(status => status.reblog === id).map(status => [status.id, status.account.id]);
-      const reblogOf = getIn(root.statuses, [id, 'reblog']) || null;
+      const status = root.statuses[id];
+      if (!status) return;
 
-      this.deleteTimeline(id, accountId, references, reblogOf);
+      const accountId = status.account?.id;
+      
+      // Find references (reblogs) using standard JS array methods
+      // Replaces Immutable .filter().map()
+      const references = Object.values(root.statuses)
+        .filter(s => s.reblog === id)
+        .map(s => [s.id, s.account?.id]);
+
+      const reblogOf = root.statuses[id]?.reblog || null;
+
+      getActions().deleteStatusFromTimelines(id, accountId, references, reblogOf);
     },
 
-    clearTimelineAction(timeline) { 
-      this.clearTimeline(timeline);
+    clearTimelineAction(timelineId) { 
+      getActions().clearTimeline(timelineId);
     },
 
     parseTags(tags, mode) {
-      return (tags[mode] || []).map(tagObj => tagObj.value);
+      // Direct JS access replaces Immutable logic
+      return (tags?.[mode] || []).map(tagObj => tagObj.value);
     },
 
+    async expandTimeline(timelineId, path, params = {}, done = () => {}) {
+        const root = rootGet();
+        const timeline = root.timelines[timelineId];
+        const isLoadingMore = !!params.max_id;
 
+        // 1. Guard against double-loading
+        if (timeline?.isLoading) {
+          done();
+          return;
+        }
 
-    async expandTimeline(timelineId, path, params, done = noOp) {
-      const root = rootGet();
-      const timeline = root.timelines[timelineId] || {};
-      const isLoadingMore = !!params.max_id;
+        // 2. Pagination Logic
+        // If we aren't loading more/pinned/recent, try to fetch since the last known ID
+        if (!params.max_id && 
+            !params.pinned && 
+            timeline?.items?.length > 0 && 
+            !path.includes('max_id=')) 
+        {
+          params.since_id = timeline.items[0];
+        }
 
-      if(timeline.isLoading) {
-        done();
-        noOpAsync();
-      }
+        const isLoadingRecent = !!params.since_id;
 
-      if (!params.max_id &&
-        !params.pinned &&
-        (timeline.items || new Set()).size > 0 &&
-        !path.includes('max_id=')) 
-      {
-        params.since_id = getIn(timeline, ['items', 0]);
-      }
+        // 3. Trigger Request Action
+        getActions().expandTimelineRequest(timelineId, isLoadingMore);
 
-      const isLoadingRecent = !!params.since_id;
+        try {
+          // Construct URL
+          const query = new URLSearchParams(params).toString();
+          const url = query ? `${path}?${query}` : path;
 
-      this.expandTimelineRequest(timelineId, isLoadingMore);
+          const res = await fetch(url, { method: "GET" });
+          
+          if (!res.ok) throw new Error(`Failed to expand timeline (${res.status})`);
 
-      try {
-        const res = await fetch(path + new URLSearchParams(params).toString(), { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to expand timeline (${res.status})`);
-        const { next, prev } = res.pagination();
-        const data = await res.json();
+          // Assume res.pagination() is a custom helper provided by your API wrapper
+          const { next, prev } = res.pagination ? res.pagination() : {};
+          const data = await res.json();
 
-        root.importer?.importFetchedStatuses?.(data || []);
-        const statusesFromGroups = data.filter((status) => !!status.group);
-        this.groupsfetchGroupRelationships(statusesFromGroups.map((status) => status.group?.id));
+          // 4. Import Data into root slices
+          getActions().importFetchedStatuses?.(data || []);
+          
+          // Handle Group Relationships if applicable
+          const groupIds = (data || [])
+            .filter(status => !!status.group)
+            .map(status => status.group.id);
+            
+          if (groupIds.length > 0) {
+            getActions().groupsfetchGroupRelationships?.(groupIds);
+          }
 
-        this.expandTimelineSuccess(
-          timelineId,
-          data || [],
-          next,
-          prev,
-          res.status === 206,
-          isLoadingRecent,
-          isLoadingMore,
-        );
-        done();
-        return data;
-      } catch (error) {
-        this.expandTimelineFail(timelineId, error, isLoadingMore);
-        console.error("timelinesSlice.expandTimeline failed", error);
-      }
+          // 5. Success Action
+          getActions().expandTimelineSuccess(
+            timelineId,
+            data || [],
+            next,
+            prev,
+            res.status === 206, // isPartial if status is 206
+            isLoadingRecent,
+            isLoadingMore,
+          );
+
+          done();
+          return data;
+        } catch (error) {
+          // 6. Fail Action
+          getActions().expandTimelineFail(timelineId, error, isLoadingMore);
+          console.error("timelinesSlice.expandTimeline failed", error);
+          done();
+        }
     },
 
-    expandFollowsTimeline({ url, maxId }, done = noOp) {
+    expandFollowsTimeline({ url, maxId } = {}, done = () => {}) {
       const endpoint = url || '/api/v1/timelines/home';
       const params = {};
 
@@ -668,89 +577,150 @@ export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => 
         params.max_id = maxId;
       }
 
-      return this.expandTimeline('home', endpoint, params, done);   
+      // Call the base expandTimeline via the root actions
+      return getActions().expandTimeline('home', endpoint, params, done);
     },
 
-    expandPublicTimeline({ url, maxId, onlyMedia, language }, done = noOp) {
-      this.expandTimeline(`public${onlyMedia ? ':media' : ''}`, 
-                          url || '/api/v1/timelines/public',
-                          url ? {} : { max_id: maxId, only_media: !!onlyMedia, language: language || undefined },
-                          done);
+    expandPublicTimeline({ url, maxId, onlyMedia, language } = {}, done = () => {}) {
+      const timelineKey = `public${onlyMedia ? ':media' : ''}`;
+      const endpoint = url || '/api/v1/timelines/public';
+      
+      const params = url ? {} : { 
+        max_id: maxId, 
+        only_media: !!onlyMedia, 
+        language: language || undefined 
+      };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandRemoteTimeline(instance, {  url, maxId, onlyMedia }, done = noOp) {
-      this.expandTimeline(`remote${onlyMedia ? ':media' : ''}:${instance}`, 
-                          url || '/api/v1/timelines/public',
-                          url ? {} : { local: false, instance: instance, max_id: maxId, only_media: !!onlyMedia }, 
-                          done
-                        );
+    expandRemoteTimeline(instance, { url, maxId, onlyMedia } = {}, done = () => {}) {
+      const timelineKey = `remote${onlyMedia ? ':media' : ''}:${instance}`;
+      const endpoint = url || '/api/v1/timelines/public';
+      const params = url ? {} : { 
+        local: false, 
+        instance: instance, 
+        max_id: maxId, 
+        only_media: !!onlyMedia 
+      };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandCommunityTimeline({ url, maxId, onlyMedia }, done = noOp) {
-      this.expandTimeline(`community${onlyMedia ? ':media' : ''}`, 
-                  url || '/api/v1/timelines/public', 
-                  url ? {} : { local: true, 
-                               max_id: maxId, 
-                               only_media: !!onlyMedia 
-                             }, 
-                  done
-                );
+    expandCommunityTimeline({ url, maxId, onlyMedia } = {}, done = () => {}) {
+      const timelineKey = `community${onlyMedia ? ':media' : ''}`;
+      const endpoint = url || '/api/v1/timelines/public';
+      const params = url ? {} : { 
+        local: true, 
+        max_id: maxId, 
+        only_media: !!onlyMedia 
+      };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandDirectTimeline({ url, maxId }, done = noOp) {
-      this.expandTimeline('direct', 
-                  url || '/api/v1/timelines/direct', 
-                  url ? {} : { max_id: maxId }, 
-                  done
-                );
+    expandDirectTimeline({ url, maxId } = {}, done = () => {}) {
+      const endpoint = url || '/api/v1/timelines/direct';
+      const params = url ? {} : { max_id: maxId };
+
+      return getActions().expandTimeline('direct', endpoint, params, done);
     },
 
-    expandAccountTimeline(accountId, { url, maxId, withReplies }, done = noOp) {
-      this.expandTimeline(`account:${accountId}${withReplies ? ':with_replies' : ''}`,
-                  url || `/api/v1/accounts/${accountId}/statuses`, 
-                  url ? {} : { max_id: maxId, with_replies: !!withReplies }, 
-                  done
-                );
+    expandAccountTimeline(accountId, { url, maxId, withReplies } = {}, done = () => {}) {
+      const timelineKey = `account:${accountId}${withReplies ? ':with_replies' : ''}`;
+      const endpoint = url || `/api/v1/accounts/${accountId}/statuses`;
+      const params = url ? {} : { 
+        max_id: maxId, 
+        exclude_replies: !withReplies 
+      };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandAccountFeaturedTimeline(accountId, done = noOp) {
-      this.expandTimeline(`account:${accountId}:pinned`, `/api/v1/accounts/${accountId}/statuses`, { pinned: true, with_muted: true }, done);
+    expandAccountFeaturedTimeline(accountId, done = () => {}) {
+      const timelineKey = `account:${accountId}:pinned`;
+      const endpoint = `/api/v1/accounts/${accountId}/statuses`;
+      const params = { pinned: true, with_muted: true };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandAccountMediaTimeline(accountId, { url, maxId } = {}, done = noOp) {
-      this.expandTimeline(`account:${accountId}:media`, url || `/api/v1/accounts/${accountId}/statuses`, url ? {} : { max_id: maxId, only_media: true, limit: 40, with_muted: true }, done);
+    expandAccountMediaTimeline(accountId, { url, maxId } = {}, done = () => {}) {
+      const timelineKey = `account:${accountId}:media`;
+      const endpoint = url || `/api/v1/accounts/${accountId}/statuses`;
+      const params = url ? {} : { 
+        max_id: maxId, 
+        only_media: true, 
+        limit: 40, 
+        with_muted: true 
+      };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandListTimeline(id, { url, maxId } = {}, done = noOp) {
-      this.expandTimeline(`list:${id}`, url || `/api/v1/timelines/list/${id}`, url ? {} : { max_id: maxId }, done);
+    expandListTimeline(id, { url, maxId } = {}, done = () => {}) {
+      const timelineKey = `list:${id}`;
+      const endpoint = url || `/api/v1/timelines/list/${id}`;
+      const params = url ? {} : { max_id: maxId };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandGroupTimeline(id, { maxId } = {}, done = noOp) {
-      this.expandTimeline(`group:${id}`, `/api/v1/timelines/group/${id}`, { max_id: maxId }, done);
+    expandGroupTimeline(id, { maxId } = {}, done = () => {}) {
+      const timelineKey = `group:${id}`;
+      const endpoint = `/api/v1/timelines/group/${id}`;
+      const params = { max_id: maxId };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandGroupFeaturedTimeline(id, done = noOp) {
-      this.expandTimeline(`group:${id}:pinned`, `/api/v1/timelines/group/${id}`, { pinned: true }, done);
+    expandGroupFeaturedTimeline(id, done = () => {}) {
+      const timelineKey = `group:${id}:pinned`;
+      const endpoint = `/api/v1/timelines/group/${id}`;
+      const params = { pinned: true };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
-    expandGroupTimelineFromTag(id, tagName, { maxId } = {}, done = noOp) {
-      this.expandTimeline(`group:tags:${id}:${tagName}`, `/api/v1/timelines/group/${id}/tags/${tagName}`, { max_id: maxId }, done);
+    
+    expandGroupTimelineFromTag(id, tagName, { maxId } = {}, done = () => {}) {
+      const timelineKey = `group:tags:${id}:${tagName}`;
+      const endpoint = `/api/v1/timelines/group/${id}/tags/${tagName}`;
+      const params = { max_id: maxId };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    expandGroupMediaTimeline(id, { maxId } = {}, done = noOp) {
-      this.expandTimeline(`group:${id}:media`, `/api/v1/timelines/group/${id}`, { max_id: maxId, only_media: true, limit: 40, with_muted: true }, done);
-    },
+    expandGroupMediaTimeline(id, { maxId } = {}, done = () => {}) {
+      const timelineKey = `group:${id}:media`;
+      const endpoint = `/api/v1/timelines/group/${id}`;
+      const params = { 
+        max_id: maxId, 
+        only_media: true, 
+        limit: 40, 
+        with_muted: true 
+      };
 
-    expandHashtagTimeline(hashtag, { url, maxId, tags } = {}, done = noOp) {
-      this.expandTimeline(`hashtag:${hashtag}`, url || `/api/v1/timelines/tag/${hashtag}`, url ? {} : {
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
+    },
+    
+    expandHashtagTimeline(hashtag, { url, maxId, tags } = {}, done = () => {}) {
+      const timelineKey = `hashtag:${hashtag}`;
+      const endpoint = url || `/api/v1/timelines/tag/${hashtag}`;
+      
+      // Use the parseTags helper to extract values for the API params
+      const params = url ? {} : {
         max_id: maxId,
-        any: parseTags(tags, 'any'),
-        all: parseTags(tags, 'all'),
-        none: parseTags(tags, 'none'),
-      }, done);
+        any: getActions().parseTags(tags, 'any'),
+        all: getActions().parseTags(tags, 'all'),
+        none: getActions().parseTags(tags, 'none'),
+      };
+
+      return getActions().expandTimeline(timelineKey, endpoint, params, done);
     },
 
-    insertSuggestionsIntoTimeline(){
-      this.insertTimeline('home');
-    }
+    insertSuggestionsIntoTimeline() {
+      // Direct call to the insertTimeline action logic
+      return getActions().insertTimeline('home');
+    },
   });
 };

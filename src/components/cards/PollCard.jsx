@@ -29,12 +29,12 @@ const PollCard = ({ poll }) => {
     <article
       className={cn(
         "group relative rounded-xl border bg-card p-6 space-y-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1",
-        poll.authorType === "institution" && "border-primary/20 bg-gradient-to-br from-primary/5 to-transparent",
+        poll.authorType === "institution" && "border-primary/20 bg-linear-to-r from-primary/5 to-transparent",
         showResults && "ring-1 ring-primary/20"
       )}
     >
       {/* Gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
+      <div className="absolute inset-0 bg-linear-to-r from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
 
       {/* Poll Header */}
       <div className="flex items-start justify-between gap-4 relative z-10">

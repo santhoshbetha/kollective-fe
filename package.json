@@ -37,6 +37,7 @@
     "lucide-react": "^0.554.0",
     "npm": "^11.6.4",
     "phoenix": "^1.8.3",
+    "re-reselect": "^5.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-error-boundary": "^6.0.0",

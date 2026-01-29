@@ -296,7 +296,7 @@ export const createUserListAdderSlice = (setScoped, getScoped, rootSet, rootGet)
     });
   },
 
-  updateNotifications(notification) {
+  updateFollowRequestNotifications(notification) {
     set((state) => {
       if (notification.type != "follow_request") {
         return state; // No changes for other notification types

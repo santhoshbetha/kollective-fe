@@ -43,7 +43,7 @@ export function EventCard({ event, onInterested }) {
       className="group block rounded-lg border bg-card overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
       onClick={handleCardClick}>
       {/* Gradient overlay on hover - positioned to not block mouse events */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10" />
+      <div className="absolute inset-0 bg-linear-to-r from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10" />
 
       <div className="grid lg:grid-cols-[280px_1fr] gap-0">
         <div className="relative h-40 lg:h-full overflow-hidden">

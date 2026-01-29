@@ -1,4 +1,5 @@
 import { createSelector } from 'reselect';
+import { createCachedSelector, LruMapCache } from 're-reselect';
 import { shouldFilter } from '../utils/timelines';
 import { getFeatures } from '../utils/features';
 import { maybeFromJS } from '../utils/normalizers';
@@ -300,8 +301,8 @@ export const makeGetRemoteInstance = () =>
       federation,
     }));
 
-export const makeGetStatusIds = () => createSelector([
-  (state, { type, prefix }) => state.settings.getSettings()[prefix || type] || new Map(),
+export const makeGetStatusIds = () => createCachedSelector([
+  (state, { type }) => state.settings[type] || {},
   (state, { type }) => state.timelines[type]?.items || new Set(),
   (state) => state.statuses,
 ], (columnSettings, statusIds, statuses) => {
@@ -310,7 +311,43 @@ export const makeGetStatusIds = () => createSelector([
     if (!status) return true;
     return !shouldFilter(status, columnSettings);
   });
-});
+})(
+  // Cache key function
+  (_state, { type, prefix }) => `${prefix || type}`,
+  // Cache options
+  {
+    cacheObject: new LruMapCache({ maxSize: 10 }),
+  }
+);
+
+/*
+usage:
+ const statusIds = useStore((state) => selectStatusIds(state, type));
+
+ =============================
+ The Better Zustand Alternative: useShallow
+If your only goal is to prevent re-renders when a selector returns a new array
+or object with the same data, Zustand's built-in useShallow hook is often easier than createSelector
+
+
+import { useShallow } from 'zustand/react/shallow';
+
+// This prevents re-renders if the filtered array content is identical
+const statusIds = useStore(useShallow(state => 
+  state.timelines[type]?.items.filter(id => !!state.statuses[id])
+));
+
+//but do not need useShallow if you are using createCachedSelector correctly.
+
+ Zustand's useShallow doesn't care about memory or caching calculations. It simply looks at 
+ the result of your selector and performs a "shallow check" (comparing every item in the array/object).
+
+ Comparison Table
+Tool	                 Prevents Calculation?	Prevents          Re-render?	Strategy
+createCachedSelector	     Yes	                  Yes	               Caches the reference.
+useShallow	               No	                    Yes	              Checks the content (shallow compare).
+
+*/
 
 
 

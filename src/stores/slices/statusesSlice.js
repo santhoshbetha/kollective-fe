@@ -291,7 +291,7 @@ export const createStatusesSlice = (setScoped, getScoped, rootSet, rootGet) => {
       });
     },
 
-    deleteTimeline(id, references) {
+    deleteStatus(id, references) {
       if (!id) return;
       set((state) => {
         const toDelete = new Set();
@@ -358,9 +358,9 @@ export const createStatusesSlice = (setScoped, getScoped, rootSet, rootGet) => {
         params.disclose_client = true;
       }
       this.createStatusRequest(params, idempotencyKey, { editing: !!statusId });
-      root.timelines.createStatusRequest(params, idempotencyKey, { editing: !!statusId });
+      root.timelines.createTimelineStatusRequest(params, idempotencyKey, { editing: !!statusId });
       root.pendingStatuses.createStatusRequest(params, idempotencyKey, { editing: !!statusId });
-      root.contexts.createStatusRequest(params, idempotencyKey, { editing: !!statusId });
+      root.contexts.createContextStatusRequest(params, idempotencyKey, { editing: !!statusId });
 
       const method = statusId === null ? 'POST' : 'PUT';
       const path = statusId === null ? '/api/v1/statuses' : `/api/v1/statuses/${statusId}`;
@@ -384,9 +384,9 @@ export const createStatusesSlice = (setScoped, getScoped, rootSet, rootGet) => {
 
         root.pendingStatuses.createStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
         root.scheduledStatuses?.createStatusSuccess?.(status, params, idempotencyKey, { editing: !!statusId });
-        root.statusLists?.createStatusSuccess?.(status, params, idempotencyKey, { editing: !!statusId });
-        root.timelines.createStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
-        root.contexts.createStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
+        root.statusLists?.createStatusListStatusSuccess?.(status, params, idempotencyKey, { editing: !!statusId });
+        root.timelines.createTimelineStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
+        root.contexts.createContextStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
 
         // Poll the backend for the updated card
         if (status.expectsCard) {

@@ -70,12 +70,13 @@ export function PostCard({ post }) {
     <>
       <article
         className={cn(
-          "group relative flex flex-col gap-4 rounded-xl border bg-card p-5 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer",
-          "hover:border-primary/30 hover:bg-card/80",
+          "group relative flex flex-col gap-4 rounded-xl border-2 bg-card/95 backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-black/10 cursor-pointer transform hover:-translate-y-1",
+          "hover:bg-card/90",
+          "shadow-lg shadow-black/5",
           isVoicePost
-            ? "border-primary/40 bg-linear-to-r from-primary/5 to-primary/10 hover:border-primary/60 hover:from-primary/10 hover:to-primary/15"
-            : "border-border hover:border-primary/50",
-          post.authorType === "institution" && !isVoicePost && "border-primary/20 bg-card/50",
+            ? "border-primary/50 bg-linear-to-r from-primary/10 to-primary/15 hover:from-primary/15 hover:to-primary/20 shadow-primary/10"
+            : "border-border/60",
+          post.authorType === "institution" && !isVoicePost && "bg-blue-500/5 border-blue-800/40 shadow-blue-500/5",
         )}
         onClick={handlePostClick}
         role="article"
@@ -289,7 +290,7 @@ export function PostCard({ post }) {
       {/* Enhanced Image Modal */}
       {isImageExpanded && post.image && (
         <div
-          className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300"
+          className="fixed inset-0 bg-black/95 backdrop-blur-sm z-60 flex items-center justify-center p-4 animate-in fade-in duration-300"
           onClick={() => setIsImageExpanded(false)}
           role="dialog"
           aria-modal="true"

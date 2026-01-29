@@ -23,7 +23,7 @@ const BusinessProposalCard = ({ proposal, onInterested }) => {
       className="group relative rounded-xl border bg-card p-6 hover:border-primary/50 transition-all duration-300 cursor-pointer hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-1"
     >
       {/* Gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
+      <div className="absolute inset-0 bg-linear-to-r from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
 
       {/* Status badges */}
       <div className="absolute top-4 right-4 flex flex-col gap-2">

@@ -31,11 +31,11 @@ const CtaBanner = forwardRef((props, ref) => {
 
           <HStack space={2} alignItems='center'>
             <Button theme='secondary' to='/login'>
-              <FormattedMessage id='account.login' defaultMessage='Log in' />
+              <FormattedMessage id='account.login' defaultMessage='Sign in' />
             </Button>
 
             <Button theme='accent' to='/signup'>
-              <FormattedMessage id='account.register' defaultMessage='Sign up' />
+              <FormattedMessage id='account.register' defaultMessage='Join now' />
             </Button>
           </HStack>
         </HStack>

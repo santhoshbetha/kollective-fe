@@ -149,7 +149,7 @@ export const createContextsSlice = (setScoped, getScoped, rootSet, rootGet) => {
       });
     },
 
-    deleteTimeline(idsArray) {
+    deleteStatusesFromContext(idsArray) {
       set((state) => {
         const ids = asArray(idsArray);
         ids.forEach((id) => {
@@ -176,7 +176,7 @@ export const createContextsSlice = (setScoped, getScoped, rootSet, rootGet) => {
       });
     },
 
-    createStatusRequest(params, idempotencyKey) {
+    createContextStatusRequest(params, idempotencyKey) {
       set((state) => {
         // create a pending status mapping
         const id = `末pending-${idempotencyKey}`;
@@ -196,7 +196,7 @@ export const createContextsSlice = (setScoped, getScoped, rootSet, rootGet) => {
       });
     },
 
-    createStatusSuccess(status, idempotencyKey) {
+    createContextStatusSuccess(status, idempotencyKey) {
       set((state) => {
             deletePendingStatus(state, status, idempotencyKey);
         });     

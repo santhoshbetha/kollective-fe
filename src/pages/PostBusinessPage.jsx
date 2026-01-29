@@ -138,7 +138,7 @@ export default function PostBusinessPage() {
             <div className="bg-card rounded-xl border border-border p-8 shadow-sm">
               <form onSubmit={handleBusinessSubmit} className="space-y-8">
                 {/* Image Upload Section */}
-                <div className="border-2 border-dashed border-primary/20 rounded-xl p-8 text-center bg-gradient-to-br from-primary/5 to-accent/5 hover:border-primary/30 transition-colors">
+                <div className="border-2 border-dashed border-primary/20 rounded-xl p-8 text-center bg-linear-to-r from-primary/5 to-accent/5 hover:border-primary/30 transition-colors">
                   <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                     <ImageIcon className="h-8 w-8 text-primary" />
                   </div>

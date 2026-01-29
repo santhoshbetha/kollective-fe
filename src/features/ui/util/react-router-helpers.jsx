@@ -24,7 +24,7 @@ const WrappedRoute = ({
   const Page = _Page;
   const Component = _Component;
 
-  return (
+ const renderComponent = () => (
     <ErrorBoundary FallbackComponent={FallbackError}>
       <Suspense fallback={<FallbackLoading />}>
         <Page params={params} layout={layout} {...componentParams}>
@@ -39,7 +39,11 @@ const WrappedRoute = ({
       </Suspense>
     </ErrorBoundary>
   );
-};const FallbackLayout = ({ children }) => (
+
+  return renderComponent();
+};
+
+const FallbackLayout = ({ children }) => (
   <>
     <Layout.Main>
       {children}
