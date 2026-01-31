@@ -1,5 +1,6 @@
 export function createMutesSlice(setScoped, getScoped, rootSet, rootGet) {
   return {
+    // Initial State Structure
     new: {
       isSubmitting: false,
       accountId: null,
@@ -9,6 +10,7 @@ export function createMutesSlice(setScoped, getScoped, rootSet, rootGet) {
 
     mutesInitModal(account) {
       setScoped((state) => {
+        // Direct assignment thanks to Immer
         state.new = {
           isSubmitting: false,
           accountId: account.id || null,
@@ -20,15 +22,27 @@ export function createMutesSlice(setScoped, getScoped, rootSet, rootGet) {
 
     mutesToggleHideNotifications() {
       setScoped((state) => {
-        state.new.notifications = !state.new.notifications;
+        if (state.new) {
+          state.new.notifications = !state.new.notifications;
+        }
       });
     },
 
-    mutesChangeduration(duration) {
+    mutesChangeDuration(duration) {
       setScoped((state) => {
-        state.new.duration = duration;
+        if (state.new) {
+          state.new.duration = duration;
+        }
       });
     },
+
+    setSubmitting(isSubmitting) {
+      setScoped((state) => {
+        if (state.new) {
+          state.new.isSubmitting = isSubmitting;
+        }
+      });
+    }
   };
 }
 

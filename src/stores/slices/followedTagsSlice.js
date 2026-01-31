@@ -2,26 +2,28 @@ import { normalizeTag } from "../../normalizers/tag";
 
 export function createFollowedTagsSlice(setScoped, getScoped, rootSet, rootGet) {
   return {
+    // --- Initial State ---
     items: [],
     isLoading: false,
     next: null,
 
+    // --- Actions ---
     fetchFollowedHashtagsRequest() {
       setScoped((state) => {
         state.isLoading = true;
       });
     },
 
-    fetchFollowedHashtagsSuccess(next, followed_tags) {
+    fetchFollowedHashtagsSuccess(next, followedTags) {
       setScoped((state) => {
-        next = next ?? null;
-        followed_tags = Array.isArray(followed_tags) ? followed_tags : [];
-
-        state.items = (followed_tags || [])
-          .map((tag) => normalizeTag(tag))
+        // 1. Normalize and filter in one pass
+        const tags = (Array.isArray(followedTags) ? followedTags : [])
+          .map(normalizeTag)
           .filter(Boolean);
+
+        state.items = tags;
         state.isLoading = false;
-        state.next = next;
+        state.next = next ?? null;
       });
     },
 
@@ -37,25 +39,23 @@ export function createFollowedTagsSlice(setScoped, getScoped, rootSet, rootGet) 
       });
     },
 
-    expandFollowedHashtagsSuccess(next, followed_tags) {
+    expandFollowedHashtagsSuccess(next, followedTags) {
       setScoped((state) => {
-        next = next ?? null;
-        followed_tags = Array.isArray(followed_tags) ? followed_tags : [];
+        const incoming = (Array.isArray(followedTags) ? followedTags : [])
+          .map(normalizeTag)
+          .filter(Boolean);
 
-        const existingTags = state.items || [];
-        const newTags = (followed_tags || [])
-          .map((tag) => normalizeTag(tag))
-          .filter(Boolean)
-          .filter(
-            (newTag) =>
-              !existingTags.some(
-                (existingTag) => existingTag.name === newTag.name,
-              ),
-          );
+        // 2. Deduplicate using standard Array.some()
+        // Immer allows us to push directly to the draft
+        incoming.forEach((newTag) => {
+          const exists = state.items.some((t) => t.name === newTag.name);
+          if (!exists) {
+            state.items.push(newTag);
+          }
+        });
 
-        state.items = existingTags.concat(newTags);
         state.isLoading = false;
-        state.next = next;
+        state.next = next ?? null;
       });
     },
 
@@ -64,7 +64,6 @@ export function createFollowedTagsSlice(setScoped, getScoped, rootSet, rootGet) 
         state.isLoading = false;
       });
     },
-
   };
 }
 

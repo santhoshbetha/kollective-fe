@@ -1,41 +1,39 @@
 import { getIn } from "../../utils/immutableSafe";
 
 export function createReportsSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
+  const getActions = () => rootGet();
+
+   // Helper to define initial/reset state for 'new'
+  const initialState = () => ({
+    isSubmitting: false,
+    entityType: "",
+    account_id: null,
+    status_ids: new Set(),
+    chat_message: null,
+    group: null,
+    comment: "",
+    forward: false,
+    block: false,
+    rule_ids: new Set(),
+  });
+
   // get not used
   return {
-    new: {
-      isSubmitting: false,
-      entityType: "",
-      account_id: null,
-      status_ids: new Set(),
-      chat_message: null,
-      group: null,
-      comment: "",
-      forward: false,
-      block: false,
-      rule_ids: new Set(),
-    },
+    new: initialState(),
 
     reportInit(account, entityType, chatMessage, status, group) {
-      set((state) => {
+      setScoped((state) => {
+        const isNewAccount = state.new.account_id !== account?.id;
+        
         state.new.isSubmitting = false;
         state.new.entityType = entityType || "";
         state.new.account_id = account?.id || null;
+        state.new.chat_message = chatMessage || null;
+        state.new.group = group || null;
 
-        if (chatMessage) {
-          state.new.chat_message = chatMessage;
-        }
-
-        if (group) {
-          state.new.group = group;
-        }
-
-        if (state.new.account_id != account?.id) {
-          state.new.status_ids = status
-            ? new Set([status.reblog?.id || status.id])
-            : new Set();
-          set.new.comment = "";
+        if (isNewAccount) {
+          state.new.status_ids = status ? new Set([status.reblog?.id || status.id]) : new Set();
+          state.new.comment = "";
         } else if (status) {
           state.new.status_ids.add(status.reblog?.id || status.id);
         }
@@ -43,127 +41,107 @@ export function createReportsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     reportStatusToggle(statusId, checked) {
-      set((state) => {
+      setScoped((state) => {
         if (checked) {
           state.new.status_ids.add(statusId);
-          return;
-        }
-        if (state.new.status_ids.has(statusId)) {
+        } else {
           state.new.status_ids.delete(statusId);
         }
       });
     },
 
-    reportCommentChange(comment) {
-      set((state) => {
-        state.new.comment = comment;
-      });
-    },
+    reportCommentChange: (comment) => setScoped((s) => { s.new.comment = comment; }),
+    reportForwardChange: (forward) => setScoped((s) => { s.new.forward = forward; }),
+    reportBlockChange: (block) => setScoped((s) => { s.new.block = block; }),
 
-    reportforwardChange(forward) {
-      set((state) => {
-        state.new.forward = forward;
-      });
-    },
-
-    reportBlockChange(block) {
-      set((state) => {
-        state.new.block = block;
-      });
-    },
-
-    reportRuleChange(rule_id) {
-      set((state) => {
-        if (state.new.rule_ids.has(rule_id)) {
-          state.new.rule_ids.delete(rule_id);
-          return;
+    reportRuleChange(ruleId) {
+      setScoped((state) => {
+        if (state.new.rule_ids.has(ruleId)) {
+          state.new.rule_ids.delete(ruleId);
+        } else {
+          state.new.rule_ids.add(ruleId);
         }
-        state.new.rule_ids.add(rule_id);
       });
     },
 
-    reportSubmitRequest() {
-      set((state) => {
-        state.new.isSubmitting = true;
+    reportSubmitRequest: () => setScoped((s) => { s.new.isSubmitting = true; }),
+    reportSubmitFail: () => setScoped((s) => { s.new.isSubmitting = false; }),
+
+    reportReset() {
+      setScoped((state) => {
+        state.new = initialState();
       });
     },
 
-    reportSubmitFail() {
-      set((state) => {
-        state.new.isSubmitting = false;
+    resetReportState() {
+      setScoped((state) => {
+        state.new = {
+          ...state.new,
+          ...initialState(),
+        };
       });
     },
 
     reportCancel() {
-      set((state) => {
-        state.new.isSubmitting = false;
-        state.new.account_id = null;
-        state.new.rule_ids = new Set();
-        state.new.chat_message = null;
-        state.new.group = null;
-        state.new.comment = "";
-        state.new.block = false;
-      });
+      const actions = getActions();
+      actions.resetReportState();
     },
 
     reportSubmitSuccess() {
-      set((state) => {
-        state.new.isSubmitting = false;
-        state.new.account_id = null;
-        state.new.rule_ids = new Set();
-        state.new.chat_message = null;
-        state.new.group = null;
-        state.new.comment = "";
-        state.new.block = false;
-      });
+      const actions = getActions();
+      actions.resetReportState();
     },
-
     initReportAction(entityType, account, entities) {
+      const actions = getActions();
       const { status, chatMessage, group } = entities || {};
 
-      this.initReport(
-        entityType,
+      actions.reports.reportInit(
         account,
-        status,
+        entityType,
         chatMessage,
-        group,
+        status,
+        group
       );
     },
 
-    submitReport() {
-      const root = rootGet();
-      const { reports } = root;
+    async submitReport() {
+      const actions = getActions();
+      const reportState = actions.reports.new;
 
       try {
-        const res = fetch(`/api/v1/reports`, {
+        actions.reports.reportSubmitRequest();
+
+        const res = await fetch(`/api/v1/reports`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${root.auth.app?.access_token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            account_id: reports.new.account_id,
-            status_ids: Array.from(reports.new.status_ids),
-            message_id: [getIn(root.reports, ['new', 'chat_message', 'id'])].filter(Boolean),
-            group_id: getIn(root.reports, ['new', 'group', 'id']) || null,
-            rule_ids: Array.from(reports.new.rule_ids),
-            comment: reports.new.comment,
-            forward: reports.new.forward
+            account_id: reportState.account_id,
+            status_ids: Array.from(reportState.status_ids),
+            rule_ids: Array.from(reportState.rule_ids),
+            message_id: reportState.chat_message?.id ? [reportState.chat_message.id] : [],
+            group_id: reportState.group?.id || null,
+            comment: reportState.comment,
+            forward: reportState.forward,
           }),
         });
 
-        if (!res.ok) {
-          throw new Error("Network response was not ok");
+        if (!res.ok) throw new Error("Report submission failed");
+
+        const data = await res.json();
+        
+        // Handle post-submit cleanup
+        if (reportState.block && reportState.account_id) {
+          actions.accounts?.block?.(reportState.account_id);
         }
 
-        return res.json();
+        actions.reports.reportReset();
+        return data;
       } catch (error) {
         console.error("Error submitting report:", error);
-        this.reportSubmitFail();
+        actions.reports.reportSubmitFail();
         throw error;
       }
     },
-
 
   };
 }

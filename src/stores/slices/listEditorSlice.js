@@ -1,117 +1,118 @@
+const getInitialState = () => ({
+  listId: null,
+  isSubmitting: false,
+  isChanged: false,
+  title: "",
+  accounts: {
+    items: [],
+    loaded: false,
+    isLoading: false,
+  },
+  suggestions: {
+    value: "",
+    items: [],
+  },
+});
+
 export function createListEditorSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
+
   return {
-    listId: null,
-    isSubmitting: false,
-    isChanged: false,
-    title: "",
-    accounts: {
-      items: [],
-      loaded: false,
-      isLoading: false,
-    },
-    suggestions: {
-      value: "",
-      items: [],
-    },
+     ...getInitialState(),
 
     resetListEditor() {
-      return {
-        listId: null,
-        isSubmitting: false,
-        isChanged: false,
-        title: "",
-        accounts: {
-          items: [],
-          loaded: false,
-          isLoading: false,
-        },
-
-        suggestions: {
-          value: "",
-          items: [],
-        },
-      };
+      setScoped((state) => {
+        const fresh = getInitialState();
+        Object.assign(state, fresh);
+      });
     },
 
     setupListEditor(list) {
-      set((state) => {
+      setScoped((state) => {
         state.listId = list?.id ?? null;
         state.title = list?.title ?? "";
         state.isSubmitting = false;
+        state.isChanged = false;
+        // Reset dynamic lists on setup
+        state.accounts = getInitialState().accounts;
+        state.suggestions = getInitialState().suggestions;
       });
     },
 
     changeListEditorTitle(title) {
-      set((state) => {
+      setScoped((state) => {
         state.title = title;
         state.isChanged = true;
       });
     },
 
     createOrUpdateListRequest() {
-      set((state) => {
+      setScoped((state) => {
         state.isSubmitting = true;
         state.isChanged = false;
       });
     },
 
+
     createOrUpdateListFail() {
-      set((state) => {
+      setScoped((state) => {
         state.isSubmitting = false;
       });
     },
 
     createOrUpdateListSuccess(list) {
-      set((state) => {
+      setScoped((state) => {
         state.listId = list.id;
+        state.title = list.title;
         state.isSubmitting = false;
       });
     },
 
     fetchListAccountsRequest() {
-      set((state) => {
+      setScoped((state) => {
         state.accounts.isLoading = true;
       });
     },
 
     fetchListAccountsFail() {
-      set((state) => {
+      setScoped((state) => {
         state.accounts.isLoading = false;
       });
     },
 
     fetchListAccountsSuccess(accounts) {
-      set((state) => {
-        state.accounts.items = Array.isArray(accounts)
-          ? accounts.map((item) => item.id)
-          : [];
+      setScoped((state) => {
+        // Standard JS map for account IDs
+        state.accounts.items = (Array.isArray(accounts) ? accounts : [])
+          .map((item) => item.id)
+          .filter(Boolean);
         state.accounts.loaded = true;
         state.accounts.isLoading = false;
       });
     },
 
     listEditorSuggestionsChange(value) {
-      set((state) => {
+      setScoped((state) => {
         state.suggestions.value = value;
       });
     },
 
     listEditorSuggestionsReady(accounts) {
-      set((state) => {
-        state.suggestions.items = accounts.map((item) => item.id);
+      setScoped((state) => {
+        state.suggestions.items = (Array.isArray(accounts) ? accounts : [])
+          .map((item) => item.id);
       });
     },
 
     listEditorSuggestionsClear() {
-      set((state) => {
+      setScoped((state) => {
         state.suggestions.value = "";
         state.suggestions.items = [];
       });
     },
 
     listEditorAddSuccess(accountId) {
-      set((state) => {
+      if (!accountId) return;
+      setScoped((state) => {
         if (!state.accounts.items.includes(accountId)) {
           state.accounts.items.unshift(accountId);
         }
@@ -119,10 +120,9 @@ export function createListEditorSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     listEditorRemoveSuccess(accountId) {
-      set((state) => {
-        state.accounts.items = state.accounts.items.filter(
-          (id) => id !== accountId,
-        );
+      if (!accountId) return;
+      setScoped((state) => {
+        state.accounts.items = state.accounts.items.filter((id) => id !== accountId);
       });
     },
   };

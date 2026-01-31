@@ -1,56 +1,43 @@
 export const createDomainListsSlice = (
   setScoped /* getScoped, rootSet, rootGet */,
 ) => ({
+  // --- Initial State ---
   blocks: {
-    items: new Set(),
+    items: [], // Standard Array replaces Set
     next: null,
   },
 
   fetchDomainBlocksSuccess(domains, next) {
     setScoped((state) => {
-      const src = Array.isArray(domains) ? domains : Array.from(domains || []);
-      return {
-        ...state,
-        blocks: {
-          items: new Set(src),
-          next: next ?? null,
-        },
-      };
+      // 1. Normalize input to array and remove duplicates
+      const incoming = Array.isArray(domains) ? domains : Array.from(domains || []);
+      
+      // 2. Direct mutation via Immer
+      state.blocks.items = [...new Set(incoming)];
+      state.blocks.next = next ?? null;
     });
   },
 
   expandDomainBlocksSuccess(domains, next) {
     setScoped((state) => {
-      const existing = new Set(
-        (state && state.blocks && state.blocks.items) || [],
-      );
-      const newItems = Array.isArray(domains)
-        ? domains
-        : Array.from(domains || []);
-      for (const d of newItems) existing.add(d);
-      return {
-        ...state,
-        blocks: {
-          items: existing,
-          next: next ?? ((state && state.blocks && state.blocks.next) || null),
-        },
-      };
+      const incoming = Array.isArray(domains) ? domains : Array.from(domains || []);
+      
+      // 3. Merge with existing items and ensure uniqueness
+      // This replicates the behavior of state.blocks.items.add()
+      const combined = [...state.blocks.items, ...incoming];
+      state.blocks.items = [...new Set(combined)];
+      
+      // Update next only if provided
+      if (next !== undefined) {
+        state.blocks.next = next;
+      }
     });
   },
 
   unblockDomainSuccess(domain) {
     setScoped((state) => {
-      const existing = new Set(
-        (state && state.blocks && state.blocks.items) || [],
-      );
-      existing.delete(domain);
-      return {
-        ...state,
-        blocks: {
-          items: existing,
-          next: (state && state.blocks && state.blocks.next) || null,
-        },
-      };
+      // 4. Standard JS filter replaces Set.delete()
+      state.blocks.items = state.blocks.items.filter(item => item !== domain);
     });
   },
 });

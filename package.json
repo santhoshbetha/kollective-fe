@@ -35,6 +35,7 @@
     "lexical": "^0.38.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.554.0",
+    "notistack": "^3.0.2",
     "npm": "^11.6.4",
     "phoenix": "^1.8.3",
     "re-reselect": "^5.1.0",

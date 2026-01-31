@@ -4,47 +4,46 @@ export function createProfileHoverCardSlice(setScoped, getScoped, rootSet, rootG
   const set = setScoped;
   // get not used
   return {
+    // Initial State
     ref: null,
     accountId: "",
     hovered: false,
 
     profileHoverCardOpen(ref, accountId) {
-      set((state) => {
+      setScoped((state) => {
         state.ref = ref;
         state.accountId = accountId;
+        state.hovered = false; // Reset hover state when opening a new card
       });
     },
 
-    profileHovercardUpdate() {
-      set((state) => {
+    profileHoverCardUpdate() {
+      setScoped((state) => {
         state.hovered = true;
       });
     },
 
     profileHoverCardClose(force) {
-      set((state) => {
-        if (!force && state.hovered) {
-          return state;
-        } else {
-          return {
-            ref: null,
-            accountId: "",
-            hovered: false,
-          };
-        }
+      setScoped((state) => {
+        // If not forced and the mouse is currently hovering the card, keep it open
+        if (!force && state.hovered) return;
+
+        state.ref = null;
+        state.accountId = "";
+        state.hovered = false;
       });
     },
 
     openProfileHoverCardAction(ref, accountId) {
-      this.profileHoverCardOpen(ref, accountId);
+      getScoped().profileHoverCardOpen(ref, accountId);
     },
 
     updateProfileHoverCardAction() {
-      this.profileHovercardUpdate();
+      getScoped().profileHoverCardUpdate();
     },
 
     closeProfileHoverCardAction(force = false) {
-      this.profileHoverCardClose(force);
+      getScoped().profileHoverCardClose(force);
     },
   };
 }

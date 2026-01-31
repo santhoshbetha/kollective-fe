@@ -7,9 +7,13 @@ export const useOwnAccount = () => {
   const getAccount = useMemo(() => makeGetAccount(), []);
 
   const account = useBoundStore((state) =>  {
-    const { me } = state.auth;
+    // Handle case where state might be undefined or me slice might not be initialized yet
+    if (!state) return undefined;
+    
+    const meSlice = state.me || {};
+    const me = meSlice.me;
 
-    if (typeof me === 'string') {
+    if (typeof me === 'string' && me !== '') {
       return getAccount(state, me);
     }
   });

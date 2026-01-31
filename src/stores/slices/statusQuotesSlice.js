@@ -6,71 +6,71 @@ import { isLoggedIn } from "../../utils/auth";
 const noOp = () => new Promise(f => f(null));
 
 export function createStatusQuotesSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
+
   return {
     // Fetch the first page of quotes for a given status
     async fetchStatusQuotes(statusId) {
       if (!statusId) return null;
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+      const actions = getActions();
+      
+      if (!isLoggedIn(actions)) return null;
 
-      // avoid duplicate loads
-      if (root.statusLists?.[`quotes:${statusId}`]?.isLoading) {
-        return noOp();
-      }
+      const key = `quotes:${statusId}`;
+      const listState = actions.[key];
 
-      if (typeof root.statusLists.fetchOrExpandStatusQuotesRequest === "function") {
-        root.statusLists.fetchOrExpandStatusQuotesRequest(statusId);
-      }
+      // Avoid duplicate loads
+      if (listState?.isLoading) return null;
+
+      actions.fetchOrExpandStatusQuotesRequest?.(statusId);
 
       try {
-        const res = await fetch(`/api/v1/statuses/${statusId}/quotes`, { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to fetch status quotes (${res.status})`);
+        const res = await fetch(`/api/v1/statuses/${statusId}/quotes`);
+        if (!res.ok) throw new Error(`Failed to fetch quotes (${res.status})`);
+        
         const data = await res.json();
         const next = typeof res.next === "function" ? res.next() : null;
 
-        root.importer?.importFetchedStatuses?.(data || []);
-        if (typeof root.statusLists.fetchStatusQuotesSuccess === "function") {
-          root.statusLists.fetchStatusQuotesSuccess(statusId, data || [], next);
-        }
+        // Coordinate entities and list state
+        actions.importFetchedStatuses?.(data || []);
+        actions.fetchStatusQuotesSuccess?.(statusId, data || [], next);
+        
         return data;
       } catch (err) {
-        if (typeof root.statusLists.fetchStatusQuotesFail === "function") {
-          root.statusLists.fetchStatusQuotesFail(statusId);
-        }
+        actions.fetchOrExpandStatusQuotesFail?.(statusId);
         console.error("statusQuotesSlice.fetchStatusQuotes failed", err);
         return null;
       }
     },
 
-    // Expand paginated quotes for a status (uses statusLists[`quotes:${statusId}`].next)
+    // Expand paginated quotes for a status
     async expandStatusQuotes(statusId) {
       if (!statusId) return null;
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+      const actions = getActions();
+      
+      if (!isLoggedIn(actions)) return null;
 
       const key = `quotes:${statusId}`;
-      const url = root.statusLists?.[key]?.next || null;
-      if (url === null || root.statusLists?.[key]?.isLoading) return;
+      const listState = actions.[key];
+      const url = listState?.next;
 
-      if (typeof root.statusLists.fetchOrExpandStatusQuotesRequest === "function") {
-        root.statusLists.fetchOrExpandStatusQuotesRequest(statusId);
-      }
+      if (!url || listState?.isLoading) return null;
+
+      actions.fetchOrExpandStatusQuotesRequest?.(statusId);
 
       try {
-        const res = await fetch(url, { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to expand status quotes (${res.status})`);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Failed to expand quotes (${res.status})`);
+        
         const data = await res.json();
         const next = typeof res.next === "function" ? res.next() : null;
 
-        root.importer?.importFetchedStatuses?.(data || []);
-        if (typeof root.statusLists.expandStatusQuotesSuccess === "function") {
-          root.statusLists.expandStatusQuotesSuccess(statusId, data || [], next);
-        }
+        actions.importFetchedStatuses?.(data || []);
+        actions.expandStatusQuotesSuccess?.(statusId, data || [], next);
+        
         return data;
       } catch (err) {
-        if (typeof root.statusLists.fetchOrExpandStatusQuotesFail === "function") {
-          root.statusLists.fetchOrExpandStatusQuotesFail(statusId);
-        }
+        actions.fetchOrExpandStatusQuotesFail?.(statusId);
         console.error("statusQuotesSlice.expandStatusQuotes failed", err);
         return null;
       }

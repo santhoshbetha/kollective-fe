@@ -1,12 +1,6 @@
 // Slice factory for user lists (per-user saved lists, subscriptions, etc.)
 
 // Pattern matches other slices: `createXxxSlice(set, get, rootSet, rootGet)`
-export const ReactionRecord = {
-  accounts: new Set(),
-  count: 0,
-  name: "",
-  url: null,
-};
 
 const ParticipationRequestListRecord = {
   next: null,
@@ -19,799 +13,250 @@ export const ParticipationRequestRecord = {
   participation_message: null,
 };
 
+export const ReactionRecord = { accounts: new Set(), count: 0, name: "", url: null };
+const ListRecord = () => ({ next: null, items: new Set(), isLoading: false });
+
 const initialState = {
-  followers: new Map(),
-  following: new Map(),
-  reblogged_by: new Map(),
-  favourited_by: new Map(),
-  disliked_by: new Map(),
-  reactions: new Map(),
-  zapped_by: new Map(),
-  follow_requests: {
-    next: null,
-    items: new Set(),
-    isLoading: false,
-  },
-  blocks: {
-    next: null,
-    items: new Set(),
-    isLoading: false,
-  },
-  mutes: {
-    next: null,
-    items: new Set(),
-    isLoading: false,
-  },
-  directory: {
-    next: null,
-    items: new Set(),
-    isLoading: true,
-  },
-  pinned: new Map(),
-  birthday_reminders: new Map(),
-  familiar_followers: new Map(),
-  event_participations: new Map(),
-  event_participation_requests: new Map(),
-  membership_requests: new Map(),
-  group_blocks: new Map(),
+  followers: {}, following: {}, reblogged_by: {}, favourited_by: {},
+  disliked_by: {}, reactions: {}, zapped_by: {}, pinned: {},
+  birthday_reminders: {}, familiar_followers: {}, event_participations: {},
+  event_participation_requests: {}, membership_requests: {}, group_blocks: {},
+  follow_requests: ListRecord(),
+  blocks: ListRecord(),
+  mutes: ListRecord(),
+  directory: { ...ListRecord(), isLoading: true },
 };
 
 export const createUserListAdderSlice = (setScoped, getScoped, rootSet, rootGet) => {
-  const set = setScoped;
-  // get not used in this slice
+
+  // Helper: ensures a nested list exists and updates it
+  const updateNestedList = (state, group, id, accounts, next, isExpand = false) => {
+    if (!state[group][id]) state[group][id] = ListRecord();
+    const list = state[group][id];
+
+    if (!isExpand) list.items.clear();
+    accounts.forEach(acc => list.items.add(acc.id));
+    
+    list.next = next ?? null;
+    list.isLoading = false;
+  };
+
+  const setNestedLoading = (state, group, id, isLoading) => {
+    if (!state[group][id]) state[group][id] = ListRecord();
+    state[group][id].isLoading = isLoading;
+  };
+
   return ({
     ...initialState,
 
-  fetchFollowersSuccess(id, accounts, next) {
-    set((state) => {
-      // 1. Create the new nested data structure (the 'ListRecord' equivalent)
-      const newListData = {
-        next: next !== undefined ? next : null, // Handle undefined case from optional param
-        // Use a standard JS Set for ordered unique IDs
-        items: new Set(accounts.map((item) => item.id)),
-      };
+    fetchFollowersSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'followers', id, accs, next)),
 
-      // 2. Update the state immutably using spread syntax:
-      // This is the equivalent of state.setIn(['followers', action.id], newListData);
-      return {
-        followers: {
-          ...state.followers, // Keep existing follower lists
-          [id]: newListData, // Set/overwrite the specific account's list data
-        },
-      };
-    });
-  },
+    expandFollowersSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'followers', id, accs, next, true)),
 
-  expandfollowersSuccess(id, accounts, next) {
-    set((state) => {
-      // 1. Get the current nested list object
-      const currentList = state.followers[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
+    fetchFollowingSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'following', id, accs, next)),
+    expandFollowingSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'following', id, accs, next, true)),
 
-      // 2. Calculate the new 'items' list/set immutably
-      const newItemsToAdd = accounts.map((item) => item.id);
+    /* --- Interactions (Reblogs, Favs, Dislikes) --- */
+    fetchReblogSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'reblogged_by', id, accs, next)),
 
-      // We assume 'items' is a Set (like ImmutableOrderedSet used in original code).
-      // Convert current items to an Array, concat new items, and convert back to a Set to handle uniqueness/order.
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
+    expandReblogSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'reblogged_by', id, accs, next, true)),
 
-      // 3. Create the new nested list object (the 'map as List' equivalent) immutably
-      const updatedListObject = {
-        ...currentList, // Keep existing properties
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet, // Set the updated items set
-      };
+    fetchFavouritesSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'favourited_by', id, accs, next)),
 
-      // 4. Update the main 'followers' object and return the new top-level state
-      // This is the equivalent of state.updateIn(['followers', accountId], ...)
-      return {
-        followers: {
-          ...state.followers, // Keep other follower lists
-          [id]: updatedListObject, // Overwrite this specific account's list
-        },
-      };
-    });
-  },
+    expandFavouritesSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'favourited_by', id, accs, next, true)),
 
-  fetchFollowingSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        following: {
-          ...state.following,
-          [id]: newListData,
-        },
-      };
-    });
-  },
+    fetchDislikesSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'disliked_by', id, accs, next)),
 
-  expandFollowingsuccess(id, accounts, next) {
-    set((state) => {
-      const currentList = state.following[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = accounts.map((item) => item.id);
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
+    /* --- Specialized Lists (Reactions) --- */
+    fetchReactionsSuccess(id, reactions) {
+      setScoped((state) => {
+        const processed = (reactions || []).map((api) => ({
+          ...ReactionRecord,
+          ...api,
+          accounts: new Set(api.accounts?.map(a => a.id) || []),
+        }));
 
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        following: {
-          ...state.following,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
-
-  fetchReblogSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        reblogged_by: {
-          ...state.reblogged_by,
-          [id]: newListData,
-        },
-      };
-    });
-  },
-
-  expandReblogSuccess(id, accounts, next) {
-    set((state) => {
-      const currentList = state.reblogged_by[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = accounts.map((item) => item.id);
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        reblogged_by: {
-          ...state.reblogged_by,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
-
-  fetchFavouritesSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        favourited_by: {
-          ...state.favourited_by,
-          [id]: newListData,
-        },
-      };
-    });
-  },
-
-  expandFavouritesSuccess(id, accounts, next) {
-    set((state) => {
-      const currentList = state.favourited_by[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = accounts.map((item) => item.id);
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        favourited_by: {
-          ...state.favourited_by,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
-
-  fetchDislikesSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        disliked_by: {
-          ...state.disliked_by,
-          [id]: newListData,
-        },
-      };
-    });
-  },
-
-  fetchReactionsSuccess(id, reactions) {
-    set((state) => {
-      // 1. Map the API entities to the desired nested structure (ReactionRecord equivalent)
-      const processedReactionItems = reactions.map((apiReaction) => {
-        // Separate 'accounts' array from the rest of the reaction properties
-        const { accounts, ...reactionProps } = apiReaction;
-
-        // Create the nested 'accounts' Set
-        const accountIdsSet = new Set(accounts.map((account) => account.id));
-
-        // Create the full 'ReactionRecord' equivalent JS object,
-        // applying defaults where needed and mapping API data:
-        const reactionRecord = {
-          accounts: accountIdsSet,
-          count: reactionProps.count || 0, // Use API value or default to 0
-          name: reactionProps.name || "", // Use API value or default to ''
-          url: reactionProps.url || null, // Use API value or default to null
-          // ... any other API properties are ignored by this specific structure
-        };
-
-        return reactionRecord;
+        state.reactions[id] = { items: new Set(processed) };
       });
+    },
 
-      // 2. Wrap the processed items in the top-level list structure (ReactionListRecord equivalent)
-      const newReactionList = {
-        // Use a Set for the top-level items collection
-        items: new Set(processedReactionItems),
-      };
+    updateFollowRequestNotifications(notification) {
+      if (notification.type !== "follow_request") return;
 
-      return {
-        reactions: {
-          ...state.reactions,
-          [id]: newReactionList,
-        },
-      };
-    });
-  },
+      setScoped((state) => {
+        const id = notification.account.id;
+        // Prepend logic: Convert to array to put new ID first, then back to Set
+        state.follow_requests.items = new Set([
+          id,
+          ...Array.from(state.follow_requests.items)
+        ]);
+      });
+    },
 
-  updateFollowRequestNotifications(notification) {
-    set((state) => {
-      if (notification.type != "follow_request") {
-        return state; // No changes for other notification types
-      }
-      // 1. Get the current items Set
-      const currentItemsSet = state.follow_requests.items;
+    fetchFollowRequestsSuccess(accounts, next) {
+      setScoped((state) => {
+        state.follow_requests.next = next ?? null;
+        state.follow_requests.isLoading = false;
+        state.follow_requests.items = new Set(accounts.map(a => a.id));
+      });
+    },
 
-      // 2. Get the new ID to add
-      const newAccountId = notification.account.id;
+    expandFollowRequestsSuccess(accounts, next) {
+      setScoped((state) => {
+        state.follow_requests.next = next ?? null;
+        state.follow_requests.isLoading = false;
+        
+        // Immer handles Set mutations beautifully
+        accounts.forEach(a => state.follow_requests.items.add(a.id));
+      });
+    },
 
-      // 3. Create a *new* Set that includes both the new ID and all existing IDs.
-      //    The JS Set constructor handles uniqueness automatically.
-      //    By placing the new ID first, we achieve a 'prepend'/'union' behavior where
-      //    new items appear at the beginning of the iteration order.
-      const updatedItemsSet = new Set([
-        newAccountId,
-        ...Array.from(currentItemsSet),
-      ]);
+    authorizeOrRejectFollowrequestSuccess(id) {
+      setScoped((state) => {
+        // Direct deletion on the draft Set
+        state.follow_requests.items.delete(id);
+      });
+    },
 
-      // 4. Update the state immutably using spread syntax:
-      // This is the equivalent of state.updateIn(['follow_requests', 'items'], ...)
-      return {
-        follow_requests: {
-          ...state.follow_requests, // Keep other follow_requests properties
-          items: updatedItemsSet, // Set the new items Set
-        },
-      };
-    });
-  },
+    fetchBlocksSuccess(accounts, next) {
+      setScoped((state) => {
+        state.blocks.next = next ?? null;
+        state.blocks.items = new Set(accounts.map(a => a.id));
+        state.blocks.isLoading = false;
+      });
+    },
 
-  fetchFollowRequestsSuccess(accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        follow_requests: newListData,
-      };
-    });
-  },
+    fetchDirectorySuccess(accounts, next) {
+      setScoped((state) => {
+        state.directory.next = next ?? null;
+        state.directory.items = new Set(accounts.map(a => a.id));
+        state.directory.isLoading = false;
+        state.directory.loaded = true;
+      });
+    },
 
-  expandFollowRequestsSuccess(accounts, next) {
-    set((state) => {
-      const currentList = state.follow_requests || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = accounts.map((item) => item.id);
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
+    expandDirectorySuccess(accounts, next) {
+      setScoped((state) => {
+        state.directory.next = next ?? null;
+        state.directory.isLoading = false;
+        
+        // Direct Set mutation in the draft
+        accounts.forEach(a => state.directory.items.add(a.id));
+      });
+    },
 
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        follow_requests: updatedListObject,
-      };
-    });
-  },
+    fetchOrExpandDirectoryRequest() {
+      setScoped((state) => {
+        state.directory.isLoading = true;
+      });
+    },
 
-  authorizeOrRejectFollowrequestSuccess(id) {
-    set((state) => {
-      const currentList = state.follow_requests || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedItemsSet = new Set([...Array.from(currentList.items)]);
-      updatedItemsSet.delete(id);
-      const updatedListObject = {
-        ...currentList,
-        items: updatedItemsSet,
-      };
-      return {
-        follow_requests: updatedListObject,
-      };
-    });
-  },
+    /* --- Standard Nested Account Lists --- */
+    fetchPinnedAccountsSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'pinned', id, accs, next)),
 
-  fetchBlocksSuccess(accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        blocks: newListData,
-      };
-    });
-  },
+    fetchBirthdayRemindersSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'birthday_reminders', id, accs, next)),
 
-  fetchDirectorySuccess(accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        directory: newListData,
-      };
-    });
-  },
+    fetchFamiliarFollowersSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'familiar_followers', id, accs, next)),
 
-  expandDirectorySuccess(accounts, next) {
-    set((state) => {
-      const currentList = state.directory || {
-        items: new Set(),
-        isLoading: false,
-      };
+    fetchEventParticipationsSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'event_participations', id, accs, next)),
 
-      const newItemsToAdd = accounts.map((item) => item.id);
+    expandEventParticipationsSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'event_participations', id, accs, next, true)),
 
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
+    /* --- Event Participation Requests --- */
+    fetchEventParticipationRequestsSuccess(id, participations, next) {
+      setScoped((state) => {
+        const items = (participations || []).map(({ account, participation_message }) => ({
+          account: account.id,
+          participation_message
+        }));
 
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        directory: updatedListObject,
-      };
-    });
-  },
+        state.event_participation_requests[id] = {
+          next: next ?? null,
+          isLoading: false,
+          items: new Set(items),
+        };
+      });
+    },
 
-  fetchOrExpandDirectoryRequest() {
-    set((state) => {
-      const currentList = state.directory || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedListObject = {
-        ...currentList,
-        isLoading: true,
-      };
-      return {
-        directory: updatedListObject,
-      };
-    });
-  },
+    expandEventParticipationRequestsSuccess(id, participations, next) {
+      setScoped((state) => {
+        const list = state.event_participation_requests[id] || { items: new Set() };
+        
+        participations.forEach(({ account, participation_message }) => {
+          list.items.add({ account: account.id, participation_message });
+        });
 
-  fetchPinnedAccountsSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        pinned: {
-          ...state.pinned,
-          [id]: newListData,
-        },
-      };
-    });
-  },
+        list.next = next ?? null;
+        list.isLoading = false;
+      });
+    },
 
-  fetchBirthdayRemindersSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        birthday_reminders: {
-          ...state.birthday_reminders,
-          [id]: newListData,
-        },
-      };
-    });
-  },
+    authorizeOrRejectEventParticipationRequestSuccess(id, accountId) {
+      setScoped((state) => {
+        const list = state.event_participation_requests[id];
+        if (!list) return;
 
-  fetchFamiliarFollowersSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        familiar_followers: {
-          ...state.familiar_followers,
-          [id]: newListData,
-        },
-      };
-    });
-  },
-
-  fetchEventParticipationsSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        event_participations: {
-          ...state.event_participations,
-          [id]: newListData,
-        },
-      };
-    });
-  },
-
-  expandEventParticipationsSuccess(id, accounts, next) {
-    set((state) => {
-      const currentList = state.event_participations[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = accounts.map((item) => item.id);
-
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        event_participations: {
-          ...state.event_participations,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
-
-  fetchEventParticipationRequestsSuccess(id, participations, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(
-          participations.map(({ account, participation_message }) =>
-            ParticipationRequestRecord({
-              account: account.id,
-              participation_message: participation_message,
-            }),
-          ),
-        ),
-      };
-      return {
-        event_participation_requests: {
-          ...state.event_participation_requests,
-          [id]: ParticipationRequestListRecord(newListData),
-        },
-      };
-    });
-  },
-
-  expandEventParticipationRequestsSuccess(id, participations, next) {
-    set((state) => {
-      const currentList = state.event_participation_requests[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = participations.map(
-        ({ account, participation_message }) =>
-          ParticipationRequestRecord({
-            account: account.id,
-            participation_message: participation_message,
-          }),
-      );
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        event_participation_requests: {
-          ...state.event_participation_requests,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
-
-  authorizeOrRejectEventParticipationRequestSuccess(id, accountId) {
-    set((state) => {
-      const currentList = state.event_participation_requests[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedItemsSet = new Set([...Array.from(currentList.items)]);
-      updatedItemsSet.forEach((item) => {
-        if (item.account === accountId) {
-          updatedItemsSet.delete(item);
+        // Immer allows direct iteration and deletion on the Set draft
+        for (const item of list.items) {
+          if (item.account === accountId) {
+            list.items.delete(item);
+          }
         }
       });
-      const updatedListObject = {
-        ...currentList,
-        items: updatedItemsSet,
-      };
-      return {
-        event_participation_requests: {
-          ...state.event_participation_requests,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
+    },
 
-  fetchGroupMembershipRequestsSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        membership_requests: {
-          ...state.membership_requests,
-          [id]: newListData,
-        },
-      };
-    });
-  },
+    /* --- Membership Requests --- */
+    fetchGroupMembershipRequestsSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'membership_requests', id, accs, next)),
 
-  expandGroupMembershipRequestsSuccess(id, accounts, next) {
-    set((state) => {
-      const currentList = state.membership_requests[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = accounts.map((item) => item.id);
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        membership_requests: {
-          ...state.membership_requests,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
+    expandGroupMembershipRequestsSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'membership_requests', id, accs, next, true)),
 
-  fetchOrExpandGroupMembershipRequestsRequest(id) {
-    set((state) => {
-      const currentList = state.membership_requests[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedListObject = {
-        ...currentList,
-        isLoading: true,
-      };
-      return {
-        membership_requests: {
-          ...state.membership_requests,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
+    fetchOrExpandGroupMembershipRequestsRequest: (id) => 
+      setScoped(s => setNestedLoading(s, 'membership_requests', id, true)),
 
-  fetchOrExpandGroupMembershipRequestsFail(id) {
-    set((state) => {
-      const currentList = state.membership_requests[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedListObject = {
-        ...currentList,
-        isLoading: false,
-      };
-      return {
-        membership_requests: {
-          ...state.membership_requests,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
+    fetchOrExpandGroupMembershipRequestsFail: (id) => 
+      setScoped(s => setNestedLoading(s, 'membership_requests', id, false)),
 
-  authorizeOrRejectGroupMembershipRequestSuccess(groupId, accountId) {
-    set((state) => {
-      const currentList = state.membership_requests[groupId] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedItemsSet = new Set([...Array.from(currentList.items)]);
-      updatedItemsSet.delete(accountId);
-      const updatedListObject = {
-        ...currentList,
-        items: updatedItemsSet,
-      };
-      return {
-        membership_requests: {
-          ...state.membership_requests,
-          [groupId]: updatedListObject,
-        },
-      };
-    });
-  },
+    authorizeOrRejectGroupMembershipRequestSuccess(groupId, accountId) {
+      setScoped((state) => {
+        state.membership_requests[groupId]?.items?.delete(accountId);
+      });
+    },
 
-  fetchGroupBlocksSuccess(id, accounts, next) {
-    set((state) => {
-      const newListData = {
-        next: next !== undefined ? next : null,
-        items: new Set(accounts.map((item) => item.id)),
-      };
-      return {
-        group_blocks: {
-          ...state.group_blocks,
-          [id]: newListData,
-        },
-      };
-    });
-  },
+    /* --- Group Blocks --- */
+    fetchGroupBlocksSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'group_blocks', id, accs, next)),
 
-  expandGroupBlocksSuccess(id, accounts, next) {
-    set((state) => {
-      const currentList = state.group_blocks[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const newItemsToAdd = accounts.map((item) => item.id);
-      const updatedItemsSet = new Set([
-        ...Array.from(currentList.items),
-        ...newItemsToAdd,
-      ]);
-      const updatedListObject = {
-        ...currentList,
-        next: next,
-        isLoading: false,
-        items: updatedItemsSet,
-      };
-      return {
-        group_blocks: {
-          ...state.group_blocks,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
+    expandGroupBlocksSuccess: (id, accs, next) => 
+      setScoped(s => updateNestedList(s, 'group_blocks', id, accs, next, true)),
 
-  fetchOrExpandGroupBlocksRequest(id) {
-    set((state) => {
-      const currentList = state.group_blocks[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedListObject = {
-        ...currentList,
-        isLoading: true,
-      };
-      return {
-        group_blocks: {
-          ...state.group_blocks,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
+    fetchOrExpandGroupBlocksRequest: (id) => 
+      setScoped(s => setNestedLoading(s, 'group_blocks', id, true)),
 
-  fetchOrExpandGroupBlocksFail(id) {
-    set((state) => {
-      const currentList = state.group_blocks[id] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedListObject = {
-        ...currentList,
-        isLoading: false,
-      };
-      return {
-        group_blocks: {
-          ...state.group_blocks,
-          [id]: updatedListObject,
-        },
-      };
-    });
-  },
+    fetchOrExpandGroupBlocksFail: (id) => 
+      setScoped(s => setNestedLoading(s, 'group_blocks', id, false)),
 
-  unblockGroupSuccess(groupId, accountId) {
-    set((state) => {
-      const currentList = state.group_blocks[groupId] || {
-        items: new Set(),
-        isLoading: false,
-      };
-      const updatedItemsSet = new Set([...Array.from(currentList.items)]);
-      updatedItemsSet.delete(accountId);
-      const updatedListObject = {
-        ...currentList,
-        items: updatedItemsSet,
-      };
-      return {
-        group_blocks: {
-          ...state.group_blocks,
-          [groupId]: updatedListObject,
-        },
-      };
-    });
-  },
+    unblockGroupSuccess(groupId, accountId) {
+      setScoped((state) => {
+        state.group_blocks[groupId]?.items?.delete(accountId);
+      });
+    },
+
   });
 };
 

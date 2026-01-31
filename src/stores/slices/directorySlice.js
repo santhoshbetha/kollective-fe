@@ -3,43 +3,66 @@
 import { isLoggedIn } from "../../utils/auth";
 
 export function createDirectorySlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
   return {
     
     // Fetch directory with optional params (e.g., { q, limit, local })
+// Fetch directory with optional params (e.g., { q, limit, local })
     async fetchDirectory(params = {}) {
-      const root = rootGet();
-      root.userLists.fetchOrExpandDirectoryRequest();
+      const actions = getActions();
 
-      fetch(`/api/v1/directory?${new URLSearchParams(params)}`, { //TODO: check later
-        method: 'GET',
-      })
-        .then(async (res) => {
-          if (!res.ok) throw new Error(`Failed to fetch directory (${res.status})`);
-          const data = await res.json(); 
-            root.importer?.importFetchedAccounts?.(data);   
-            root.userLists.fetchDirectorySuccess(data);
-            root.accounts.fetchRelationships(data.map((a) => a.id));
-        }).catch((err) => {
-          root.userLists.fetchOrExpandDirectoryFail();
-        });
+      // 1. Trigger loading state in UserLists
+      actions.fetchOrExpandDirectoryRequest?.();
+
+      try {
+        const query = new URLSearchParams(params).toString();
+        const res = await fetch(`/api/v1/directory?${query}`, { method: 'GET' });
+
+        if (!res.ok) throw new Error(`Failed to fetch directory (${res.status})`);
+        
+        const data = await res.json();
+
+        // 2. Import accounts into the global dictionary
+        actions.importFetchedAccounts?.(data);
+        
+        // 3. Update the directory list state
+        actions.fetchDirectorySuccess?.(data);
+
+        // 4. Prefetch relationships for the fetched accounts
+        if (Array.isArray(data) && data.length > 0) {
+          await actions.fetchRelationships?.(data.map((a) => a.id));
+        }
+      } catch (err) {
+        console.error('directorySlice.fetchDirectory failed', err);
+        actions.fetchOrExpandDirectoryFail?.();
+      }
     },
 
-    async expandDirectory(params) {
-        const root = rootGet();
-        root.userLists.fetchOrExpandDirectoryRequest();
+    async expandDirectory(params = {}) {
+      const actions = getActions();
 
-        fetch(`/api/v1/directory?${new URLSearchParams(params)}`, { //TODO: check later     
-            method: 'GET',
-        })
-        .then(async (res) => {
-          if (!res.ok) throw new Error(`Failed to expand directory (${res.status})`);
-          const data = await res.json();
-            root.importer?.importFetchedAccounts?.(data);
-            root.userLists.expandDirectorySuccess(data);
-            root.accounts.fetchRelationships(data.map((a) => a.id));
-        }).catch((err) => {
-          root.userLists.fetchOrExpandDirectoryFail();
-        });
+      actions.fetchOrExpandDirectoryRequest?.();
+
+      try {
+        const query = new URLSearchParams(params).toString();
+        const res = await fetch(`/api/v1/directory?${query}`, { method: 'GET' });
+
+        if (!res.ok) throw new Error(`Failed to expand directory (${res.status})`);
+        
+        const data = await res.json();
+
+        actions.importFetchedAccounts?.(data);
+        
+        // Use the 'expand' specific success handler to append items
+        actions.expandDirectorySuccess?.(data);
+
+        if (Array.isArray(data) && data.length > 0) {
+          await actions.fetchRelationships?.(data.map((a) => a.id));
+        }
+      } catch (err) {
+        console.error('directorySlice.expandDirectory failed', err);
+        actions.fetchOrExpandDirectoryFail?.();
+      }
     },
   };
 }

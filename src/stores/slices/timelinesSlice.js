@@ -1,8 +1,6 @@
 // Simple sample implementation (pick random element from array)
 import { normalizeStatus } from "../../normalizers/status.js";
 import { shouldFilter } from "../../utils/timelines.js";
-import { getIn } from "../../utils/immutableSafe.js";
-import { get } from "lodash";
 
 const sample = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -320,11 +318,11 @@ export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => 
       });
     },
 
-    deleteStatusFromTimelines(statusId, accountId, references, excludeAccount) {
+    deleteStatusFromTimelines(statusId, references, excludeAccount) {
       setScoped((state) => {
         performDelete(state, statusId, references, excludeAccount);
 
-        getActions().deleteStatus(statusId, references);
+        getActions().deleteStatusFromStatuses(statusId, references);
         getActions().deleteStatusesFromContext([statusId]);
         getActions().deleteStatusFromNotifications(statusId);
       });
@@ -405,24 +403,23 @@ export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => 
     },
 
     processTimelineUpdate(timelineId, status) {
-      const root = rootGet();
-      const me = root.me;
+      const me = rootGet().me;
       
       // 1. Check if it's our own status and we have pending work
       const ownStatus = status.account?.id === me;
       // .size > 0 replaces .isEmpty() for standard JS Sets/Maps or .length for Arrays
-      const hasPendingStatuses = root.pending_statuses?.length > 0;
+      const hasPendingStatuses = rootGet().pending_statuses?.length > 0;
 
       if (ownStatus && hasPendingStatuses) {
         return;
       }
 
       // 2. Get Settings (assuming they are in a root 'settings' slice)
-      const columnSettings = root.settings?.[timelineId] || {};
+      const columnSettings = rootGet().settings?.[timelineId] || {};
       
       // 3. Filtering logic
       // Note: We use the status directly as it's now a standard JS object
-      const shouldSkipQueue = !shouldFilter(status, columnSettings);
+      const shouldSkipQueue = !shouldFilter(normalizeStatus(status), columnSettings);
 
       // 4. Import the status into the global 'statuses' slice
       getActions().importFetchedStatus(status);
@@ -471,21 +468,18 @@ export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => 
     },
 
     deleteFromTimelines(id) {
-      const root = rootGet();
-      const status = root.statuses[id];
+      const status = rootGet().statuses[id];
       if (!status) return;
-
-      const accountId = status.account?.id;
       
       // Find references (reblogs) using standard JS array methods
       // Replaces Immutable .filter().map()
-      const references = Object.values(root.statuses)
+      const references = Object.values(rootGet().statuses)
         .filter(s => s.reblog === id)
         .map(s => [s.id, s.account?.id]);
 
-      const reblogOf = root.statuses[id]?.reblog || null;
+      const reblogOf = rootGet().statuses[id]?.reblog || null;
 
-      getActions().deleteStatusFromTimelines(id, accountId, references, reblogOf);
+      getActions().deleteStatusFromTimelines(id, references, reblogOf); //TIMELINE_DELETE action
     },
 
     clearTimelineAction(timelineId) { 
@@ -498,75 +492,74 @@ export const createTimelinesSlice = (setScoped, getScoped, rootSet, rootGet) => 
     },
 
     async expandTimeline(timelineId, path, params = {}, done = () => {}) {
-        const root = rootGet();
-        const timeline = root.timelines[timelineId];
-        const isLoadingMore = !!params.max_id;
+      const timeline = rootGet().timelines[timelineId];
+      const isLoadingMore = !!params.max_id;
 
-        // 1. Guard against double-loading
-        if (timeline?.isLoading) {
-          done();
-          return;
-        }
+      // 1. Guard against double-loading
+      if (timeline?.isLoading) {
+        done();
+        return;
+      }
 
-        // 2. Pagination Logic
-        // If we aren't loading more/pinned/recent, try to fetch since the last known ID
-        if (!params.max_id && 
-            !params.pinned && 
-            timeline?.items?.length > 0 && 
-            !path.includes('max_id=')) 
-        {
-          params.since_id = timeline.items[0];
-        }
+      // 2. Pagination Logic
+      // If we aren't loading more/pinned/recent, try to fetch since the last known ID
+      if (!params.max_id && 
+          !params.pinned && 
+          timeline?.items?.length > 0 && 
+          !path.includes('max_id=')) 
+      {
+        params.since_id = timeline.items[0];
+      }
 
-        const isLoadingRecent = !!params.since_id;
+      const isLoadingRecent = !!params.since_id;
 
-        // 3. Trigger Request Action
-        getActions().expandTimelineRequest(timelineId, isLoadingMore);
+      // 3. Trigger Request Action
+      getActions().expandTimelineRequest(timelineId, isLoadingMore);
 
-        try {
-          // Construct URL
-          const query = new URLSearchParams(params).toString();
-          const url = query ? `${path}?${query}` : path;
+      try {
+        // Construct URL
+        const query = new URLSearchParams(params).toString();
+        const url = query ? `${path}?${query}` : path;
 
-          const res = await fetch(url, { method: "GET" });
+        const res = await fetch(url, { method: "GET" });
+        
+        if (!res.ok) throw new Error(`Failed to expand timeline (${res.status})`);
+
+        // Assume res.pagination() is a custom helper provided by your API wrapper
+        const { next, prev } = res.pagination ? res.pagination() : {};
+        const data = await res.json();
+
+        // 4. Import Data into root slices
+        getActions().importFetchedStatuses?.(data || []);
+        
+        // Handle Group Relationships if applicable
+        const groupIds = (data || [])
+          .filter(status => !!status.group)
+          .map(status => status.group.id);
           
-          if (!res.ok) throw new Error(`Failed to expand timeline (${res.status})`);
-
-          // Assume res.pagination() is a custom helper provided by your API wrapper
-          const { next, prev } = res.pagination ? res.pagination() : {};
-          const data = await res.json();
-
-          // 4. Import Data into root slices
-          getActions().importFetchedStatuses?.(data || []);
-          
-          // Handle Group Relationships if applicable
-          const groupIds = (data || [])
-            .filter(status => !!status.group)
-            .map(status => status.group.id);
-            
-          if (groupIds.length > 0) {
-            getActions().groupsfetchGroupRelationships?.(groupIds);
-          }
-
-          // 5. Success Action
-          getActions().expandTimelineSuccess(
-            timelineId,
-            data || [],
-            next,
-            prev,
-            res.status === 206, // isPartial if status is 206
-            isLoadingRecent,
-            isLoadingMore,
-          );
-
-          done();
-          return data;
-        } catch (error) {
-          // 6. Fail Action
-          getActions().expandTimelineFail(timelineId, error, isLoadingMore);
-          console.error("timelinesSlice.expandTimeline failed", error);
-          done();
+        if (groupIds.length > 0) {
+          getActions().groupsfetchGroupRelationships?.(groupIds);
         }
+
+        // 5. Success Action
+        getActions().expandTimelineSuccess(
+          timelineId,
+          data || [],
+          next,
+          prev,
+          res.status === 206, // isPartial if status is 206
+          isLoadingRecent,
+          isLoadingMore,
+        );
+
+        done();
+        return data;
+      } catch (error) {
+        // 6. Fail Action
+        getActions().expandTimelineFail(timelineId, error, isLoadingMore);
+        console.error("timelinesSlice.expandTimeline failed", error);
+        done();
+      }
     },
 
     expandFollowsTimeline({ url, maxId } = {}, done = () => {}) {

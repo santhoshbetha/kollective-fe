@@ -1,46 +1,47 @@
 // contextsSlice.js
 // Simple slice to store and manage "contexts" (e.g., conversation contexts, threads, scenes)
 
-const initialState = {
-  // Map childId -> parentId
-  inReplyTos: {},
-  // Map parentId -> Set(childId)
-  replies: {},
-};
+// --- Initial State Factory ---
+const getInitialState = () => ({
+  inReplyTos: {}, // childId -> parentId
+  replies: {},    // parentId -> Set(childId)
+});
 
 import { asArray } from "../../utils/immutableSafe";
 
 const deletePendingStatus = (state, params, idempotencyKey) => {
-  const id = `末pending-${idempotencyKey}`;
-  const inReplyToId = params && params.in_reply_to_id;
+  const pendingId = `末pending-${idempotencyKey}`;
+  const inReplyToId = params?.in_reply_to_id;
 
-  // remove mapping for the pending id
-  if (state.inReplyTos && state.inReplyTos[id]) {
-    const parent = state.inReplyTos[id];
-    delete state.inReplyTos[id];
-    if (parent && state.replies[parent]) {
-      state.replies[parent].delete(id);
-      if (state.replies[parent].size === 0) delete state.replies[parent];
+  // Helper to remove an ID from a specific parent's set
+  const removeFromParent = (parentId, childId) => {
+    if (parentId && state.replies[parentId]) {
+      state.replies[parentId].delete(childId);
+      if (state.replies[parentId].size === 0) delete state.replies[parentId];
     }
+  };
+
+  // Remove the mapping for the pending ID
+  const parentOfPending = state.inReplyTos[pendingId];
+  if (parentOfPending) {
+    removeFromParent(parentOfPending, pendingId);
+    delete state.inReplyTos[pendingId];
   }
 
-  // also handle provided inReplyToId case
-  if (inReplyToId && state.replies[inReplyToId]) {
-    state.replies[inReplyToId].delete(id);
-    if (state.replies[inReplyToId].size === 0) delete state.replies[inReplyToId];
+  // Also handle provided inReplyToId case
+  if (inReplyToId) {
+    removeFromParent(inReplyToId, pendingId);
   }
 };
 
 /** Import a single status into the reducer, setting replies and replyTos. */
 const importStatusHelper = (state, status, idempotencyKey) => {
-  const id = status && (status.id || status.id === 0 ? status.id : null);
-  const inReplyToId = status && status.in_reply_to_id;
+  const id = status?.id;
+  const inReplyToId = status?.in_reply_to_id;
   if (!id || !inReplyToId) return;
 
-  // add to inReplyTos
   state.inReplyTos[id] = inReplyToId;
 
-  // add to replies set
   if (!state.replies[inReplyToId]) state.replies[inReplyToId] = new Set();
   state.replies[inReplyToId].add(id);
 
@@ -48,17 +49,17 @@ const importStatusHelper = (state, status, idempotencyKey) => {
 };
 
 /** Find the highest level status from this statusId. */
-const getRootNode = (state, statusId, initialId = statusId) => {
+const getRootNode = (state, statusId) => {
   let current = statusId;
   const seen = new Set();
-  while (true) {
-    if (seen.has(current)) return current; // cycle
+  while (current) {
+    if (seen.has(current)) return current; // cycle protection
     seen.add(current);
     const parent = state.inReplyTos[current];
     if (!parent) return current;
-    if (parent === initialId) return parent;
     current = parent;
   }
+  return current;
 };
 
 /** Insert a fake status ID connecting descendant to ancestor. */
@@ -67,6 +68,7 @@ const insertTombstone = (state, ancestorId, descendantId) => {
   importStatusHelper(state, { id: tombstoneId, in_reply_to_id: ancestorId });
   importStatusHelper(state, { id: descendantId, in_reply_to_id: tombstoneId });
 };
+
 
 /** Route fromId to toId by inserting tombstones. */
 const connectNodes = (state, fromId, toId) => {
@@ -79,16 +81,13 @@ const connectNodes = (state, fromId, toId) => {
 
 /** Import a branch of ancestors or descendants, in relation to statusId. */
 const importBranch = (state, statuses, statusId) => {
-  if (!statuses || !Array.isArray(statuses)) return;
+  if (!Array.isArray(statuses)) return;
   statuses.forEach((status, i) => {
-    const prevId = statusId && i === 0 ? statusId : (statuses[i - 1] || {}).id;
+    const prevId = statusId && i === 0 ? statusId : statuses[i - 1]?.id;
 
     if (status.in_reply_to_id) {
       importStatusHelper(state, status);
-
-      if (statusId) {
-        connectNodes(state, status.id, statusId);
-      }
+      if (statusId) connectNodes(state, status.id, statusId);
     } else if (prevId) {
       insertTombstone(state, prevId, status.id);
     }
@@ -96,53 +95,33 @@ const importBranch = (state, statuses, statusId) => {
 };
 
 export const createContextsSlice = (setScoped, getScoped, rootSet, rootGet) => {
-  const set = setScoped;
 
   return {
-    ...initialState,
+    ...getInitialState(),
 
     blockOrMuteAccountSuccess(relationship, statuses) {
-      set((state) => {
-        const arr = asArray(statuses);
+      setScoped((state) => {
+        const statusList = Array.isArray(statuses) ? statuses : [];
+        
+        const ownedStatusIds = statusList
+          .filter(s => s?.account?.id === relationship.id)
+          .map(s => s.id)
+          .filter(id => id != null);
 
-        const ownedStatusIds = arr
-          .filter((status) => status && status.account && status.account.id === relationship.id)
-          .map((status) => (status && (status.id ?? null)))
-          .filter((id) => id !== null && id !== undefined);
-
-        ownedStatusIds.forEach((id) => {
-          // 1. Delete from its parent's tree
-          const parentId = state.inReplyTos[id];
-
-          if (parentId && state.replies[parentId]) {
-            state.replies[parentId].delete(id);
-            if (state.replies[parentId].size === 0) delete state.replies[parentId];
-          }
-
-          // 2. Dereference children
-          const replies = state.replies[id];
-          if (replies) {
-            replies.forEach((replyId) => {
-              // Delete the 'inReplyTo' reference for each child
-              delete state.inReplyTos[replyId];
-            });
-          }
-
-          // 3. Delete the primary entries for the ID
-          delete state.inReplyTos[id];
-          delete state.replies[id];
-        });
+        // Reuse the deletion logic
+        getScoped().deleteStatusesFromContext(ownedStatusIds);
       });
     },
 
     fetchContextSuccess(id, ancestors, descendants) {
-      set((state) => {
-        const anc = asArray(ancestors);
-        const desc = asArray(descendants);
+      setScoped((state) => {
+        const anc = Array.isArray(ancestors) ? ancestors : [];
+        const desc = Array.isArray(descendants) ? descendants : [];
 
         importBranch(state, anc);
         importBranch(state, desc, id);
 
+        // Connect gap between the last ancestor and the current status
         if (anc.length > 0 && !state.inReplyTos[id]) {
           insertTombstone(state, anc[anc.length - 1].id, id);
         }
@@ -150,10 +129,11 @@ export const createContextsSlice = (setScoped, getScoped, rootSet, rootGet) => {
     },
 
     deleteStatusesFromContext(idsArray) {
-      set((state) => {
-        const ids = asArray(idsArray);
+      setScoped((state) => {
+        const ids = Array.isArray(idsArray) ? idsArray : [idsArray];
+        
         ids.forEach((id) => {
-          // 1. Delete from its parent's tree
+          // 1. Remove from parent's reply set
           const parentId = state.inReplyTos[id];
           if (parentId && state.replies[parentId]) {
             state.replies[parentId].delete(id);
@@ -161,15 +141,14 @@ export const createContextsSlice = (setScoped, getScoped, rootSet, rootGet) => {
           }
 
           // 2. Dereference children
-          const replies = state.replies[id];
-          if (replies) {
-            replies.forEach((replyId) => {
-              // Delete the 'inReplyTo' reference for each child
-              delete state.inReplyTos[replyId];
+          const children = state.replies[id];
+          if (children) {
+            children.forEach(childId => {
+              delete state.inReplyTos[childId];
             });
           }
 
-          // 3. Delete the primary entries for the ID
+          // 3. Cleanup primary entries
           delete state.inReplyTos[id];
           delete state.replies[id];
         });
@@ -177,43 +156,36 @@ export const createContextsSlice = (setScoped, getScoped, rootSet, rootGet) => {
     },
 
     createContextStatusRequest(params, idempotencyKey) {
-      set((state) => {
-        // create a pending status mapping
+      setScoped((state) => {
         const id = `末pending-${idempotencyKey}`;
-        const inReplyToId = params && params.in_reply_to_id;
-        if (!inReplyToId) {
-          return state;
-        }
+        const inReplyToId = params?.in_reply_to_id;
+        if (!inReplyToId) return;
 
-        // add to inReplyTos
         state.inReplyTos[id] = inReplyToId;
-
-        // add to replies set
-        if (!state.replies[inReplyToId]) {
-          state.replies[inReplyToId] = new Set();
-        }
+        if (!state.replies[inReplyToId]) state.replies[inReplyToId] = new Set();
         state.replies[inReplyToId].add(id);
       });
     },
 
     createContextStatusSuccess(status, idempotencyKey) {
-      set((state) => {
-            deletePendingStatus(state, status, idempotencyKey);
-        });     
+      setScoped((state) => {
+        deletePendingStatus(state, status, idempotencyKey);
+      });     
     },
 
-    importStatus(status, idempotencyKey) {
-      set((state) => {
-            importStatusHelper(state, status, idempotencyKey);
-        });
-    },
-
-    importStatuses(statuses) {
-      set((state) => {
-        asArray(statuses).forEach((status) => importStatusHelper(state, status));
+    importContextStatus(status, idempotencyKey) {
+      setScoped((state) => {
+        importStatusHelper(state, status, idempotencyKey);
       });
     },
-   };
+
+    importContextStatuses(statuses) {
+      setScoped((state) => {
+        const list = Array.isArray(statuses) ? statuses : [];
+        list.forEach((s) => importStatusHelper(state, s));
+      });
+    },
+  };
 };
 
 export default createContextsSlice;

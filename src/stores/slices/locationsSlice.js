@@ -8,9 +8,11 @@ export const createLocationsSlice = (
   rootGet,
 ) => {
   return {
+    // Immer allows direct mutation of the state draft
     locationSearchSuccess(locations) {
       setScoped((state) => {
         locations.forEach((location) => {
+          // Using origin_id as the unique key per your requirement
           state[location.origin_id] = normalizeLocation(location);
         });
       });

@@ -1,37 +1,47 @@
 export function createStatusHoverCardSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
-  // get not needed
+  // Helper to access root store actions
+  const getActions = () => rootGet();
+
   return {
+    // --- Initial State ---
     ref: null,
     statusId: "",
     hovered: false,
 
+    // --- Actions ---
+
     openStatusHoverCard(ref, statusId) {
-      set((state) => {
+      setScoped((state) => {
         state.ref = ref;
         state.statusId = statusId;
+        state.hovered = false; // Reset hover state when moving to a new card
       });
     },
 
     updateStatusHoverCard() {
-      set((state) => {
+      setScoped((state) => {
         state.hovered = true;
       });
     },
 
     closeStatusHoverCard(force) {
-      set((state) => {
-        if (state.hovered && !force) {
-          return state;
-        } else {
-          return {
-            ref: null,
-            statusId: "",
-            hovered: false,
-          };
-        }
+      setScoped((state) => {
+        // If the card is currently being hovered and closure isn't forced, do nothing
+        if (state.hovered && !force) return;
+
+        state.ref = null;
+        state.statusId = "";
+        state.hovered = false;
       });
     },
+
+    /**
+     * Action wrapper to ensure stable references for UI components
+     */
+    closeStatusHoverCardAction(force = false) {
+      const actions = getActions();
+      actions.statusHoverCard.closeStatusHoverCard(force);
+    }
   };
 }
 

@@ -1,175 +1,122 @@
 import { getFeatures } from "../../utils/features";
 
-const ScheduledStatusRecord = {
-  id: "",
-  scheduled_at: new Date(),
-  media_attachments: null,
-  text: "",
-  in_reply_to_id: null,
-  media_ids: null,
-  sensitive: false,
-  spoiler_text: "",
-  visibility: "public",
-  poll: null,
-};
+// Helper to map raw data to the status record shape
+const mapToRecord = (data) => ({
+  id: data.id || "",
+  scheduled_at: data.scheduled_at ? new Date(data.scheduled_at) : new Date(),
+  media_attachments: data.media_attachments || null,
+  text: data.text || "",
+  in_reply_to_id: data.in_reply_to_id || null,
+  media_ids: data.media_ids || null,
+  sensitive: !!data.sensitive,
+  spoiler_text: data.spoiler_text || "",
+  visibility: data.visibility || "public",
+  poll: data.poll || null,
+});
 
 export const createScheduledStatusesSlice = (
   setScoped,
   getScoped,
   rootSet,
   rootGet,
-) => ({
-  importStatus(status) {
-    setScoped((state) => {
-      if (!status.scheduled_at) return;
-      if (status && status.id) {
-        state[status.id] = ScheduledStatusRecord(status);
-      }
-    });
-  },
+) => {
+  const getActions = () => rootGet();
 
-  createStatusSuccess(status) {
+  // Internal helper for batch updating state
+  const updateRecords = (data) => {
+    const items = Array.isArray(data) ? data : [data];
     setScoped((state) => {
-      if (!status.scheduled_at) return;
-      if (status && status.id) {
-        state[status.id] = ScheduledStatusRecord(status);
-      }
-    });
-  },
-
-  importStatuses(statuses) {
-    setScoped((state) => {
-      (statuses || []).forEach((status) => {
-        if (!status.scheduled_at) return;
-        if (status && status.id) {
-          state[status.id] = ScheduledStatusRecord(status);
+      items.forEach((item) => {
+        if (item?.id && item.scheduled_at) {
+          state[item.id] = mapToRecord(item);
         }
       });
     });
-  },
+  };
 
-  fetchScheduledStatuses(statuses) {
-    setScoped((state) => {
-      (statuses || []).forEach((status) => {
-        if (!status.scheduled_at) return;
-        if (status && status.id) {
-          state[status.id] = ScheduledStatusRecord(status);
-        }
+  return {
+    importScheduledStatus: updateRecords,
+    createScheduledStatusSuccess: updateRecords,
+    importScheduledStatuses: updateRecords,
+    fetchScheduledStatuses: updateRecords,
+
+    cancelScheduledStatusRequest(id) {
+      setScoped((state) => {
+        if (id) delete state[id];
       });
-    });
-  },
+    },
 
-  cancelScheduledStatusRequest(status) {
-    setScoped((state) => {
-      if (status && status.id) {
-        delete state[status.id];
+    cancelScheduledStatusSuccess(id) {
+      setScoped((state) => {
+        if (id) delete state[id];
+      });
+    },
+
+    async fetchScheduledStatusesAction() {
+      const actions = getActions();
+      const listState = actions.statusLists?.scheduled_statuses;
+
+      if (listState?.isLoading || !getFeatures().scheduledStatuses) return;
+
+      actions.fetchOrExpandScheduledStatusesRequest();
+
+      try {
+        const res = await fetch(`/api/v1/scheduled_statuses`);
+        if (!res.ok) throw new Error("Failed to fetch");
+        
+        const data = await res.json();
+        // Handle custom .next() or Link headers as per your API
+        const next = typeof res.next === 'function' ? res.next() : null;
+
+        actions.fetchScheduledStatuses(data);
+        actions.fetchScheduledStatusesSuccess(data, next);
+      } catch (error) {
+        actions.fetchOrExpandScheduledStatusesFail();
+        console.error(error);
       }
-    });
-  },
+    },
 
-  cancelScheduledStatusSuccess(status) {
-    setScoped((state) => {
-      if (status && status.id) {
-        delete state[status.id];
+     async cancelScheduledStatus(id) {
+      const actions = getActions();
+      
+      // Optimistic UI update
+      actions.cancelScheduledStatusRequest(id);
+      actions.cancelScheduledStatusesRequestOrSuccess(id);
+
+      try {
+        const res = await fetch(`/api/v1/scheduled_statuses/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to cancel");
+
+        actions.cancelScheduledStatusSuccess(id);
+      } catch (error) {
+        actions.fetchOrExpandScheduledStatusesFail(id);
+        console.error(error);
       }
-    });
-  },
-
-  async fetchScheduledStatusesAction() {
-    const root = rootGet();
-
-    if (root.statusLists['scheduled_statuses']?.isLoading) {
-      return;
-    }
-
-    const features = getFeatures();
-
-    if (!features.scheduledStatuses) return;
-
-    root.statusLists.fetchOrExpandScheduledStatusesRequest();
-
-    try {
-      const res = await fetch(`/api/v1/scheduled_statuses`, {
-        method: "GET",
-        headers: {  
-          "Content-Type": "application/json",
-        },
-      });
-
-      res.then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Failed to fetch scheduled statuses");
-        }
-        const data = await response.json();
-        const next = response.next();
-        this.fetchScheduledStatuses(data);
-        root.statusLists.fetchScheduledStatusesSuccess(data, next);
-      });
-    } catch (error) {
-      root.statusLists.fetchOrExpandScheduledStatusesFail();
-      console.error("Error fetching scheduled statuses:", error); 
-    }
-  },
-
-  async cancelScheduledStatus(id) {
-    const root = rootGet();
-    this.cancelScheduledStatusRequest(id);
-    root.statusLists.cancelScheduledStatusesRequestOrSuccess(id);
-
-    try {
-       const res = await fetch(`/api/v1/scheduled_statuses/${id}`, {
-        method: "DELETE",
-        headers: {  
-          "Content-Type": "application/json",
-        },
-      });
-
-      res.then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Failed to cancel scheduled status");
-        }
-        const data = await response.json();
-        this.cancelScheduledStatusSuccess(data);
-        root.statusLists.cancelScheduledStatusesRequestOrSuccess(id);
-      });
-    } catch (error) {
-      root.statusLists.fetchOrExpandScheduledStatusesFail(id);
-      console.error("Error cancelling scheduled status:", error); 
-    }
-  },
+    },
   
-  async expandScheduledStatuses() {
-    const root = rootGet();
-    const url = root.statusLists['scheduled_statuses']?.next || null;
+    async expandScheduledStatuses() {
+      const actions = getActions();
+      const listState = actions.statusLists?.scheduled_statuses;
+      const url = listState?.next;
 
-    if (url === null || root.statusLists['scheduled_statuses']?.isLoading) {
-      return;
-    }
+      if (!url || listState?.isLoading) return;
 
-    root.statusLists.fetchOrExpandScheduledStatusesRequest();
+      actions.fetchOrExpandScheduledStatusesRequest();
 
-    try {
-      const res = await fetch(url, {
-        method: "GET",
-        headers: {  
-          "Content-Type": "application/json",
-        },
-      });
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to expand");
 
-      res.then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Failed to expand scheduled statuses");
-        }
-        const data = await response.json();
-        const next = response.next();
-        this.fetchScheduledStatuses(data);
-        root.statusLists.expandScheduledStatusesSuccess(data, next);
-      });
-    } catch (error) {
-      root.statusLists.fetchOrExpandScheduledStatusesFail();
-      console.error("Error expanding scheduled statuses:", error); 
-    } 
-  },
+        const data = await res.json();
+        const next = typeof res.next === 'function' ? res.next() : null;
+
+        actions.fetchScheduledStatuses(data);
+        actions.expandScheduledStatusesSuccess(data, next);
+      } catch (error) {
+        actions.fetchOrExpandScheduledStatusesFail();
+        console.error(error);
+      }
+    },
 
   
-});
+}};

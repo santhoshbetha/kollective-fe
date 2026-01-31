@@ -8,80 +8,96 @@ import { getFeatures } from "../../utils/features";
 import { isLoggedIn } from "../../utils/auth";
 
 export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
   return {
 
     async createAccount(params) {
-      return fetch('/api/v1/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params || {}),
-      })
-      .then((res) => {
+      try {
+        const res = await fetch('/api/v1/accounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params || {}),
+        });
+
         if (!res.ok) throw new Error(`Failed to create account (${res.status})`);
-        return res.json();
-      })
-      .catch((err) => {
+        
+        return await res.json();
+      } catch (err) {
         console.error('accountsSlice.createAccount failed', err);
         return null;
-      }); 
+      }
     },
 
     async fetchRelationships(accountIds) {
-      if (!Array.isArray(accountIds) || accountIds.length === 0) return {};
+      if (!Array.isArray(accountIds) || accountIds.length === 0) return [];
 
       const results = [];
-
-      const chunkArray = (arr, size) => {
-        const out = [];
-        for (let i = 0; i < arr.length; i += size) {
-          out.push(arr.slice(i, i + size));
-        }
-        return out;
-      };
+      const CHUNK_SIZE = 20;
 
       try {
-        for (const ids of chunkArray(accountIds, 20)) {
+        // Chunking loop using standard JS
+        for (let i = 0; i < accountIds.length; i += CHUNK_SIZE) {
+          const chunk = accountIds.slice(i, i + CHUNK_SIZE);
+          
           const params = new URLSearchParams();
-          ids.forEach((id) => params.append('id', id));
+          chunk.forEach((id) => params.append('id', id));
+
           const response = await fetch(`/api/v1/accounts/relationships?${params.toString()}`);
+          
           if (!response.ok) {
             throw new Error(`Failed to fetch relationships (${response.status})`);
           }
+
           const json = await response.json();
           const data = relationshipSchema.array().parse(json || []);
-          results.push(...data);
+          results.push(...(data || []));
         }
 
-        // Store relationships via relationships slice action
-        const root = rootGet();
-        if (root?.relationships && typeof root.relationships.fetchRelationshipsSuccess === 'function') {
-          root.relationships.fetchRelationshipsSuccess(results);
+        // --- Cross-Slice Communication ---
+        // Since you are spreading actions to the root, call the success action directly
+        const actions = getActions();
+        if (typeof actions.fetchRelationshipsSuccess === 'function') {
+          actions.fetchRelationshipsSuccess(results);
         }
 
         return results;
       } catch (err) {
         console.error('accountsSlice.fetchRelationships failed', err);
-        return {};
+        return []; // Return empty array on failure for consistency
       }
     },
 
     // Fetch an account from the API and store it under `state.accounts[id]`.
     async fetchAccount(id) {
       if (!id) return null;
-      this.fetchRelationships([id]); // prefetch relationship
-      const account = selectAccount(rootGet(), id);
+
+      // 1. Prefetch relationships using the uniquely named root action
+      await getActions().fetchRelationships([id]);
+
+      // 2. Check if the account already exists in state
+      // (Using the selector we discussed earlier)
+      const state = rootGet();
+      const account = selectAccount(state, id);
+      
       if (account) {
-        return Promise.resolve(account);
+        return account; // Async functions wrap return values in a Promise automatically
       }
-      const root = rootGet();
 
       try {
         const res = await fetch(`/api/v1/accounts/${id}`);
         if (!res.ok) throw new Error(`Failed to fetch account (${res.status})`);
+        
         const data = await res.json();
-        root.importer.importFetchedAccount(data);
-        // Populate lightweight per-account metadata for other flows
-        root.accountsMeta?.mergeAccountMetaFromAccount?.(data);
+
+        // 3. Coordinate with other slices via root actions
+        const actions = getActions();
+        
+        // Import the account data into the main dictionary
+        actions.importFetchedAccount?.(data);
+        
+        // Populate lightweight per-account metadata if the action exists
+        actions.mergeAccountMetaFromAccount?.(data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.fetchAccount failed', err);
@@ -90,58 +106,92 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async accountSearch(params, signal) {
-      const res = await fetch(`/api/v1/accounts/search?${new URLSearchParams(params || {})}`, {
-        method: 'GET',
-        signal,
-      });
-      
-      if (!res.ok) throw new Error(`Failed to search accounts (${res.status})`); 
-      const accounts = await res.json();
-      const root = rootGet();
-      root.importer?.importFetchedAccounts?.(accounts);
-      // Merge metadata for each imported account so other slices can rely on it
-      if (Array.isArray(accounts)) {
-        accounts.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+      try {
+        const query = new URLSearchParams(params || {}).toString();
+        const res = await fetch(`/api/v1/accounts/search?${query}`, {
+          method: 'GET',
+          signal,
+        });
+
+        if (!res.ok) throw new Error(`Failed to search accounts (${res.status})`);
+        
+        const accounts = await res.json();
+        const actions = getActions();
+
+        // 1. Import accounts into the main statuses/accounts dictionary
+        actions.importFetchedAccounts?.(accounts);
+
+        // 2. Map through and merge metadata if the array is valid
+        if (Array.isArray(accounts)) {
+          accounts.forEach((account) => {
+            actions.mergeAccountMetaFromAccount?.(account);
+          });
+        }
+
+        return accounts;
+      } catch (err) {
+        // Handle AbortError specifically if using AbortController (signal)
+        if (err.name === 'AbortError') {
+          console.log('Account search aborted');
+        } else {
+          console.error('accountsSlice.accountSearch failed', err);
+          throw err; // Re-throw so the UI can handle the error state
+        }
       }
-      return accounts;
     },
 
     async fetchAccountByUsername(username, history) {
       if (!username) return null;
-      const root = rootGet();
-      const me = root.auth?.me;
-      const features = getFeatures();
 
-      // Prefer direct account-by-username endpoint when available
+      const actions = getActions();
+      const state = rootGet();
+      const me = state.auth?.me;
+      const features = getFeatures(); // Assuming this is a global or imported util
+
+      // 1. Prefer direct account-by-username endpoint
       if (features.accountByUsername && (me || !features.accountLookup)) {
         try {
           const res = await fetch(`/api/v1/accounts/${username}`);
-          if (!res.ok) throw new Error(`Failed to fetch account by username (${res.status})`);
+
+          if (!res.ok) {
+            // Handle specific 401 Unauthorized for history redirect
+            if (res.status === 401 && history) {
+              history.push('/login');
+            }
+            throw new Error(`Failed to fetch account by username (${res.status})`);
+          }
+
           const data = await res.json();
-          await this.fetchRelationships([data.id]); // prefetch relationships
-          root.importer?.importFetchedAccount?.(data);
-          root.accountsMeta?.mergeAccountMetaFromAccount?.(data);
+
+          // Prefetch relationships and import data
+          await actions.fetchRelationships([data.id]);
+          actions.importFetchedAccount?.(data);
+          actions.mergeAccountMetaFromAccount?.(data);
+
           return data;
         } catch (err) {
           console.error('accountsSlice.fetchAccountByUsername failed', err);
-          if (history && err?.response?.status === 401) {
-            history.push('/login');
-          }
           return null;
         }
       }
 
-      // Fallback: search for the account and return the best match
+      // 2. Fallback: Search for the account
       try {
-        const accounts = await this.accountSearch({ q: username, limit: 5, resolve: true });
+        // Use the root action instead of 'this'
+        const accounts = await actions.accountSearch({ q: username, limit: 5, resolve: true });
+        
         const found = Array.isArray(accounts)
           ? accounts.find((a) => a.acct === username || a.username === username)
           : null;
+
         if (found) {
-          await this.fetchRelationships([found.id]); // prefetch relationships
-          root.accountsMeta?.mergeAccountMetaFromAccount?.(found);
+          await actions.fetchRelationships([found.id]);
+          // Import into core dictionary if search didn't already
+          actions.importFetchedAccount?.(found); 
+          actions.mergeAccountMetaFromAccount?.(found);
           return found;
         }
+
         return null;
       } catch (err) {
         console.error('accountsSlice.fetchAccountByUsername (search) failed', err);
@@ -150,25 +200,34 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async blockAccount(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Check Auth using your helper
+      if (!isLoggedIn(state)) return null;
 
       try {
         const res = await fetch(`/api/v1/accounts/${id}/block`, {
           method: 'POST',
         });
+
         if (!res.ok) throw new Error(`Failed to block account (${res.status})`);
-        const data = await res.json();
+        
+        const data = await res.json(); // The relationship object
 
-        // Import updated relationship/account info if importer/entities exist
-        root.entities?.importEntities?.([data], 'relationships');
+        // 2. Import updated relationship data
+        actions.importEntities?.([data], 'relationships');
 
-        // Notify other slices if they expose the expected handlers
-        root.contexts?.blockOrMuteAccountSuccess?.(data, root.statuses);
-        root.notifications?.blockAccountSuccess?.(data);
-        root.relationships?.blockOrUnBlockAccountSuccess?.(data);
-        root.suggestions?.blockOrMuteAccountSuccess?.(data);
-        root.timelines?.blockOrMuteAccountSuccess?.(data, root.statuses);
+        // 3. Notify other slices using the uniquely named root actions
+        // We pass rootGet().statuses directly where needed
+        const currentStatuses = rootGet().statuses;
+
+        actions.blockOrMuteAccountSuccess?.(data, currentStatuses);
+        actions.blockAccountSuccess?.(data);
+        actions.blockOrUnBlockAccountSuccess?.(data);
+        // Note: suggestions and timelines shared the same success handler name in your old code
+        // Ensure these are unique or called correctly via the spread root
+        actions.suggestionBlockOrMuteSuccess?.(data); 
 
         return data;
       } catch (err) {
@@ -178,207 +237,259 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async unblockAccount(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
 
       try {
         const res = await fetch(`/api/v1/accounts/${id}/unblock`, {
           method: 'POST',
         });
+
         if (!res.ok) throw new Error(`Failed to unblock account (${res.status})`);
-        const data = await res.json();
+        
+        const data = await res.json(); // The updated relationship object
 
-        // Import updated relationship/account info if importer/entities exist
-        root.entities?.importEntities?.([data], 'relationships');
+        // 2. Update relationship data in entities slice
+        actions.importEntities?.([data], 'relationships');
 
-        // Notify other slices if they expose the expected handlers
-        root.contexts?.unblockOrUnmuteAccountSuccess?.(data, root.statuses);
-        root.notifications?.unblockAccountSuccess?.(data);
-        root.relationships?.blockOrUnBlockAccountSuccess?.(data);
-        root.suggestions?.unblockOrUnmuteAccountSuccess?.(data);
-        root.timelines?.unblockOrUnmuteAccountSuccess?.(data, root.statuses);
+        // 3. Notify relevant slices using uniquely named actions
+        const currentStatuses = rootGet().statuses;
 
-        return data;  
+        // Contexts/Timeline unblocking logic
+        actions.unblockOrUnmuteAccountSuccess?.(data, currentStatuses);
+        
+        // Notifications unblock logic
+        actions.unblockAccountSuccess?.(data);
+        
+        // Relationships toggle logic (this one shared a name for block/unblock)
+        actions.blockOrUnBlockAccountSuccess?.(data);
+        
+        // Suggestions/Timelines specific unblock success
+        actions.suggestionUnblockSuccess?.(data);
+        actions.timelineUnblockSuccess?.(data);
+
+        return data;
       } catch (err) {
         console.error('accountsSlice.unblockAccount failed', err);
         return null;
       }
     },
 
-    muteAccount(id, notifications, duration = 0) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+    async muteAccount(id, notifications, duration = 0) {
+      const state = rootGet();
+      const actions = getActions();
 
-      const params = {
-        notifications,
-      };
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
 
+      // 2. Prepare request body
+      const bodyData = { notifications };
       if (duration) {
-       // params.duration = duration;
-        params.expires_in = duration; //TODO decide one later
+        bodyData.duration = duration;
+        bodyData.expires_in = duration; 
       }
 
-      return fetch(`/api/v1/accounts/${id}/mute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          params
-        }),
-      })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to mute account (${res.status})`);
-        return res.json();
-      })
-      .then((data) => {
-        // Import updated relationship/account info if importer/entities exist
-        root.entities?.importEntities?.([data], 'relationships');
+      try {
+        const res = await fetch(`/api/v1/accounts/${id}/mute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyData), // Passed directly, not nested
+        });
 
-        // Notify other slices if they expose the expected handlers
-        root.contexts?.blockOrMuteAccountSuccess?.(data, root.statuses);
-        root.notifications?.muteAccountSuccess?.(data);
-        root.relationships?.muteOrUnmuteAccountSuccess?.(data);
-        root.suggestions?.blockOrMuteAccountSuccess?.(data);
-        root.timelines?.blockOrMuteAccountSuccess?.(data, root.statuses);
+        if (!res.ok) throw new Error(`Failed to mute account (${res.status})`);
+        
+        const data = await res.json(); // The updated relationship object
+
+        // 3. Update state via root-level actions
+        actions.importEntities?.([data], 'relationships');
+
+        // 4. Trigger success handlers across slices
+        const currentStatuses = rootGet().statuses;
+
+        // Note: Using the unique names we discussed to avoid spread collisions
+        actions.timelineBlockOrMuteSuccess?.(data, currentStatuses);
+        actions.notificationMuteSuccess?.(data);
+        actions.relationshipMuteOrUnmuteSuccess?.(data);
+        actions.suggestionBlockOrMuteSuccess?.(data);
 
         return data;
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('accountsSlice.muteAccount failed', err);
         return null;
-      });
+      }
     },
 
-    unmuteAccount(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+    async unmuteAccount(id) {
+      const state = rootGet();
+      const actions = getActions();
 
-      return fetch(`/api/v1/accounts/${id}/unmute`, {
-        method: 'POST',
-      })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to unmute account (${res.status})`);       
-        return res.json();
-      })
-      .then((data) => {
-        // Import updated relationship/account info if importer/entities exist
-        root.entities?.importEntities?.([data], 'relationships');
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
 
-        // Notify other slices if they expose the expected handlers
-        root.contexts?.unblockOrUnmuteAccountSuccess?.(data, root.statuses);
-        root.notifications?.unmuteAccountSuccess?.(data);
-        root.relationships?.muteOrUnmuteAccountSuccess?.(data);
-        root.suggestions?.unblockOrUnmuteAccountSuccess?.(data);
-        root.timelines?.unblockOrUnmuteAccountSuccess?.(data, root.statuses);
+      try {
+        const res = await fetch(`/api/v1/accounts/${id}/unmute`, {
+          method: 'POST',
+        });
+
+        if (!res.ok) throw new Error(`Failed to unmute account (${res.status})`);
+        
+        const data = await res.json(); // The updated relationship object
+
+        // 2. Update state via root-level actions
+        actions.importEntities?.([data], 'relationships');
+
+        // 3. Trigger success handlers across slices
+        const currentStatuses = rootGet().statuses;
+
+        // Contexts/Timeline unmuting logic
+        // Use unique names to avoid spread collisions in useBoundStore
+        actions.unblockOrUnmuteAccountSuccess?.(data, currentStatuses);
+        actions.notificationUnmuteSuccess?.(data);
+        actions.relationshipMuteOrUnmuteSuccess?.(data);
+        
+        // Suggestions/Timelines specific unblock/unmute success
+        actions.suggestionUnmuteSuccess?.(data);
+        actions.timelineUnmuteSuccess?.(data, currentStatuses);
 
         return data;
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('accountsSlice.unmuteAccount failed', err);
         return null;
-      });
+      }
     },
 
-    subscribeAccount(id, notifications) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+    async subscribeAccount(id, notifications) {
+      const state = rootGet();
+      const actions = getActions();
 
-      return fetch(`/api/v1/accounts/${id}/subscribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          notifications
-        }),
-      })
-      .then((res) => {
+      // 1. Auth Guard using current state
+      if (!isLoggedIn(state)) return null;
+
+      try {
+        const res = await fetch(`/api/v1/accounts/${id}/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notifications }),
+        });
+
         if (!res.ok) throw new Error(`Failed to subscribe account (${res.status})`);
-        return res.json();
-      })
-      .then((data) => {
-        // Import updated relationship/account info if importer/entities exist
-        root.entities?.importEntities?.([data], 'relationships');
+        
+        const data = await res.json(); // Updated relationship object
 
-        // Notify other slices if they expose the expected handlers
-        root.relationships?.subscribeOrUnsubscribeAccountSuccess?.(data);   
+        // 2. Import updated relationship via root action
+        actions.importEntities?.([data], 'relationships');
+
+        // 3. Notify the relationships slice of success
+        actions.subscribeOrUnsubscribeAccountSuccess?.(data);
+
         return data;
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('accountsSlice.subscribeAccount failed', err);
         return null;
-      });
+      }
     },
 
-    unsubscribeAccount(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+    async unsubscribeAccount(id) {
+      const state = rootGet();
+      const actions = getActions();
 
-      return fetch(`/api/v1/accounts/${id}/unsubscribe`, {
-        method: 'POST',
-      })
-      .then((res) => {
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+
+      try {
+        const res = await fetch(`/api/v1/accounts/${id}/unsubscribe`, {
+          method: 'POST',
+        });
+
         if (!res.ok) throw new Error(`Failed to unsubscribe account (${res.status})`);
-        return res.json();
-      })
-      .then((data) => {
-        // Import updated relationship/account info if importer/entities exist
-        root.entities?.importEntities?.([data], 'relationships');
+        
+        const data = await res.json();
 
-        // Notify other slices if they expose the expected handlers
-        root.relationships?.subscribeOrUnsubscribeAccountSuccess?.(data);   
+        // 2. Update state via root-level actions
+        actions.importEntities?.([data], 'relationships');
+
+        // 3. Trigger success handler
+        actions.subscribeOrUnsubscribeAccountSuccess?.(data);
+
         return data;
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('accountsSlice.unsubscribeAccount failed', err);
         return null;
-      });
+      }
     },
 
-    removeFromFollowers(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+    async removeFromFollowers(id) {
+      const state = rootGet();
+      const actions = getActions();
 
-      return fetch(`/api/v1/accounts/${id}/remove_from_followers`, {
-        method: 'POST',
-      })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to remove from followers (${res.status})`);
-        return res.json();
-      })
-      .then((data) => {
-        // Import updated relationship/account info if importer/entities exist
-        root.entities?.importEntities?.([data], 'relationships');     
-        // Notify other slices if they expose the expected handlers 
-        root.relationships?.removeAccountFromFollowersSuccess?.(data);   
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+
+      try {
+        const res = await fetch(`/api/v1/accounts/${id}/remove_from_followers`, {
+          method: 'POST',
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to remove from followers (${res.status})`);
+        }
+        
+        const data = await res.json(); // The updated relationship object
+
+        // 2. Import updated relationship via root-level entities action
+        actions.importEntities?.([data], 'relationships');
+
+        // 3. Notify the relationships slice of success
+        actions.removeAccountFromFollowersSuccess?.(data);
+
         return data;
-      } )
-      .catch((err) => {
+      } catch (err) {
         console.error('accountsSlice.removeFromFollowers failed', err);
         return null;
-      });
+      }
     },
 
     async fetchFollowers(id) {
       if (!id) return [];
-      const root = rootGet();
+
+      const actions = getActions();
+
       try {
         const res = await fetch(`/api/v1/accounts/${id}/followers`, { method: 'GET' });
         if (!res.ok) throw new Error(`Failed to fetch followers (${res.status})`);
+        
         const data = await res.json();
 
-        // parse next from Link header
-        const link = res.headers.get('link') || res.headers.get('Link');
+        // 1. Improved Link Header parsing
+        const link = res.headers.get('Link');
         let next = null;
         if (link) {
-          const m = link.match(/<([^>]+)>\s*;\s*rel="?next"?/i);
-          if (m) next = m[1];
+          const match = link.match(/<([^>]+)>;\s*rel="next"/i);
+          next = match ? match[1] : null;
         }
-        if (!next && data && typeof data.next === 'string') next = data.next;
+        // Fallback to data.next if provided by JSON
+        if (!next && data?.next) next = data.next;
 
-        root.importer?.importFetchedAccounts?.(data);
+        // 2. Import accounts into the global dictionary
+        actions.importFetchedAccounts?.(data);
+
+        // 3. Merge metadata for each account
         if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+          data.forEach((acc) => actions.mergeAccountMetaFromAccount?.(acc));
         }
-        root.userLists?.fetchFollowersSuccess?.(id, data, next);
-        await this.fetchRelationships(data.map((acc) => acc.id)); // prefetch relationships
+
+        // 4. Notify userLists slice of success
+        // Note: Renamed to be specific to avoid spread collisions
+        actions.userListFetchFollowersSuccess?.(id, data, next);
+
+        // 5. Prefetch relationships for the newly fetched followers
+        if (Array.isArray(data) && data.length > 0) {
+          await actions.fetchRelationships(data.map((acc) => acc.id));
+        }
+
         return data;
       } catch (err) {
         console.error('accountsSlice.fetchFollowers failed', err);
@@ -388,9 +499,15 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
 
     async expandFollowers(id) {
       if (!id) return [];
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
-      const url = root.userLists?.followers?.[id]?.next;
+      
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+
+      // 2. Retrieve the next URL from the userLists slice state
+      const url = state.userLists?.followers?.[id]?.next;
 
       if (!url) {
         return null;
@@ -399,25 +516,40 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
       try {
         const res = await fetch(url, { method: 'GET' });
         if (!res.ok) throw new Error(`Failed to expand followers (${res.status})`);
+        
         const data = await res.json();
 
-        // Try to parse a `next` pagination URL from Link header (RFC 5988)
-        const link = res.headers.get('link') || res.headers.get('Link');
+        // 3. Modern Link Header parsing
+        const link = res.headers.get('Link');
         let next = null;
         if (link) {
-          const m = link.match(/<([^>]+)>\s*;\s*rel="?next"?/i);
-          if (m) next = m[1];
+          const match = link.match(/<([^>]+)>;\s*rel="next"/i);
+          next = match ? match[1] : null;
         }
 
-        // Some APIs embed pagination in the response body
-        if (!next && data && typeof data.next === 'string') next = data.next;
+        // Fallback to data.next if provided in the body
+        if (!next && data?.next) {
+          next = data.next;
+        }
 
-        root.importer?.importFetchedAccounts?.(data);
+        // 4. Import accounts and merge metadata via root actions
+        actions.importFetchedAccounts?.(data);
+        
         if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+          data.forEach((account) => {
+            actions.mergeAccountMetaFromAccount?.(account);
+          });
         }
-        root.userLists?.expandFollowersSuccess?.(id, data, next);
-        this.fetchRelationships(data.map((acc) => acc.id)); // prefetch relationships
+
+        // 5. Notify userLists slice to append the new data
+        // Renamed to follow your unique-naming pattern for root-level actions
+        actions.userListExpandFollowersSuccess?.(id, data, next);
+
+        // 6. Prefetch relationships for the newly fetched followers
+        if (Array.isArray(data) && data.length > 0) {
+          await actions.fetchRelationships(data.map((acc) => acc.id));
+        }
+
         return data;
       } catch (err) {
         console.error('accountsSlice.expandFollowers failed', err);
@@ -427,26 +559,43 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
 
     async fetchFollowing(id) {
       if (!id) return [];
-      const root = rootGet();
+
+      const actions = getActions();
+
       try {
         const res = await fetch(`/api/v1/accounts/${id}/following`, { method: 'GET' });
         if (!res.ok) throw new Error(`Failed to fetch following (${res.status})`);
+        
         const data = await res.json();
 
-        const link = res.headers.get('link') || res.headers.get('Link');
+        // 1. Standardized Link Header parsing
+        const link = res.headers.get('Link');
         let next = null;
         if (link) {
-          const m = link.match(/<([^>]+)>\s*;\s*rel="?next"?/i);
-          if (m) next = m[1];
+          const match = link.match(/<([^>]+)>;\s*rel="next"/i);
+          next = match ? match[1] : null;
         }
-        if (!next && data && typeof data.next === 'string') next = data.next;
+        
+        // Fallback to data.next if provided in the response body
+        if (!next && data?.next) next = data.next;
 
-        root.importer?.importFetchedAccounts?.(data);
+        // 2. Import accounts into the global dictionary via root actions
+        actions.importFetchedAccounts?.(data);
+
+        // 3. Merge account metadata
         if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+          data.forEach((acc) => actions.mergeAccountMetaFromAccount?.(acc));
         }
-        root.userLists?.fetchFollowingSuccess?.(id, data, next);
-        await this.fetchRelationships(data.map((acc) => acc.id)); // prefetch relationships
+
+        // 4. Notify userLists slice of success
+        // Renamed to be specific to avoid spread collisions in useBoundStore
+        actions.userListFetchFollowingSuccess?.(id, data, next);
+
+        // 5. Prefetch relationships for the fetched accounts
+        if (Array.isArray(data) && data.length > 0) {
+          await actions.fetchRelationships(data.map((acc) => acc.id));
+        }
+
         return data;
       } catch (err) {
         console.error('accountsSlice.fetchFollowing failed', err);
@@ -456,31 +605,56 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
 
     async expandFollowing(id) {
       if (!id) return [];
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
-      const url = root.userLists?.following?.[id]?.next;
+      
+      const state = rootGet();
+      const actions = getActions();
 
-      if (!url) return null;
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+
+      // 2. Access the next URL from the userLists slice state
+      const url = state.userLists?.following?.[id]?.next;
+
+      if (!url) {
+        return null;
+      }
 
       try {
         const res = await fetch(url, { method: 'GET' });
         if (!res.ok) throw new Error(`Failed to expand following (${res.status})`);
+        
         const data = await res.json();
 
-        const link = res.headers.get('link') || res.headers.get('Link');
+        // 3. Link Header parsing (RFC 8288)
+        const link = res.headers.get('Link');
         let next = null;
         if (link) {
-          const m = link.match(/<([^>]+)>\s*;\s*rel="?next"?/i);
-          if (m) next = m[1];
+          const match = link.match(/<([^>]+)>;\s*rel="next"/i);
+          next = match ? match[1] : null;
         }
-        if (!next && data && typeof data.next === 'string') next = data.next;
 
-        root.importer?.importFetchedAccounts?.(data);
-        if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+        // Fallback to data.next from JSON body
+        if (!next && typeof data?.next === 'string') {
+          next = data.next;
         }
-        root.userLists?.expandFollowingSuccess?.(id, data, next);
-        await this.fetchRelationships(data.map((acc) => acc.id));
+
+        // 4. Import accounts and metadata via root actions
+        actions.importFetchedAccounts?.(data);
+        
+        if (Array.isArray(data)) {
+          data.forEach((account) => {
+            actions.mergeAccountMetaFromAccount?.(account);
+          });
+        }
+
+        // 5. Update userLists slice (renamed to avoid collisions)
+        actions.userListExpandFollowingSuccess?.(id, data, next);
+
+        // 6. Prefetch relationships using the root action
+        if (Array.isArray(data) && data.length > 0) {
+          await actions.fetchRelationships(data.map((acc) => acc.id));
+        }
+
         return data;
       } catch (err) {
         console.error('accountsSlice.expandFollowing failed', err);
@@ -489,17 +663,35 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async fetchFollowRequests() {
-      if (!isLoggedIn(rootGet())) return [];
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return [];
+
       try {
         const res = await fetch('/api/v1/follow_requests', { method: 'GET' });
-        if (!res.ok) throw new Error(`Failed to fetch follow requests (${res.status})`);
-        const data = await res.json();
-        root.importer?.importFetchedAccounts?.(data);
-        if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+        
+        if (!res.ok) {
+          throw new Error(`Failed to fetch follow requests (${res.status})`);
         }
-        root.followRequests?.fetchFollowRequestsSuccess?.(data);
+        
+        const data = await res.json();
+
+        // 2. Import accounts via the global importer action
+        actions.importFetchedAccounts?.(data);
+
+        // 3. Merge metadata for each account
+        if (Array.isArray(data)) {
+          data.forEach((account) => {
+            actions.mergeAccountMetaFromAccount?.(account);
+          });
+        }
+
+        // 4. Notify the followRequests slice of success
+        // Renamed to be specific to avoid spread collisions in useBoundStore
+        actions.followRequestsFetchSuccess?.(data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.fetchFollowRequests failed', err);
@@ -508,28 +700,48 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async expandFollowRequests() {
-      if (!isLoggedIn(rootGet())) return [];
-      const root = rootGet();
-      const url = root.userLists?.follow_requests?.next;
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return [];
+
+      // 2. Retrieve pagination URL from state
+      const url = state.userLists?.follow_requests?.next;
       if (!url) return null;
+
       try {
         const res = await fetch(url, { method: 'GET' });
         if (!res.ok) throw new Error(`Failed to expand follow requests (${res.status})`);
+        
         const data = await res.json();
 
-        const link = res.headers.get('link') || res.headers.get('Link');
+        // 3. Link Header parsing
+        const link = res.headers.get('Link');
         let next = null;
         if (link) {
-          const m = link.match(/<([^>]+)>\s*;\s*rel="?next"?/i);
-          if (m) next = m[1];
+          const match = link.match(/<([^>]+)>;\s*rel="next"/i);
+          next = match ? match : null;
         }
-        if (!next && data && typeof data.next === 'string') next = data.next;
 
-        root.importer?.importFetchedAccounts?.(data);
-        if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+        // Fallback for body-embedded pagination
+        if (!next && typeof data?.next === 'string') {
+          next = data.next;
         }
-        root.followRequests?.expandFollowRequestsSuccess?.(data, next);
+
+        // 4. Import accounts and metadata via root actions
+        actions.importFetchedAccounts?.(data);
+
+        if (Array.isArray(data)) {
+          data.forEach((account) => {
+            actions.mergeAccountMetaFromAccount?.(account);
+          });
+        }
+
+        // 5. Notify followRequests slice of expansion success
+        // Renamed to follow your unique-naming pattern for root-level actions
+        actions.followRequestsExpandSuccess?.(data, next);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.expandFollowRequests failed', err);
@@ -538,13 +750,27 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async authorizeFollowRequest(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+
       try {
-        const res = await fetch(`/api/v1/follow_requests/${id}/authorize`, { method: 'POST' });
-        if (!res.ok) throw new Error(`Failed to authorize follow request (${res.status})`);
-        const data = await res.json();
-        root.followRequests?.authorizeFollowRequestSuccess?.(data);
+        const res = await fetch(`/api/v1/follow_requests/${id}/authorize`, { 
+          method: 'POST' 
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to authorize follow request (${res.status})`);
+        }
+
+        const data = await res.json(); // The updated relationship object
+
+        // 2. Notify the followRequests slice of success
+        // Renamed to be specific to avoid spread collisions in useBoundStore
+        actions.followRequestAuthorizeSuccess?.(data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.authorizeFollowRequest failed', err);
@@ -553,13 +779,27 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async rejectFollowRequest(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+
       try {
-        const res = await fetch(`/api/v1/follow_requests/${id}/reject`, { method: 'POST' });
-        if (!res.ok) throw new Error(`Failed to reject follow request (${res.status})`);
-        const data = await res.json();
-        root.followRequests?.rejectFollowRequestSuccess?.(data);
+        const res = await fetch(`/api/v1/follow_requests/${id}/reject`, { 
+          method: 'POST' 
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to reject follow request (${res.status})`);
+        }
+
+        const data = await res.json(); // The updated relationship object
+
+        // 2. Notify the followRequests slice of success
+        // Flattened call via the root store
+        actions.followRequestRejectSuccess?.(data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.rejectFollowRequest failed', err);
@@ -568,13 +808,27 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async pinAccount(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard using current state
+      if (!isLoggedIn(state)) return null;
+
       try {
-        const res = await fetch(`/api/v1/accounts/${id}/pin`, { method: 'POST' });
-        if (!res.ok) throw new Error(`Failed to pin account (${res.status})`);
-        const data = await res.json();
-        root.userLists?.pinAccountSuccess?.(data);
+        const res = await fetch(`/api/v1/accounts/${id}/pin`, { 
+          method: 'POST' 
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to pin account (${res.status})`);
+        }
+
+        const data = await res.json(); // The updated relationship or account object
+
+        // 2. Notify the userLists slice of success
+        // Renamed to be specific to avoid spread collisions in useBoundStore
+        actions.userListPinAccountSuccess?.(data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.pinAccount failed', err);
@@ -583,20 +837,34 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async unpinAccount(id) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+
       try {
-        const res = await fetch(`/api/v1/accounts/${id}/unpin`, { method: 'POST' });
-        if (!res.ok) throw new Error(`Failed to unpin account (${res.status})`);
-        const data = await res.json();
-        root.userLists?.unpinAccountSuccess?.(data);
+        const res = await fetch(`/api/v1/accounts/${id}/unpin`, { 
+          method: 'POST' 
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to unpin account (${res.status})`);
+        }
+
+        const data = await res.json(); // Usually the updated relationship object
+
+        // 2. Notify the userLists slice of success
+        // Flattened call via the root store with a unique name
+        actions.userListUnpinAccountSuccess?.(data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.unpinAccount failed', err);
         return null;
       }
     },
-    
+
     async updateNotificationSettings(params) {
       try {
         const res = await fetch('/api/v1/notification_settings', {
@@ -604,8 +872,16 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(params || {}),
         });
-        if (!res.ok) throw new Error(`Failed to update notification settings (${res.status})`);
+
+        if (!res.ok) {
+          throw new Error(`Failed to update notification settings (${res.status})`);
+        }
+
         const data = await res.json();
+        
+        // If you later need to update a 'settings' slice with this data:
+        // getActions().updateSettingsSuccess?.(data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.updateNotificationSettings failed', err);
@@ -613,61 +889,117 @@ export function createAccountsSlice(setScoped, getScoped, rootSet, rootGet) {
       }
     },
 
-    async fecthPinnedAccounts(id) {
+    async fetchPinnedAccounts(id) {
       if (!id) return [];
-      const root = rootGet();
+
+      const actions = getActions();
+
       try {
-        const res = await fetch(`/api/v1/accounts/${id}/endorsements`, { method: 'GET' });
-        if (!res.ok) throw new Error(`Failed to fetch pinned accounts (${res.status})`);
-        const data = await res.json();
-        root.importer?.importFetchedAccounts?.(data);
-        if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+        const res = await fetch(`/api/v1/accounts/${id}/endorsements`, { 
+          method: 'GET' 
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch pinned accounts (${res.status})`);
         }
-        root.userLists?.fecthPinnedAccountsSuccess?.(id, data, null);
+        
+        const data = await res.json();
+
+        // 1. Import accounts into the global dictionary via root actions
+        actions.importFetchedAccounts?.(data);
+
+        // 2. Merge account metadata
+        if (Array.isArray(data)) {
+          data.forEach((account) => {
+            actions.mergeAccountMetaFromAccount?.(account);
+          });
+        }
+
+        // 3. Notify userLists slice of success
+        // Renamed to be specific to avoid spread collisions in useBoundStore
+        actions.userListFetchPinnedAccountsSuccess?.(id, data, null);
+
         return data;
       } catch (err) {
-        console.error('accountsSlice.fecthPinnedAccounts failed', err);
+        console.error('accountsSlice.fetchPinnedAccounts failed', err);
         return [];
       }
     },
 
     async accountLookup(acct, signal) {
       if (!acct) return null;
+
       try {
         const res = await fetch(`/api/v1/accounts/lookup?acct=${encodeURIComponent(acct)}`, {
           method: 'GET',
           signal,
         });
-        if (!res.ok) throw new Error(`Failed to lookup account (${res.status})`);
+
+        if (!res.ok) {
+          throw new Error(`Failed to lookup account (${res.status})`);
+        }
+
         const account = await res.json();
-        const root = rootGet();
+        const actions = getActions();
+
         if (account && account.id) {
-          root.importer?.importFetchedAccount?.(account);
-          root.accountsMeta?.mergeAccountMetaFromAccount?.(account);
+          // 1. Import the account into the main normalized dictionary
+          actions.importFetchedAccount?.(account);
+
+          // 2. Merge metadata for the account
+          actions.mergeAccountMetaFromAccount?.(account);
+
           return account;
         }
+
         return null;
       } catch (err) {
-        console.error('accountsSlice.accountLookup failed', err);
+        // Handle AbortError specifically to avoid logging cancellations as errors
+        if (err.name === 'AbortError') {
+          console.log('Account lookup aborted');
+        } else {
+          console.error('accountsSlice.accountLookup failed', err);
+        }
         return null;
       }
     },
 
     async fetchBirthdayReminders(month, day) {
-      if (!isLoggedIn(rootGet())) return null;
-      const root = rootGet();
-      const me = root.auth?.me;
+      const state = rootGet();
+      const actions = getActions();
+
+      // 1. Auth Guard
+      if (!isLoggedIn(state)) return null;
+      
+      const me = state.auth?.me;
+
+      // 2. Validation
       if (month < 1 || month > 12 || day < 1 || day > 31) return [];
+
       try {
-        const res = await fetch(`/api/v1/birthdays?month=${month}&day=${day}`, { method: 'GET' });
-        if (!res.ok) throw new Error(`Failed to fetch birthday reminders (${res.status})`);
-        const data = await res.json();
-        root.importer?.importFetchedAccounts?.(data);
-        if (Array.isArray(data)) {
-          data.forEach((a) => root.accountsMeta?.mergeAccountMetaFromAccount?.(a));
+        const res = await fetch(`/api/v1/birthdays?month=${month}&day=${day}`, { 
+          method: 'GET' 
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch birthday reminders (${res.status})`);
         }
-        root.userLists?.fetchBirthdayRemindersSuccess?.(me, data);
+        
+        const data = await res.json();
+
+        // 3. Import accounts and metadata via root actions
+        actions.importFetchedAccounts?.(data);
+
+        if (Array.isArray(data)) {
+          data.forEach((account) => {
+            actions.mergeAccountMetaFromAccount?.(account);
+          });
+        }
+
+        // 4. Notify userLists slice of success
+        // Renamed to follow your unique-naming pattern
+        actions.userListFetchBirthdaysSuccess?.(me, data);
+
         return data;
       } catch (err) {
         console.error('accountsSlice.fetchBirthdayReminders failed', err);

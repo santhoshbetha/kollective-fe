@@ -88,7 +88,7 @@ const useChatMessages = (chat) => {
 const useChats = (search) => {
   const api = useApi();
   const features = useFeatures();
-  const importFetchedAccounts = useBoundStore((state) => state.importer.importFetchedAccounts);
+  const importFetchedAccounts = useBoundStore((state) => state.importFetchedAccounts);
   const { setUnreadChatsCount } = useStatContext();
   const fetchRelationships = useFetchRelationships();
 
@@ -148,7 +148,7 @@ const useChats = (search) => {
 
 const useChat = (chatId) => {
   const api = useApi();
-  const importFetchedAccount = useBoundStore((state) => state.importer.importFetchedAccount);
+  const importFetchedAccount = useBoundStore((state) => state.importFetchedAccount);
   const fetchRelationships = useFetchRelationships();
 
   const getChat = async () => {

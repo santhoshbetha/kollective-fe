@@ -1,19 +1,37 @@
 export function createSidebarSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
+  const getActions = () => rootGet();
   // get not used
   return {
+    // --- Initial State ---
     sidebarOpen: false,
 
+    // --- Actions ---
+
     openSidebar() {
-      set((state) => {
+      setScoped((state) => {
         state.sidebarOpen = true;
       });
     },
 
     closeSidebar() {
-      set((state) => {
+      setScoped((state) => {
         state.sidebarOpen = false;
       });
     },
+
+    /**
+     * Example of using the actions pattern for a toggle
+     */
+    toggleSidebar() {
+      const actions = getActions();
+      const isCurrentlyOpen = getScoped().sidebarOpen;
+      
+      if (isCurrentlyOpen) {
+        actions.closeSidebar();
+      } else {
+        actions.openSidebar();
+      }
+    }
+
   };
 }

@@ -1,37 +1,43 @@
 import normalizeStatus from "../../normalizers/status";
 
 const normalizePoll = (poll) => {
+  if (!poll) return null;
   const status = { poll };
   return normalizeStatus(status).poll;
 };
 
 export function createPollsSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
+
   return {
-    importPolls(polls) {
+    importPollsData(polls) {
       setScoped((state) => {
         (polls || []).forEach((poll) => {
-          if (poll && poll.id) {
+          if (poll?.id) {
             state[poll.id] = normalizePoll(poll);
           }
         });
       });
     },
 
-    vote(pollId, choices) {
-      const root = rootGet();
+    async vote(pollId, choices) {
+      const actions = getActions(); 
       try {
-        const res = fetch(`/api/v1/polls/${pollId}/votes`, {
+        const res = await fetch(`/api/v1/polls/${pollId}/votes`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${root.auth.token}`,
+            // Assuming Authorization is handled centrally or via root.auth
           },
           body: JSON.stringify({ choices }),
         });
-        if (!res.ok) throw new Error(`Failed to vote on poll (${res.status})`);
-        const data = res.json();
 
-        root.importer?.importFetchedPoll?.([data]);
+        if (!res.ok) throw new Error(`Failed to vote (${res.status})`);
+        
+        const data = await res.json();
+        // Coordination with importer to update state across the app
+        actions.importFetchedPoll?.([data]);
+        
         return data;
       } catch (err) {
         console.error("pollsSlice.vote failed", err);
@@ -39,19 +45,15 @@ export function createPollsSlice(setScoped, getScoped, rootSet, rootGet) {
       }
     },
 
-    fetchPoll(pollId) {
-      const root = rootGet();
+    async fetchPoll(pollId) {
+      const actions = getActions(); 
       try {
-        const res = fetch(`/api/v1/polls/${pollId}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${root.auth.token}`,
-          },
-        });
+        const res = await fetch(`/api/v1/polls/${pollId}`);
         if (!res.ok) throw new Error(`Failed to fetch poll (${res.status})`);
-        const data = res.json();
-
-        root.importer?.importFetchedPoll?.([data]);
+        
+        const data = await res.json();
+        actions.importFetchedPoll?.([data]);
+        
         return data;
       } catch (err) {
         console.error("pollsSlice.fetchPoll failed", err);

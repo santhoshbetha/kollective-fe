@@ -1,27 +1,37 @@
 // Action-only slice to manage pinned statuses (fetch, expand, pin, unpin).
 // No local state — only actions.
-
 import { isLoggedIn } from "../../utils/auth";
 
 export function createPinStatusesSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
+
   return {
-    // Fetch pinned statuses (optionally for a specific account)
+    /**
+     * Fetch pinned statuses. 
+     * Uses the specific account ID if available, otherwise falls back to the generic pinned endpoint.
+     */
     async fetchPinnedStatuses() {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
-      const id = root.auth.me;
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
+      const myId = rootGet().auth.me;
+      const params = new URLSearchParams({ pinned: 'true' });
 
       try {
-        const url = id
-          ? `/api/v1/accounts/${id}/statuses`
-          : `/api/v1/pinned`;
-        const res = await fetch(url + "?" + new URLSearchParams({ pinned: true } ), 
-        { method: "GET" });
+        // Construct the URL based on whether we have the current user's ID
+        const url = myId 
+          ? `/api/v1/accounts/${myId}/statuses?${params}` 
+          : `/api/v1/pinned?${params}`;
+
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch pinned statuses (${res.status})`);
+        
         const data = await res.json();
 
-        root.importer?.importFetchedStatuses?.(data || []);
-        root.statusLists?.fetchPinnedStatusesSuccess?.(data || [], null);
+        // Coordinate entities with the importer and list manager
+        actions.importFetchedStatuses?.(data || []);
+        actions.fetchPinnedStatusesSuccess?.(data || [], null);
+        
         return data;
       } catch (err) {
         console.error("pinStatusesSlice.fetchPinnedStatuses failed", err);

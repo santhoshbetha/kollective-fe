@@ -4,178 +4,146 @@ const TokenRecord = {
   valid_until: "",
 };
 
-export const createSecuritySlice = (setScoped, getScoped, rootSet, rootGet) => ({
-  tokens: [],
-  mfa: new Map(),
+export const createSecuritySlice = (setScoped, getScoped, rootSet, rootGet) => {
+  const getActions = () => rootGet();
 
-  fetchtokensSuccess(tokens) {
-    setScoped((state) => {
-      state.tokens = tokens.map((token) => ({
-        ...TokenRecord,
-        ...token,
-      }));
-    });
-  },
+  return {
+    // --- Initial State ---
+    tokens: [],
+    mfa: new Map(),
 
-  revokeTokenSuccess(tokenId) {
-    setScoped((state) => {
-      state.tokens = state.tokens.filter((token) => token.id !== tokenId);
-    });
-  },
-
-  fetchMfaSuccess(data) {
-    setScoped((state) => {
-      state.mfa = new Map(Object.entries(data));
-    });
-  },
-
-  confirmMfaSuccess(method) {
-    setScoped((state) => {
-      state.mfa.settings(method, true);
-    });
-  },
-
-  disableMfsSuccess(method) {
-    setScoped((state) => {
-      state.mfa.settings(method, false);
-    });
-  },
-
-  async changePassword(oldPassword, newPassword, confirmation) {
-    try {
-      const res = await fetch(`/api/v1/change_password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          old_password: oldPassword,
-          new_password: newPassword,
-          new_password_confirmation: confirmation,
-        }),
+    fetchtokensSuccess(tokens) {
+      setScoped((state) => {
+        state.tokens = tokens.map((token) => ({
+          ...TokenRecord,
+          ...token,
+        }));
       });
-      if (!res.ok) {
-        throw new Error("Failed to change password");
-      }
-      const data = res.json();
-      if(data.error) {
-        throw new Error(data.error);
-      }
-      return data;
-    } catch (error) {
-      console.error("Error changing password:", error);
-      throw error;
-    }
-  },
+    },
 
-  async resetPassword(usernameOrEmail) {
-    const params =
-      usernameOrEmail.includes('@')
-        ? { email: usernameOrEmail }
+    revokeTokenSuccess(tokenId) {
+      setScoped((state) => {
+        state.tokens = state.tokens.filter((t) => t.id !== tokenId);
+      });
+    },
+
+    fetchMfaSuccess(data) {
+      setScoped((state) => {
+        state.mfa = new Map(Object.entries(data || {}));
+      });
+    },
+
+    confirmMfaSuccess(method) {
+      setScoped((state) => {
+        // Corrected Map method: use .set() instead of .settings()
+        state.mfa.set(method, true);
+      });
+    },
+
+    disableMfaSuccess(method) {
+      setScoped((state) => {
+        state.mfa.set(method, false);
+      });
+    },
+
+    async changePassword(oldPassword, newPassword, confirmation) {
+      try {
+        const res = await fetch(`/api/v1/change_password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            old_password: oldPassword,
+            new_password: newPassword,
+            new_password_confirmation: confirmation,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Failed to change password");
+        return data;
+      } catch (error) {
+        console.error("SecuritySlice.changePassword failed", error);
+        throw error;
+      }
+    },
+
+    async resetPassword(usernameOrEmail) {
+      const isEmail = usernameOrEmail.includes('@');
+      const params = isEmail 
+        ? { email: usernameOrEmail } 
         : { nickname: usernameOrEmail, username: usernameOrEmail };
 
-    const endpoint = '/auth/password';
-    try {
-      const res = await fetch(endpoint, {   
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(params),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to reset password");
+      try {
+        const res = await fetch('/auth/password', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Failed to reset password");
+        return data;
+      } catch (error) {
+        console.error("SecuritySlice.resetPassword failed", error);
+        throw error;
       }
-      const data = await res.json();
-      if(data.error) {
-        throw new Error(data.error);
+    },
+
+    async resetPasswordConfirm(password, token) {
+      try {
+        const res = await fetch('/auth/password_reset/confirm', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password, reset_password_token: token }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Failed to confirm reset");
+        return data;
+      } catch (error) {
+        console.error("SecuritySlice.resetPasswordConfirm failed", error);
+        throw error;
       }
-      return data;
-    } catch (error) {
-      console.error("Error resetting password:", error);
-      throw error;
-    }
-  },
-async resetPasswordConfirm(password, token) { //TODO check later
-   const params = { password, reset_password_token: token };
-   const endpoint = '/auth/password_reset/confirm';
-   try {
-     const res = await fetch(endpoint, {
-       method: "POST",
-       headers: {
-         "Content-Type": "application/json",
-       },
-       body: JSON.stringify(params),
-     });
-     if (!res.ok) {
-       throw new Error("Failed to confirm password reset");
-     }
-     const data = await res.json();
-     if(data.error) {
-       throw new Error(data.error);
-     }
-     return data;
-   } catch (error) {
-     console.error("Error confirming password reset:", error);
-     throw error;
-   }
-},
+    },
 
-async changeEmail(newEmail, password) {
-  const params = { new_email: newEmail, password };
-  const endpoint = '/auth/change_email';
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(params),
-    });
-    if (!res.ok) {
-      throw new Error("Failed to change email");
-    }
-    const data = await res.json();
-    if(data.error) {
-      throw new Error(data.error);
-    }
-    return data;
-  } catch (error) {
-    console.error("Error changing email:", error);
-    throw error;
-  }
-},
+    async changeEmail(newEmail, password) {
+      try {
+        const res = await fetch('/auth/change_email', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ new_email: newEmail, password }),
+        });
 
-async deleteAccount(password) {
-  const root = rootGet();
-  const params = { password };
-  const endpoint = '/api/v1/delete_account';
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(params),
-    });
-    if (!res.ok) {
-      throw new Error("Failed to delete account");
-    }
-    const data = await res.json();
-    if(data.error) {
-      throw new Error(data.error);
-    }
-    root.auth.authLoggedOut(data);
-    root.me.authLoggedOut();
-    return data;
-  } catch (error) {
-    console.error("Error deleting account:", error);
-    throw error;
-  }
-},
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Failed to change email");
+        return data;
+      } catch (error) {
+        console.error("SecuritySlice.changeEmail failed", error);
+        throw error;
+      }
+    },
 
+    async deleteAccount(password) {
+      const actions = getActions();
+      try {
+        const res = await fetch('/api/v1/delete_account', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
 
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || "Failed to delete account");
 
+        // Coordinate logout across slices
+        actions.auth?.authLoggedOut?.(data);
+        actions.me?.authLoggedOut?.();
+        
+        return data;
+      } catch (error) {
+        console.error("SecuritySlice.deleteAccount failed", error);
+        throw error;
+      }
+    },
 
-
-});
+}};

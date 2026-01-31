@@ -1,134 +1,99 @@
 import { isLoggedIn } from "../../utils/auth.js";
 
-const SuggestionRecord = {
-  source: "",
-  account: "",
-};
-
-// Convert a v1 account into a v2 suggestion
-const accountToSuggestion = (account) => {
-  return {
-    source: "past_interactions",
-    account: account.id,
-  };
-};
+const accountToSuggestion = (account) => ({
+  source: "past_interactions",
+  account: account.id,
+});
 
 export function createSuggestionsSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
+
   return {
+    // --- Initial State ---
     items: new Set(),
     next: null,
     isLoading: false,
 
     fetchSuggestionsRequest() {
-      setScoped((state) => {
-        state.isLoading = true;
-      });
+      setScoped((state) => { state.isLoading = true; });
     },
 
     fetchSuggestionsSuccess(accounts) {
       setScoped((state) => {
-        const newItems = new Set(state.items || []);
         accounts.map(accountToSuggestion).forEach((suggestion) => {
-          if (suggestion && suggestion.account) newItems.add(suggestion);
+          if (suggestion?.account) state.items.add(suggestion);
         });
-        state.items = newItems;
         state.isLoading = false;
       });
     },
 
     fetchSuggestionsV2Success(suggestions, next) {
       setScoped((state) => {
-        const newItems = new Set(state.items || []);
-        suggestions
-          .map((x) => ({ ...x, account: x.account.id }))
-          .forEach((suggestion) => {
-            newItems.add(suggestion);
-          });
-        state.items = newItems;
+        suggestions.forEach((x) => {
+          state.items.add({ ...x, account: x.account.id });
+        });
         state.next = next;
         state.isLoading = false;
       });
     },
 
     fetchSuggestionsFail() {
-      setScoped((state) => {
-        state.isLoading = false;
-      });
+      setScoped((state) => { state.isLoading = false; });
     },
 
     dismissSuggestion(id) {
       setScoped((state) => {
-        const newItems = new Set(state.items || []);
-        newItems.forEach((suggestion) => {
-          if (suggestion.account === id) {
-            newItems.delete(suggestion);
-          }
-        });
-        state.items = newItems;
+        for (const item of state.items) {
+          if (item.account === id) state.items.delete(item);
+        }
       });
     },
 
     blockOrMuteAccountSuccess(relationship) {
-      setScoped((state) => {
-        const newItems = new Set(state.items || []);
-        newItems.forEach((suggestion) => {
-          if (suggestion.account === relationship.id) {
-            newItems.delete(suggestion);
-          }
-        });
-        state.items = newItems;
-      });
+      const actions = getActions();
+     actions.dismissSuggestion(relationship.id);
     },
 
     domainBlockSuccess(accounts) {
-      setScoped((state) => {
-        const newItems = new Set(state.items || []);
-        accounts.forEach((account) => {
-          newItems.forEach((suggestion) => {
-            if (suggestion.account === account.id) {
-              newItems.delete(suggestion);
-            }
-          });
-        });
-        state.items = newItems;
-      });
+      const actions = getActions();
+      accounts.forEach((acc) =>actions.dismissSuggestion(acc.id));
     },
 
     async fetchSuggestions(params) {
-      const root = rootGet();
+      const actions = getActions();
+     actions.fetchSuggestionsRequest();
 
-      this.fetchSuggestionsRequest();
+      const query = params ? `?${new URLSearchParams(params)}` : "";
 
       try {
-        const res = await fetch(
-            `/api/v2/suggestions${params ? `?${new URLSearchParams(params).toString()}` : ""}`,
-          { method: "GET" },
-        ) ;
+        const res = await fetch(`/api/v2/suggestions${query}`);
         if (!res.ok) throw new Error(`Failed to fetch suggestions (${res.status})`);
+        
         const data = await res.json();
-        const accounts = data?.suggestions?.map(({ account }) => account) || [];
-        const next = data?.next || null;
-        root.importer?.importFetchedAccounts?.(accounts);
-        this.fetchSuggestionsV2Success(data?.suggestions || [], next);
+        const suggestions = data?.suggestions || [];
+        const accounts = suggestions.map(({ account }) => account);
+
+        actions.importFetchedAccounts?.(accounts);
+        actions.fetchSuggestionsV2Success(suggestions, data?.next);
       } catch (err) {
-        this.fetchSuggestionsFail();
+        actions.fetchSuggestionsFail();
         console.error("suggestionsSlice.fetchSuggestions failed", err);
       }
     },
 
     fetchSuggestionsForTimeline() {
-      const root = rootGet();
-      root.timelines.insertSuggestionsIntoTimeline();
+      const actions = getActions();
+      actions.timelines?.insertSuggestionsIntoTimeline?.();
     },
 
-    dismissSuggestionAction(accountId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return;
+    async dismissSuggestionAction(accountId) {
+      const actions = getActions();
+      if (!isLoggedIn(actions)) return;
       
-      this.dismissSuggestion(accountId);
+     actions.dismissSuggestion(accountId);
 
       try {
-        fetch(`/api/v1/suggestions/${accountId}`, { method: "DELETE" });
+        await fetch(`/api/v1/suggestions/${accountId}`, { method: "DELETE" });
       } catch (err) {
         console.error("dismissSuggestion failed", err);
       }

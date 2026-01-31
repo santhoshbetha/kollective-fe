@@ -1,13 +1,12 @@
 // Action-only slice for emoji management (custom emojis). No local state — only actions.
 
-import { isLoggedIn } from "../../utils/auth";
-
 export function createEmojisSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
   return {
     chooseEmoji(emoji) {
-        const root = rootGet();
-        root.settings.chooseEmoji(emoji);
-        root.settings.saveSettings();
+        const actions = getActions();
+        actions.settings.chooseEmoji(emoji);
+        actions.settings.saveSettings();
     },
   };
 }

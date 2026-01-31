@@ -9,43 +9,24 @@ export const createListsSlice = (
   rootSet,
   rootGet,
 ) => {
+  const getActions = () => rootGet();
+
+  const updateRecords = (data) => {
+    const items = Array.isArray(data) ? data : [data];
+    setScoped((state) => {
+      // Direct mutation thanks to Immer middleware
+      items.forEach((item) => {
+        state[item.id] = normalizeList(item);
+      });
+    });
+  };
   return {
 
-    fetchListSuccess(list) {
-      setScoped((state) => {
-        list.forEach(element => {
-          const normalized = normalizeList(element);
-          state[element.id] = normalized;
-        });
-      });
-    },
-
-    createListSuccess(list) {
-      setScoped((state) => {
-        list.forEach(element => {
-          const normalized = normalizeList(element);
-          state[element.id] = normalized;
-        });
-      });
-    },
-
-    updateListSuccess(list) {
-      setScoped((state) => {
-        list.forEach(element => {
-          const normalized = normalizeList(element);
-          state[element.id] = normalized;
-        });
-      });
-    },
-
-    fetchListsSuccess(lists) {
-      setScoped((state) => {
-        lists.forEach(element => {
-          const normalized = normalizeList(element);
-          state[element.id] = normalized;
-        });
-      });
-    },
+        // --- State Setters (Immer-enabled) ---
+    fetchListSuccess: updateRecords,
+    createListSuccess: updateRecords,
+    updateListSuccess: updateRecords,
+    fetchListsSuccess: updateRecords,
 
     deleteListSuccess(id) {
       setScoped((state) => {
@@ -53,269 +34,228 @@ export const createListsSlice = (
       });
     },
 
-    fetchListFail(id) {
-      setScoped((state) => {
-        state[id] = false;
-      });
-    },
+    setListFailed: (id) => setScoped((state) => { 
+      state[id] = false; // Simple direct mutation
+    }),
 
     async fetchList(id) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {  
-        return null;
-      }
-      if (root.lists[String(id)]) {
-        return;
-      }
+      const actions = getActions();
+      const stringId = String(id);
+
+      if (!isLoggedIn(rootGet())) return null;
+      if (rootGet().lists[stringId]) return;
 
       try {
-        const res = await fetch(`/api/v1/lists/${id}`);
-        if (!res.ok) {
-          throw new Error("Failed to fetch list");
-        }
+        const res = await fetch(`/api/v1/lists/${stringId}`);
+        if (!res.ok) throw new Error('Failed to fetch list');
+
         const list = await res.json();
-        this.fetchListSuccess(list);
+        actions.fetchListSuccess(list);
       } catch (e) {
-        this.fetchListFail(id);
-        // swallow any errors from best-effort fetch
+        actions.setListFailed(stringId);
       }
     },
 
     async fetchLists() {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {  
-        return null;
-      }
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
 
       try {
         const res = await fetch(`/api/v1/lists`);
-        if (!res.ok) {
-          throw new Error("Failed to fetch lists");
-        }
+        if (!res.ok) throw new Error("Failed to fetch lists");
+        
         const lists = await res.json();
-        this.fetchListsSuccess(lists);
-      } catch (e) {
-        // swallow any errors from best-effort fetch
-      }
+        actions.fetchListsSuccess(lists);
+      } catch (e) { /* silent fail */ }
     },
 
-    setupListEditor(listId) {
-      const root = rootGet();
-      root.listEditor.setupListEditor(root.lists[String(listId)] || null);
 
-      this.fetchListAccounts(listId);
+    setupListEditor(listId) {
+      const actions = getActions();
+      const listData = rootGet().lists[String(listId)] || null;
+
+      actions.setupListEditor(listData);
+      // Assuming this exists in your store/slice
+      actions.fetchListAccounts?.(listId);
     },
 
     async createList(title, shouldReset) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {  
-        return null;
-      }
-      root.listEditor.createOrUpdateListRequest();
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
+      actions.createOrUpdateListRequest();
 
       try {
         const res = await fetch(`/api/v1/lists`, {
           method: 'POST',
           body: JSON.stringify({ title }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
-        if (!res.ok) {
-          throw new Error("Failed to create list");
-        }
+        if (!res.ok) throw new Error("Failed to create list");
+
         const data = await res.json();
-        root.listEditor.createOrUpdateListSuccess(data);
-        this.createListSuccess(data); 
+        actions.createOrUpdateListSuccess(data);
+        actions.createListSuccess(data);
       } catch (e) {
-        root.listEditor.createOrUpdateListFail();
-        // swallow any errors from best-effort create
+        actions.createOrUpdateListFail();
       }
     },
 
     async updateList(id, title, shouldReset) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {  
-        return null;
-      }
-      root.listEditor.createOrUpdateListRequest(id);
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
+      actions.createOrUpdateListRequest(id);
 
       try {
         const res = await fetch(`/api/v1/lists/${id}`, {
           method: 'PUT',
           body: JSON.stringify({ title }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
-        if (!res.ok) {
-          throw new Error("Failed to update list");
-        }
+        if (!res.ok) throw new Error("Failed to update list");
+
         const data = await res.json();
-        root.listEditor.createOrUpdateListSuccess(data);
-        this.updateListSuccess(data);
+        actions.createOrUpdateListSuccess(data);
+        actions.updateListSuccess(data);
 
         if (shouldReset) {
-          root.listEditor.setupListEditor(data);
+          actions.setupListEditor(data);
         }
       } catch (e) {
-        root.listEditor.createOrUpdateListFail();
-        // swallow any errors from best-effort update
+        actions.createOrUpdateListFail();
       }
     },
 
     async deleteList(id) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {  
-        return null;
-      }
+      if (!isLoggedIn(rootGet())) return null;
+
       try {
-        const res = await fetch(`/api/v1/lists/${id}`, {
-          method: 'DELETE'
+        const res = await fetch(`/api/v1/lists/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error("Failed to delete list");
+        
+        // Immer mutation for deletion
+        setScoped((state) => {
+          delete state[id]; 
+          // Or state[id] = false; if you prefer keeping the key
         });
-        if (!res.ok) {
-          throw new Error("Failed to delete list");
-        }
-        this.deleteListSuccess(id);
-      } catch (e) {
-        // swallow any errors from best-effort delete
-      }
+      } catch (e) { /* silent fail */ }
     },
 
     async fetchListAccounts(listId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {  
-        return null;
-      }
-      root.listEditor.fetchListAccountsRequest();
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
+      actions.fetchListAccountsRequest();
       try {
-        const res = await fetch(`/api/v1/lists/${listId}/accounts`, {//TODO: check later
-          method: 'GET'
-        });
-        if (!res.ok) {
-          throw new Error("Failed to fetch list accounts");
-        }
+        const res = await fetch(`/api/v1/lists/${listId}/accounts`);
+        if (!res.ok) throw new Error("Failed to fetch list accounts");
+
         const data = await res.json();
-        root.importer?.importFetchedAccounts?.(data);
-        root.listEditor.fetchListAccountsSuccess(data);
+        
+        // Optional chaining handles the root store dependencies safely
+        actions.importFetchedAccounts?.(data);
+        actions.fetchListAccountsSuccess(data);
       } catch (e) {
-        root.listEditor.fetchListAccountsFail();
-        // swallow any errors from best-effort fetch
+        actions.fetchListAccountsFail();
       }
     },
 
     async fetchListSuggestions(query) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {  
-        return null;
-      }
-      const searchParams = {
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
+      const params = new URLSearchParams({
         q: query,
         resolve: false,
         limit: 4,
         following: true,
-      };
+      });
+
       try {
-        const res = await fetch(`/api/v1/accounts/search?` + new URLSearchParams(searchParams), {//TODO check later
-          method: 'GET'
-        });
-        if (!res.ok) {
-          throw new Error("Failed to fetch list suggestions");
-        }
+        const res = await fetch(`/api/v1/accounts/search?${params}`);
+        if (!res.ok) throw new Error("Failed to fetch suggestions");
+
         const data = await res.json();
-        root.importer?.importFetchedAccounts?.(data);
-        root.listEditor.listEditorSuggestionsReady(data);
+        actions.importFetchedAccounts?.(data);
+        actions.listEditorSuggestionsReady(data);
       } catch (e) {
-        // swallow any errors from best-effort fetch
-        // TODO: add toast later
+        // TODO: add toast later via root.ui.showToast()
       }
     },
 
     addToListEditor(accountId) {
-      const root = rootGet();
-      this.addToList(root.listEditor.listId, accountId);
+      const actions = getActions();
+      
+      // Accessing the shared addToList action via the actions object
+      actions.addToList?.(actions.listId, accountId);
     },
 
     async addToList(listId, accountId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return null;
-      }
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
       try {
         const res = await fetch(`/api/v1/lists/${listId}/accounts`, {
           method: 'POST',
           body: JSON.stringify({ account_ids: [accountId] }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
-        if (!res.ok) {
-          throw new Error("Failed to add to list");
-        }
+        if (!res.ok) throw new Error("Failed to add to list");
+
         const data = await res.json();
-        root.listAdder.addListEditorSuccess(data);
-        root.listEditor.listEditorAddSuccess(data);
-      } catch (e) {
-        // swallow any errors from best-effort add
-      }
+        actions.addListEditorSuccess(data);
+        actions.listEditorAddSuccess(data);
+      } catch (e) { /* silent fail */ }
     },
 
     removeFromListEditor(accountId) {
-      const root = rootGet();
-      this.removeFromList(root.listEditor.listId, accountId);
+      const actions = getActions();
+      actions.removeFromList(actions.listId, accountId);
     },
 
     async removeFromList(listId, accountId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return null;
-      }
-      const form = new FormData();
-      form.append('account_ids[]', accountId);
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
       try {
         const res = await fetch(`/api/v1/lists/${listId}/accounts`, {
           method: 'DELETE',
-          body: JSON.stringify(Object.fromEntries(form)),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          // Simplified from FormData to a direct JSON payload
+          body: JSON.stringify({ 'account_ids[]': [accountId] }),
+          headers: { 'Content-Type': 'application/json' }
         });
-        if (!res.ok) {
-          throw new Error("Failed to remove from list");
-        }
+        if (!res.ok) throw new Error("Failed to remove from list");
+
         const result = await res.json();
-        root.listAdder.removeListEditorSuccess(result);
-        root.listEditor.listEditorRemoveSuccess(result);
-      } catch (e) {
-        // swallow any errors from best-effort remove
-      }
+        actions.removeListEditorSuccess(result);
+        actions.listEditorRemoveSuccess(result);
+      } catch (e) { /* silent fail */ }
     },
 
     async setupListAdder(accountId) {
-      const root = rootGet();
-      root.listAdder.setupListAdder(selectAccount(root, accountId));
-      this.fetchLists();
-      this.fetchAccountLists(accountId);
+      const actions = getActions();
+      
+      actions.setupListAdder(selectAccount(rootGet(), accountId));
+      
+      // Use actions for internal slice calls
+      actions.fetchLists();
+      actions.fetchAccountLists(accountId);
     },
 
     async fetchAccountLists(accountId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return null;
-      }
-      root.listAdder.fetchListAdderListsRequest(accountId);
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
+
+      actions.fetchListAdderListsRequest(accountId);
       try {
-        const res = await fetch(`/api/v1/accounts/${accountId}/lists`, {
-          method: 'GET'
-        });
-        if (!res.ok) {
-          throw new Error("Failed to fetch account lists");
-        }
+        const res = await fetch(`/api/v1/accounts/${accountId}/lists`);
+        if (!res.ok) throw new Error("Failed to fetch account lists");
+
         const data = await res.json();
-        root.listAdder.fetchListAdderListsSuccess(accountId, data);
+        actions.fetchListAdderListsSuccess(accountId, data);
       } catch (e) {
-        root.listAdder.fetchListAdderListsFail(accountId);
-        // swallow any errors from best-effort fetch
+        actions.fetchListAdderListsFail(accountId);
       }
     }
 

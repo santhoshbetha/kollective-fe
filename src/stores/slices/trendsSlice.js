@@ -1,42 +1,48 @@
 import { normalizeTag } from "../../normalizers/tag";
 
 export function createTrendsSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
-  // get not used
+  const getActions = () => rootGet();
+
   return {
+    // --- Initial State ---
     items: [],
     isLoading: false,
 
     fetchTrendsRequest() {
-      set((state) => {
+      setScoped((state) => {
         state.isLoading = true;
       });
     },
 
-    fetchTrandsSuccess(tags) {
-      set((state) => {
-        state.items = tags.map((item) => normalizeTag(item));
+    fetchTrendsSuccess(tags) {
+      setScoped((state) => {
+        // Direct assignment using Immer draft
+        state.items = (tags || []).map((item) => normalizeTag(item));
         state.isLoading = false;
       });
     },
 
+
     fetchTrendsFail() {
-      set((state) => {
+      setScoped((state) => {
         state.isLoading = false;
       });
     },
 
     async fetchTrends() {
-      this.fetchTrendsRequest();
+      const actions = getActions();
+      
+      actions.fetchTrendsRequest();
 
       try {
-        const res = await fetch(`/api/v1/trends`, { method: "GET" });
+        const res = await fetch(`/api/v1/trends`);
         if (!res.ok) throw new Error(`Failed to fetch trends (${res.status})`);
+        
         const data = await res.json();
-        this.fetchTrandsSuccess(data);
+        actions.fetchTrendsSuccess(data);
       } catch (error) {
-        console.error("Error in fetchTrends try-catch:", error);
-        this.fetchTrendsFail();
+        console.error("TrendsSlice.fetchTrends failed", error);
+        actions.fetchTrendsFail();
       }
     }
   };

@@ -67,6 +67,8 @@ import { createModerationSlice } from "./slices/moderationSlice.js";
 // apps slice optional — leave empty if module cannot be resolved
 
 // Helper to create a scoped setter/getter for a slice key
+import { showToast } from "../utils/toast.js";
+
 const createScopedHelpers = (key, set, get) => {
   const scopedSet = (fn) => {
     set((state) => {
@@ -466,6 +468,7 @@ const useBoundStore = create(
     const backupsActions = createBackupsSlice(backupsSet, backupsGet, set, get);
     const adminActions = createAdminSlice(adminSet, adminGet, set, get);
     const authActions = createAuthSlice(authSet, authGet, set, get);
+
     const meActions = createMeSlice(meSet, meGet, set, get);
     const mutesActions = createMutesSlice(mutesSet, mutesGet, set, get);
     const pollsActions = createPollsSlice(pollsSet, pollsGet, set, get);
@@ -577,6 +580,7 @@ const useBoundStore = create(
       ...dropdownMenuActions,
       ...domainListsActions,
       ...apps,
+      showToast: (message, variant = 'default') => showToast(message, { variant }),
     };
   })))
 );

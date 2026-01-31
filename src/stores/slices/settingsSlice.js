@@ -181,56 +181,68 @@ function mergeDeep(defaultObj, overrideObj) {
 // Reselect memoized selector: pass `settingsSelector` to `useStore(settingsSelector)`
 // const settings = useStore(settingsSelector);
 export const settingsSelector = createReselectSelector(
-  (state) => (state && state.settings) || {},
+  (state) => state?.settings || {},
   (persisted) => mergeDeep(defaultSettings, persisted),
 );
 
 export function createSettingsSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
+  const getActions = () => rootGet();
+
+  // Helper to deep-set values in Immer draft without using setIn
+  const setPathValue = (draft, path, value) => {
+    let current = draft;
+    for (let i = 0; i < path.length - 1; i++) {
+      if (!current[path[i]]) current[path[i]] = {};
+      current = current[path[i]];
+    }
+    current[path[path.length - 1]] = value;
+  };
+
   return {
-    setNotificationsFilter(path, value) {
-      set((state) => {
-        setIn(state, path, value);
+
+    changeSetting(path, value) {
+      setScoped((state) => {
+        setPathValue(state, path, value);
         state.saved = false;
       });
+    },
+
+    setNotificationsFilter(path, value) {
+      getActions().changeSetting(path, value);
     },
 
     setSearchFilter(path, value) {
-      set((state) => {
-        setIn(state, path, value);
-        state.saved = false;
-      });
-    },
-
-    changeSetting(path, value) {
-      set((state) => {
-        setIn(state, path, value);
-        state.saved = false;
-      });
+      getActions().settings.changeSetting(path, value);
     },
 
     chooseEmoji(emoji) {
-      // TODO: debounce save
-      set((state) => {
+      setScoped((state) => {
         state.frequentlyUsedEmojis = state.frequentlyUsedEmojis || [];
-        const existingIndex = state.frequentlyUsedEmojis.findIndex(
-          (e) => e.id === emoji.id,
-        );
-        if (existingIndex !== -1) {
-          state.frequentlyUsedEmojis.splice(existingIndex, 1);
-        }
+        const idx = state.frequentlyUsedEmojis.findIndex((e) => e.id === emoji.id);
+        if (idx !== -1) state.frequentlyUsedEmojis.splice(idx, 1);
+        
         state.frequentlyUsedEmojis.unshift(emoji);
-        if (state.frequentlyUsedEmojis.length > 20) {
-          state.frequentlyUsedEmojis.pop();
-        }
+        if (state.frequentlyUsedEmojis.length > 20) state.frequentlyUsedEmojis.pop();
         state.saved = false;
       });
     },
 
     saveSetting() {
-      set((state) => {
-        state.saved = true;
-      });
+      setScoped((state) => { state.saved = true; });
+    },
+
+    getSettings() {
+      const persisted = getScoped() || {};
+      return mergeDeep(defaultSettings, persisted);
+    },
+
+    getLocale(fallback = 'en') {
+      const actions = getActions();
+      const settings = actions.getSettings();
+      const variant = String(settings.locale || fallback).replace('_', '-');
+      const base = variant.split('-')[0];
+      const finalFallback = messages[base] ? base : fallback;
+      return messages[variant] ? variant : finalFallback;
     },
 
     updateSettings(settings) {
@@ -248,68 +260,45 @@ export function createSettingsSlice(setScoped, getScoped, rootSet, rootGet) {
       return mergeDeep(defaultSettings, persisted);
     },
 
-    // Backwards-compatible alias used by other slices
-    getSettings() {
-      return this.getSettingsAction();
-    },
-
     changeSettingImmediate(path, value, opts) {
-      const root = rootGet();
-      root.compose.changeSetting(path, value);
+      const actions = getActions();
+      actions.changeSetting(path, value);
       this.changeSetting(path, value);
       this.saveSettingsImmediate(opts)
     },
 
     changeSettingAction(path, value, opts) {
-      const root = rootGet();
-      root.compose.changeSetting(path, value);
-      this.changeSetting(path, value);
-      this.saveSettingsAction(opts);
+      const actions = getActions();
+      actions.changeSetting?.(path, value);
+      actions.changeSetting(path, value);
+      actions.saveSettingsAction(opts);
     },
 
-    saveSettingsImmediate(opts) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return;
+    async saveSettingsImmediate(opts) {
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return;
 
-      if (getIn(this.getSettings(), ['saved'])) return;
-      // Build plain JS settings and remove transient flags
-      const settingsToSave = this.getSettingsAction();
+      const currentSettings = actions.getSettings();
+      if (currentSettings.saved) return;
+
+      // Prepare payload (clone and remove transient flags)
+      const { saved, ...settingsToSave } = currentSettings;
+
       try {
-        if (settingsToSave && typeof settingsToSave === 'object') {
-          // don't send the `saved` flag
-          if (Object.prototype.hasOwnProperty.call(settingsToSave, 'saved')) {
-            delete settingsToSave.saved;
-          }
-        }
-
-        // Patch the user's settings on the server
-        root.me.patchMe({ settings: settingsToSave }, opts).then(() => {
-          this.saveSetting();
-          if (opts?.showAlert) {
-            // toast.success(saveSuccessMessage);
-          }
-        }).catch((err) => {
-          console.error('Failed to save settings (patchMe rejected)', err);
-        });
+        await actions.patchMe({ settings: settingsToSave }, opts);
+        actions.saveSetting();
+        // if (opts?.showAlert) toast.success(saveSuccessMessage);
       } catch (err) {
-        console.error('Failed to save settings:', err);
+        console.error('Settings save failed', err);
       }
-
     },
 
     saveSettingsAction(opts) {
-      const root = rootGet();
-      root.compose.saveSettings(opts);
-      this.saveSetting();
+      const actions = getActions();
+      actions.saveSettings?.(opts);
+      actions.saveSetting();
     },
 
-    getLocale(fallback = 'en') {
-      const settings = this.getSettingsAction() || {};
-      const localeWithVariant = String(settings.locale || fallback).replace('_', '-');
-      const locale = localeWithVariant.split('-')[0];
-      const fallbackLocale = Object.keys(messages).includes(locale) ? locale : fallback;
-      return Object.keys(messages).includes(localeWithVariant) ? localeWithVariant : fallbackLocale;
-    }
   };
 }
 

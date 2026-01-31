@@ -82,158 +82,161 @@ const expandNormalizedConversations = (
   };
 };
 
+const normalizeConversation = (item) => {
+  if (!item?.id) return null;
+  return {
+    id: item.id,
+    unread: !!item.unread,
+    accounts: (item.accounts || []).map((a) => a?.id || a),
+    last_status: item.last_status?.id || null,
+    last_status_created_at: item.last_status?.created_at || null,
+  };
+};
+
+const sortConversations = (items) => {
+  return items.sort((a, b) => {
+    const aTime = a.last_status_created_at ? new Date(a.last_status_created_at).getTime() : 0;
+    const bTime = b.last_status_created_at ? new Date(b.last_status_created_at).getTime() : 0;
+    return bTime - aTime; // Newest first
+  });
+};
+
+
+
 export function createConversationsSlice(setScoped, getScoped, rootSet, rootGet) {
-  const initialState = {
-    items: [], // Array of conversation objects
+  const getActions = () => rootGet();
+  return {
+    // --- State ---
+    items: [],
     isLoading: false,
     hasMore: true,
+    next: null,
     mounted: 0,
-  };
-
-  return {
-    ...initialState,
 
     fetchConversationsRequest() {
-      setScoped((state) => ({ ...state, isLoading: true }));
+      setScoped((state) => { state.isLoading = true; });
     },
 
     fetchConversationsFail() {
-      setScoped((state) => ({ ...state, isLoading: false }));
+      setScoped((state) => { state.isLoading = false; });
     },
 
     fetchConversationsSuccess(conversations, next, isLoadingRecent = false) {
       setScoped((state) => {
-        const result = expandNormalizedConversations(
-          state,
-          conversations,
-          next,
-          isLoadingRecent,
-        );
-        return { ...state, ...result };
+        const incoming = (Array.isArray(conversations) ? conversations : [conversations])
+          .map(normalizeConversation)
+          .filter(Boolean);
+
+        // Merge logic: Update existing or push new
+        incoming.forEach((newItem) => {
+          const index = state.items.findIndex((ex) => ex.id === newItem.id);
+          if (index !== -1) {
+            state.items[index] = newItem;
+          } else {
+            state.items.push(newItem);
+          }
+        });
+
+        sortConversations(state.items);
+        
+        state.isLoading = false;
+        state.next = next || null;
+        state.hasMore = !!next;
+        state.isLoadingRecent = !!isLoadingRecent;
       });
     },
 
-    // Define the action within the interface
-    updateConversation: (conversation) => {
-      const newItem = conversationToMap(conversation);
-      if (!newItem || !newItem.id) return;
+    updateConversationAction(conversation) {
+      const newItem = normalizeConversation(conversation);
+      if (!newItem) return;
 
       setScoped((state) => {
-        const items = Array.isArray(state.items) ? state.items.slice() : [];
-        const index = items.findIndex((x) => x && x.id === newItem.id);
-
-        let nextItems;
-        if (index === -1) nextItems = [newItem, ...items];
-        else {
-          nextItems = items.slice();
-          nextItems[index] = newItem;
+        const index = state.items.findIndex((item) => item.id === newItem.id);
+        if (index === -1) {
+          state.items.unshift(newItem);
+        } else {
+          state.items[index] = newItem;
         }
-
-        return { ...state, items: nextItems };
+        sortConversations(state.items);
       });
     },
 
     mountConversations: () => {
-      setScoped((state) => ({ ...state, mounted: (state.mounted || 0) + 1 }));
+      setScoped((state) => { state.mounted += 1; });
     },
 
     unmountConversations: () => {
-      setScoped((state) => ({
-        ...state,
-        mounted: Math.max(0, (state.mounted || 1) - 1),
-      }));
+      setScoped((state) => { state.mounted = Math.max(0, state.mounted - 1); });
     },
 
-    readConversations: (conversationOrId) => {
+    readConversations: (conversationId) => {
       setScoped((state) => {
-        const items = Array.isArray(state.items) ? state.items.slice() : [];
-        const id = conversationOrId && (conversationOrId.id ?? conversationOrId);
-        if (id == null) {
-          return state;
-        }
-
-        const idStr = String(id);
-        const idx = items.findIndex((x) => x && String(x.id) === idStr);
-        if (idx === -1) {
-            return state;
-        }
-
-        const existing = items[idx] || {};
-        if (!existing.unread) {
-          return state; // no change
-        }
-
-        const updated = { ...existing, unread: false };
-        items[idx] = updated;
-
-        return { ...state, items };
+        const item = state.items.find((x) => x.id === conversationId);
+        if (item) item.unread = false;
       });
     },
 
-    markConversationRead(conversationId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return;
+    async markConversationRead(conversationId) {
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return;
+
+      // Optimistic update
+      actions.readConversations(conversationId);
+
+      try {
+        await fetch(`/api/v1/conversations/${conversationId}/read`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("Failed to mark conversation as read:", err);
       }
-
-      this.readConversations(conversationId);
-
-      fetch(`/api/v1/conversations/${conversationId}/read`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      }).catch((error) => {
-        console.error("Failed to mark conversation as read:", error);
-      }); 
     },
 
-    expandConversations(maxId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return;
-      }
+    async expandConversations(maxId) {
+      const actions = getActions();
+      const state = rootGet();
+      if (!isLoggedIn(state)) return;
 
-      const params = { max_id: maxId };
-
-      if (!maxId) {
-        params.since_id = root.conversations.items.getIn([0, 'id']);
+      const params = {};
+      if (maxId) {
+        params.max_id = maxId;
+      } else if (state.conversations.items.length > 0) {
+        // Corrected: Standard JS array access
+        params.since_id = state.conversations.items[0].id;
       }
 
       const isLoadingRecent = !!params.since_id;
+      actions.fetchConversationsRequest();
 
-      fetch(`/api/v1/conversations?${new URLSearchParams(params)}`, {//TODO: check later
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        const next = response.next();
+      try {
+        const res = await fetch(`/api/v1/conversations?${new URLSearchParams(params)}`);
+        if (!res.ok) throw new Error(res.status);
+        
+        const data = await res.json();
+        const next = res.pagination?.().next;
 
-        root.importer.importFetchedAccounts(data.reduce((aggr, item) => aggr.concat(item.accounts), []));
-        root.importer.importFetchedStauses(data.map((item) => item.last_status).filter((x) => !!x));
-        this.fetchConversationsSuccess(data, next, isLoadingRecent);
-      })
-      .catch((error) => {
-        console.error("Failed to expand conversations:", error);
-        this.fetchConversationsFail();
-      }); 
+        // Extract and import accounts/statuses via root actions
+        const accounts = data.flatMap(item => item.accounts || []);
+        const statuses = data.map(item => item.last_status).filter(Boolean);
+
+        actions.importFetchedAccounts?.(accounts);
+        actions.importFetchedStatuses?.(statuses);
+        
+        actions.fetchConversationsSuccess(data, next, isLoadingRecent);
+      } catch (err) {
+        console.error("Failed to expand conversations:", err);
+        actions.fetchConversationsFail();
+      }
     },
 
     updateConversations(conversation) {
-      const root = rootGet();
-      root.importer.importFetchedAccounts(conversation.accounts || []);
+      const actions = getActions();
+      actions.importFetchedAccounts?.(conversation.accounts || []);
       if (conversation.last_status) {
-        root.importer.importFetchedStauses([conversation.last_status]);
+        actions.importFetchedStatuses?.([conversation.last_status]);
       }
-      this.updateConversation(conversation);
+      actions.updateConversationAction(conversation);
     }
   };
 }

@@ -74,6 +74,7 @@ const initialState = {
 }
 
 export function createAdminSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
   return {
     ...initialState,
 
@@ -240,8 +241,8 @@ export function createAdminSlice(setScoped, getScoped, rootSet, rootGet) {
         const reports = await response.json();
         const root = rootGet();
         reports.forEach(report => {
-          root.importer?.importFetchedAccount?.(report.account.account || []);
-          root.importer?.importFetchedAccount?.(report.target_account.account || []);
+          actions.importFetchedAccount?.(report.account.account || []);
+          actions.importFetchedAccount?.(report.target_account.account || []);
           this.fetchOrUpdateAdminConfigsSuccess(report.configs || []);
         });
         this.fetchAdminReportsSuccess(reports);
@@ -291,6 +292,7 @@ export function createAdminSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     async fetchUsers(filters, page = 1, query, pageSize = 50, url) {
+      const actions = getActions();
       const params = { page, limit: pageSize, ...filters };
       if (query) params.q = query;
 
@@ -318,10 +320,10 @@ export function createAdminSlice(setScoped, getScoped, rootSet, rootGet) {
         if (!next && payload && typeof payload.next === 'string') next = payload.next;
 
         // Import accounts and prefetch relationships if available
-        root.importer?.importFetchedAccounts?.(accounts);
+        actions.importFetchedAccounts?.(accounts);
         if (root.accounts && typeof root.accounts.fetchRelationships === 'function') {
           // fire-and-forget but await to ensure relationships are prefetched when callers rely on it
-          await root.accounts.fetchRelationships(accounts.map((a) => a.id));
+          await actions.fetchRelationships(accounts.map((a) => a.id));
         }
 
         // Notify slice with the plain account objects, filters, and page

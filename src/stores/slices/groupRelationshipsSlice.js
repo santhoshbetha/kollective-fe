@@ -15,17 +15,14 @@ export const createGroupRelationshipsSlice = (
 ) => {
   // Manage relationships between groups (by id, and index by group)
   return {
-    id: "",
-    blocked_by: false,
-    member: false,
-    notifying: null,
-    requested: false,
-    muting: false,
-    role: "user",
-    pending_requests: false,
-
+    // --- Initial State ---
+    // Note: Since this slice is a dictionary [id]: data, 
+    // we don't need the individual fields like 'member: false' at the top level.
+    // They live inside the objects stored under state[id].
     createGroupsuccess(group) {
+      if (!group?.id) return;
       setScoped((state) => {
+        // Direct assignment replaces manual merging
         state[group.id] = normalizeGroupRelationship({
           id: group.id,
           member: true,
@@ -36,6 +33,7 @@ export const createGroupRelationshipsSlice = (
     },
 
     updateGroupsuccess(group) {
+      if (!group?.id) return;
       setScoped((state) => {
         state[group.id] = normalizeGroupRelationship({
           id: group.id,
@@ -47,13 +45,24 @@ export const createGroupRelationshipsSlice = (
     },
 
     deleteGroupSuccess(id) {
+      if (!id) return;
       setScoped((state) => {
+        // Native JS 'delete' is the idiomatic way to remove keys in Immer drafts
         delete state[id];
       });
     },
 
     fetchGroupRelationshipsSuccess(relationships) {
-      setScoped((state) => normalizeRelationships(state, relationships));
+      if (!Array.isArray(relationships)) return;
+      
+      setScoped((state) => {
+        relationships.forEach((rel) => {
+          if (rel?.id) {
+            // Update each relationship entry in the dictionary
+            state[rel.id] = normalizeGroupRelationship(rel);
+          }
+        });
+      });
     },
   };
 };

@@ -87,130 +87,152 @@ const deleteAnnouncement = (id) => {
   );
 }
 
+const parsePayload = (data) => {
+  try {
+    return JSON.parse(data.payload);
+  } catch (e) {
+    return null;
+  }
+};
+
+const handleChatMessageDelete = (payload) => {
+  const data = JSON.parse(payload);
+  const { chat_id: chatId, deleted_message_id: messageId } = data;
+
+  if (isLastMessage(messageId)) {
+    queryClient.invalidateQueries({ queryKey: ChatKeys.chatSearch() });
+  }
+  removePageItem(ChatKeys.chatMessages(chatId), messageId, (o, n) => String(o.id) === String(n));
+};
+
+const updateAnnouncement = (announcement) => {
+  queryClient.setQueryData(['announcements'], (prev = []) => {
+    const parsed = announcementSchema.parse(announcement);
+    const index = prev.findIndex(a => a.id === parsed.id);
+    if (index > -1) {
+      const next = [...prev];
+      next[index] = parsed;
+      return next;
+    }
+    return [parsed, ...prev];
+  });
+};
+
+const followStateToRelationship = (state) => ({
+  follow_pending: { following: false, requested: true },
+  follow_accept: { following: true, requested: false },
+  follow_reject: { following: false, requested: false },
+}[state] || {});
 
 export function createStreamingSlice(setScoped, getScoped, rootSet, rootGet) {
-
+   const getActions = () => rootGet();
+   
    return {
 
-      updateFollowRelationships(update) {
-         const root = rootGet();
-         const me = root.me;
-         const relationship = selectEntity(root, 'Relationships', update.following.id);
+    updateFollowRelationships(update) {
+      const actions = getActions();
+      const me = actions.me;
+      const relationship = selectEntity(actions, 'Relationships', update.following.id);
 
-         if (update.follower.id === me && relationship) {
-            const updated = {
-            ...relationship,
-            ...followStateToRelationship(update.state),
-            };
+      if (update.follower.id === me && relationship) {
+        const updated = {
+          ...relationship,
+          ...followStateToRelationship(update.state),
+        };
+        // Avoid API race conditions
+        setTimeout(() => actions.entities?.importEntities?.([updated], 'Relationships'), 300);
+      }
+    },
 
-            // Add a small delay to deal with API race conditions.
-            setTimeout(() => root.entities.importEntities([updated], 'Relationships'), 300);
-         }
-      },
+    connectTimelineStream(timelineId, path, accept, options) {
+      const actions = getActions();
 
-     connectTimelineStream: (timelineId, path, accept, options) => {
-         const root = rootGet();
-         return connectStream(path, () => {
-            const locale = root.settings.getLocale();
-            return {
-               onConnect() {
-                  root.timelines.connectTimeline(timelineId);  //san this websoket  //san this stream
-               },
-               
-               onDisconnect() {
-                  root.timelines.disconnectTimeline(timelineId);
-               },
+      return connectStream(path, () => ({
+        onConnect() {
+          actions.connectTimeline?.(timelineId);
+        },
 
-               onReceive(websocket, data) {
-                  switch (data.event) {
-                     case 'update':
-                        root.timelines.processTimelineUpdate(timelineId, JSON.parse(data.payload), accept);
-                        break;
-                     case 'status.update':
-                        root.statuses.updateStatus(JSON.parse(data.payload));
-                        break;
-                     // FIXME: We think delete & redraft is causing jumpy timelines.
-                     // Fix that in ScrollableList then re-enable this!
-                     //
-                     // case 'delete':
-                     //   dispatch(deleteFromTimelines(data.payload));
-                     //   break;
-                     case 'notification':
-                        messages[locale]().then(messages => {
-                           root.notifications.updateNotificationsQueue(
-                              JSON.parse(data.payload),
-                              messages,
-                              locale,
-                              window.location.pathname,
-                              );
-                           }).catch(error => {
-                           console.error(error);
-                        });
-                        break;
-                     case 'conversation':
-                        root.conversations.updateConversations(JSON.parse(data.payload));
-                        break;
-                     case 'filters_changed':
-                        root.filters.fetchFilters();
-                        break;
-                     case 'pleroma:chat_update':
-                     case 'chat_message.created': // TruthSocial
-                        {  
-                           const chat = JSON.parse(data.payload);
-                           const me = root.me;
-                           const messageOwned = chat.last_message?.account_id === me;
-                           const settings = root.settings.getSettings();
+        onDisconnect() {
+          actions.disconnectTimeline?.(timelineId);
+        },
 
-                           // Don't update own messages from streaming
-                           if (!messageOwned) {
-                              updateChatListItem(chat);
+        async onReceive(websocket, data) {
+          const payload = parsePayload(data);
+          const locale = actions.getLocale?.();
 
-                              if (getIn(settings, ['chats', 'sound'])) {
-                                 play(soundCache.chat);
-                              }
-
-                              // Increment unread counter
-                              options?.statContext?.setUnreadChatsCount(getUnreadChatsCount());
-                           }
-                        }
-                        break;
-                     case 'chat_message.deleted': // TruthSocial
-                        removeChatMessage(data.payload);
-                        break;
-                     case 'chat_message.read': // TruthSocial
-                        {  
-                           const chat = JSON.parse(data.payload);
-                           const me = root.me;
-                           const isFromOtherUser = chat.account.id !== me;
-                           if (isFromOtherUser) {
-                              updateChatQuery(JSON.parse(data.payload));
-                           }
-           
-                           break; 
-                        }
-                     case 'chat_message.reaction': // TruthSocial
-                        updateChatMessage(JSON.parse(data.payload));
-                        break;
-                     case 'pleroma:follow_relationships_update':
-                        root.streaming?.updateFollowRelationships?.(JSON.parse(data.payload));
-                        break;
-                     case 'announcement':
-                        updateAnnouncement(JSON.parse(data.payload));
-                        break;
-                     case 'announcement.reaction':
-                        updateAnnouncementReactions(JSON.parse(data.payload));
-                        break;
-                     case 'announcement.delete':
-                        deleteAnnouncement(data.payload);
-                        break;
-                     case 'marker':
-                        root.notifications.fetchMarkerSuccess({ marker: JSON.parse(data.payload) });
-                        break;
-                  }
-               },
+          switch (data.event) {
+            case 'update':
+              actions.processTimelineUpdate?.(timelineId, payload, accept);
+              break;
+            case 'status.update':
+              actions.updateStatus?.(payload);
+              break;
+            case 'notification':
+              try {
+                const msgBundle = await messages[locale]();
+                actions.updateNotificationsQueue?.(
+                  payload,
+                  msgBundle,
+                  locale,
+                  window.location.pathname
+                );
+              } catch (e) { console.error("Notification stream error", e); }
+              break;
+            case 'conversation':
+              actions.updateConversations?.(payload);
+              break;
+            case 'filters_changed':
+              actions.fetchFilters?.();
+              break;
+            case 'pleroma:chat_update':
+            case 'chat_message.created': {
+              const messageOwned = payload.last_message?.account_id === actions.me;
+              if (!messageOwned) {
+                updateChatListItem(payload);
+                if (actions.getSettings()?.chats?.sound) play(soundCache.chat);
+                options?.statContext?.setUnreadChatsCount?.(getUnreadChatsCount());
+              }
+              break;
             }
-         })
-     },
+            case 'chat_message.deleted':
+              handleChatMessageDelete(data.payload);
+              break;
+            case 'chat_message.read':
+              if (payload.account?.id !== actions.me) {
+                const cached = queryClient.getQueryData(ChatKeys.chat(payload.id));
+                if (cached) {
+                  queryClient.setQueryData(ChatKeys.chat(payload.id), {
+                    ...cached,
+                    latest_read_message_by_account: payload.latest_read_message_by_account,
+                    latest_read_message_created_at: payload.latest_read_message_created_at,
+                  });
+                }
+              }
+              break;
+            case 'chat_message.reaction':
+              updateChatMessage(payload);
+              break;
+            case 'pleroma:follow_relationships_update':
+              actions.updateFollowRelationships?.(payload);
+              break;
+            case 'announcement':
+              updateAnnouncement(payload);
+              break;
+            case 'announcement.reaction':
+              queryClient.setQueryData(['announcements'], (prev = []) => 
+                prev.map(a => a.id === payload.announcement_id 
+                  ? announcementSchema.parse({ ...a, reactions: updateReactions(a.reactions, payload.name, -1, true) }) 
+                  : a
+                )
+              );
+              break;
+            case 'announcement.delete':
+              queryClient.setQueryData(['announcements'], (prev = []) => prev.filter(a => a.id !== data.payload));
+              break;
+          }
+        }
+      }));
+    },
 
 
   };

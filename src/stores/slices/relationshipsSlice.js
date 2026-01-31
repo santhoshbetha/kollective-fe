@@ -7,192 +7,85 @@ export const createRelationshipsSlice = (
   rootSet,
   rootGet,
 ) => {
-  const set = setScoped;
+
+  // Internal helper to parse and merge relationships into state
+  const mergeRelationships = (data) => {
+    const items = Array.isArray(data) ? data : [data];
+    setScoped((state) => {
+      items.forEach((item) => {
+        if (!item?.id) return;
+        try {
+          const parsed = relationshipSchema.parse(asPlain(item));
+          state[parsed.id] = parsed;
+        } catch (e) {
+          console.error("Relationship parsing failed", e);
+        }
+      });
+    });
+  };
+
   return ({
     // store relationships by id
     //byId: {},
 
-    importAccount(account) {
-      if (!account) return;
-      const acct = asPlain(account) || {};
-      const relationship =
-        (acct.pleroma && acct.pleroma.relationship) || acct.relationship || null;
-      if (!relationship || !relationship.id) return;
-      try {
-        const parsed = relationshipSchema.parse(asPlain(relationship));
-        set((state) => {
-          state[parsed.id] = parsed;
-        });
-      } catch (e) {
-        console.error("Failed to parse relationship for account", e);
-      }
+    importKollectiveAccount(account) {
+      const acct = asPlain(account);
+      const rel = acct?.kollective?.relationship || acct?.relationship;
+      if (rel) mergeRelationships(rel);
     },
 
-    importAccounts(accounts) {
+    importKollectiveAccounts(accounts) {
       if (!Array.isArray(accounts)) return;
-      const arr = accounts.map(asPlain);
-      set((state) => {
-        arr.forEach((acct) => {
-          const relationship =
-            (acct && acct.pleroma && acct.pleroma.relationship) ||
-            acct.relationship ||
-            null;
-          if (relationship && relationship.id) {
-            try {
-              state[relationship.id] = relationshipSchema.parse(
-                asPlain(relationship),
-              );
-            } catch (e) {
-              console.error("Failed to parse relationship in importAccounts", e);
-            }
-          }
-        });
-      });
+      const relationships = accounts
+        .map(acct => asPlain(acct)?.kollective?.relationship || asPlain(acct)?.relationship)
+        .filter(Boolean);
+      mergeRelationships(relationships);
     },
 
-    blockOrUnBlockAccountSuccess(relationship) {
-      if (!relationship || !relationship.id) return;
-      try {
-        const parsed = relationshipSchema.parse(asPlain(relationship));
-        set((state) => {
-          state[parsed.id] = parsed;
-        });
-      } catch (e) {
-        console.error("Failed to parse relationship in blockAccountSuccess", e);
-      }
-    },
-
-    muteOrUnmuteaccountSuccess(relationship) {
-      if (!relationship || !relationship.id) return;
-      try {
-        const parsed = relationshipSchema.parse(asPlain(relationship));
-        set((state) => {
-          state[parsed.id] = parsed;
-        });
-      } catch (e) {
-        console.error("Failed to parse relationship in muteAccountSuccess", e);
-      }
-    },
-
-    subscribeOrUnsubscribeAccountSuccess(relationship) {
-      if (!relationship || !relationship.id) return;
-      try {
-        const parsed = relationshipSchema.parse(asPlain(relationship));     
-
-        set((state) => {
-          state[parsed.id] = parsed;
-        }     
-        );
-      } catch (e) {
-        console.error(
-          "Failed to parse relationship in subscribeAccountSuccess",
-          e,
-        );
-      }
-    },
-
-    pinOrUnpinAccountSuccess(relationship) {
-      if (!relationship || !relationship.id) return;
-      try {
-        const parsed = relationshipSchema.parse(asPlain(relationship));
-        set((state) => {
-          state[parsed.id] = parsed;
-        });
-      } catch (e) {
-        console.error("Failed to parse relationship in pinAccount", e);
-      }
-    },
-
-    accountNoteSuubmitSuccess(relationship) {
-      if (!relationship || !relationship.id) return;
-      try {
-        const parsed = relationshipSchema.parse(asPlain(relationship));
-        set((state) => {
-          state[parsed.id] = parsed;
-        });
-      } catch (e) {
-        console.error("Failed to parse relationship in accountNoteSubmit", e);
-      }
-    },
-
-    removeAccountFromFollowersSuccess(relationship) {
-      if (!relationship || !relationship.id) return;
-      try {
-        const parsed = relationshipSchema.parse(asPlain(relationship));
-        set((state) => {
-          state[parsed.id] = parsed;
-        });
-      } catch (e) {
-        console.error("Failed to parse relationship in removeAccountFromFollowers", e);
-      }
-    },
-
-    fetchRelationshipsSuccess(relationships) {
-      if (!relationships) return;
-      relationships.forEach((relationship) => {
-        if (!relationship || !relationship.id) return;
-        set((state) => {
-          try {
-            const parsed = relationshipSchema.parse(asPlain(relationship));
-            state[parsed.id] = parsed;
-          } catch (e) {
-            console.error("Failed to parse relationship in fetchRelationshipsSuccess", e);
-          }
-        });
-      });
-    },
+    blockOrUnBlockAccountSuccess: mergeRelationships,
+    muteOrUnmuteaccountSuccess: mergeRelationships,
+    subscribeOrUnsubscribeAccountSuccess: mergeRelationships,
+    pinOrUnpinAccountSuccess: mergeRelationships,
+    accountNoteSubmitSuccess: mergeRelationships, // Fixed typo from 'Suubmit'
+    removeAccountFromFollowersSuccess: mergeRelationships,
+    fetchRelationshipsSuccess: mergeRelationships,
 
     domainBlockSuccess(accounts) {
-      if (!accounts) return;
-      accounts.forEach((account) => {
-        if (!account || !account.id || !account.relationship) return;
-        set((state) => {
-          try {
-            let out = setIn(state, [account.id, 'domain_blocking'], true);
-            state = { ...state, ...out };
-          } catch (e) {
-            console.error("Failed to parse relationship in domainBlockSuccess", e);
-          }
+      setScoped((state) => {
+        accounts?.forEach((acct) => {
+          if (state[acct.id]) state[acct.id].domain_blocking = true;
         });
       });
     },
 
     domainUnblockSuccess(accounts) {
-      if (!accounts) return;
-      accounts.forEach((account) => {
-        if (!account || !account.id || !account.relationship) return;
-        set((state) => {
-          try {
-            let out = setIn(state, [account.id, 'domain_blocking'], false);
-            state = { ...state, ...out };
-          } catch (e) {
-            console.error("Failed to parse relationship in domainUnblockSuccess", e);
-          }
+      setScoped((state) => {
+        accounts?.forEach((acct) => {
+          if (state[acct.id]) state[acct.id].domain_blocking = false;
         });
       });
     },
 
     //account-notes submit action
     async submitAccountNote(id, value) {
-      return fetch(`/api/v1/accounts/${id}/note`, {
+      const actions = getScoped();
+      try {
+        const response = await fetch(`/api/v1/accounts/${id}/note`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            comment: value
-          }),
-        })
-        .then((response) => response.json())
-        .then((data) => {
-          // handle success
-          this.accountNoteSubmitSuccess(data);
-        })
-        .catch((error) => {
-          // handle error
-          console.error('Error: submitAccountNote failed', error);
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comment: value }),
         });
+
+        if (!response.ok) throw new Error('Note submission failed');
+        
+        const data = await response.json();
+        actions.accountNoteSubmitSuccess(data);
+        return data;
+      } catch (error) {
+        console.error('Error: submitAccountNote failed', error);
+      }
     },
+    
   });
 };
 

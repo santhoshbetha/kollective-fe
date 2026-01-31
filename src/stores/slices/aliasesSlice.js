@@ -14,6 +14,7 @@ const initialState = {
 };
 
 export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
   return {
     ...initialState,
 
@@ -76,8 +77,8 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
 
     fetchAliasesSuggestions(q) {
       const state = rootGet();
+      const actions = getActions();
       if (!isLoggedIn(state)) return;
-      const root = rootGet();
 
       const fetchUrl = '/api/v1/accounts/search?' + new URLSearchParams(params);
 
@@ -101,7 +102,7 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
         return response.json();
       })
       .then((data) => {
-        root.importer.importFetchedAccounts(data.map(({ account }) => account));
+        actions.importFetchedAccounts(data.map(({ account }) => account));
         this.suggestionsAliasesReady(q, data);
       })
       .catch((error) => {
@@ -111,24 +112,24 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     addToAliases(account) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return;
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return;
 
       const features = getFeatures();
 
       if (!features.accountMoving) {
-        const me = root.auth.me;
-        const alsoKnownAs = root.accountsMeta[me]?.pleroma?.also_known_as || [];
+        const me = rootGet().auth.me;
+        const alsoKnownAs = rootGet().accountsMeta[me]?.kollective?.also_known_as || [];
 
         fetch('/api/v1/accounts/update_credentials', {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${root.auth.app?.access_token}`,
+            Authorization: `Bearer ${rootGet().auth.app?.access_token}`,
           },
           body: JSON.stringify({
             pleroma: {
-              also_known_as: [...alsoKnownAs, account.pleroma?.ap_id],
+              also_known_as: [...alsoKnownAs, account.kollective?.ap_id],
             },
           }),
         })
@@ -140,7 +141,7 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
         })
         .then((data) => {
           //TODO: add toast later
-           root.me.patchMeSuccess(data);
+           actions.patchMeSuccess(data);
         })
         .catch((error) => {
           console.error("Error adding to aliases:", error);
@@ -152,7 +153,7 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${root.auth.app?.access_token}`,
+          Authorization: `Bearer ${rootGet().auth.app?.access_token}`,
         },
         body: JSON.stringify({    
           alias: account.acct,
@@ -171,20 +172,20 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
     },
 
     removeFromAliases(account) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return;
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return;
 
       const features = getFeatures();
 
       if (!features.accountMoving) {
-        const me = root.auth.me;
-        const alsoKnownAs = root.accountsMeta[me]?.pleroma?.also_known_as || [];
+        const me = rootGet().auth.me;
+        const alsoKnownAs = rootGet().accountsMeta[me]?.kollective?.also_known_as || [];
 
         fetch('/api/v1/accounts/update_credentials', {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${root.auth.app?.access_token}`,
+            Authorization: `Bearer ${rootGet().auth.app?.access_token}`,
           },
           body: JSON.stringify({
             pleroma: {
@@ -200,7 +201,7 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
         }).
         then((data) => {
           //TODO: add toast later
-           root.me.patchMeSuccess(data);
+           actions.patchMeSuccess(data);
         })
         .catch((error) => {
           console.error("Error removing from aliases:", error);

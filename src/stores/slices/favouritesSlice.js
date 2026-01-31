@@ -1,32 +1,42 @@
 // Action-only slice for favourites (favourites list + favourite/unfavourite actions).
 // No local state — only actions.
 
-import { castArray } from "lodash";
 import { isLoggedIn } from "../../utils/auth";
 
 export function createFavouritesSlice(setScoped, getScoped, rootSet, rootGet) {
-  return {
-    // Fetch favourited statuses for an account
-    async fetchFavouritedStatuses() {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+  const getActions = () => rootGet();
 
-      if (root.statusLists['favourites']?.isLoading) {
-        return;
+  // Internal helper to parse Link headers for pagination
+  const getNextUrl = (res) => {
+    const link = res.headers.get('Link');
+    return link?.match(/<([^>]+)>;\s*rel="next"/i)?.[1] || null;
+  };
+
+  return {
+    // Fetch favourited statuses for the current user
+    async fetchFavouritedStatuses() {
+      const state = rootGet();
+      const actions = getActions();
+
+      if (!isLoggedIn(state) || state.statusLists?.['favourites']?.isLoading) {
+        return null;
       }
 
-      root.statusLists.fetchOrExpandFavouritedStatusesRequest();
+      actions.fetchOrExpandFavouritedStatusesRequest?.();
 
       try {
-        const res = await fetch(`/api/v1/favourites`, { method: 'GET'});
-        if (!res.ok) throw new Error(`Failed to fetch favourites (${res.status})`);
+        const res = await fetch(`/api/v1/favourites`, { method: 'GET' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
         const data = await res.json();
-        const next = res.next();
-        root.importer?.importFetchedStatuses?.(data || []);
-        root.statusLists.fetchOrExpandFavouritedStatusesSuccess(data || [], next);
+        const next = getNextUrl(res);
+
+        actions.importFetchedStatuses?.(data || []);
+        actions.fetchOrExpandFavouritedStatusesSuccess?.(data || [], next);
+        
         return data;
       } catch (err) {
-        root.statusLists.fetchOrExpandFavouritedStatusesFail(err);
+        actions.fetchOrExpandFavouritedStatusesFail?.(err);
         console.error('favouritesSlice.fetchFavouritedStatuses failed', err);
         return null;
       }
@@ -34,79 +44,91 @@ export function createFavouritesSlice(setScoped, getScoped, rootSet, rootGet) {
 
     // Expand paginated favourited statuses
     async expandFavouritedStatuses() {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+      const state = rootGet();
+      const actions = getActions();
+      const listState = state.statusLists?.['favourites'];
 
-      const url = root.statusLists['favourites']?.next || null;
-
-      if (url === null || root.statusLists['favourites']?.isLoading) {
-        return;
+      if (!isLoggedIn(state) || !listState?.next || listState?.isLoading) {
+        return null;
       }
-      root.statusLists.fetchOrExpandFavouritedStatusesRequest();
+
+      actions.fetchOrExpandFavouritedStatusesRequest?.();
+
       try {
-        const res = await fetch(url, { method: 'GET' });
-        if (!res.ok) throw new Error(`Failed to expand favourites (${res.status})`);
+        const res = await fetch(listState.next, { method: 'GET' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
         const data = await res.json();
-        const next = res.next();
-        root.importer?.importFetchedStatuses?.(data || []);
-        root.statusLists?.expandFavouritedStatusesSuccess?.(data || [], next);
+        const next = getNextUrl(res);
+
+        actions.importFetchedStatuses?.(data || []);
+        actions.expandFavouritedStatusesSuccess?.(data || [], next);
+        
         return data;
       } catch (err) {
-        root.statusLists?.fetchOrExpandFavouritedStatusesFail?.(err);
+        actions.fetchOrExpandFavouritedStatusesFail?.(err);
         console.error('favouritesSlice.expandFavourites failed', err);
         return null;
       }
     },
 
-    async fetchAccountfavouritedStatuses(accountId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+    async fetchAccountFavouritedStatuses(accountId) {
+      const state = rootGet();
+      const actions = getActions();
+      const listKey = `favourites:${accountId}`;
 
-      if (root.statusLists[`favourites:${accountId}`]?.isLoading) {
-        return;
+      if (!isLoggedIn(state) || state.statusLists?.[listKey]?.isLoading) {
+        return null;
       }
 
-      root.statusLists.fetchOrExpandAccountFavouritedStatusesRequest(accountId)
+      actions.fetchOrExpandAccountFavouritedStatusesRequest?.(accountId);
 
       try {
         const res = await fetch(`/api/v1/accounts/${accountId}/favourites`, { method: 'GET' });
-        if (!res.ok) throw new Error(`Failed to fetch account favourites (${res.status})`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
         const data = await res.json();
-        const next = res.next();
-        root.importer?.importFetchedStatuses?.(data || []);
-        root.statusLists.fetchAccountFavouritedStatusesSuccess(accountId, data || [], next);
+        const next = getNextUrl(res);
+
+        actions.importFetchedStatuses?.(data || []);
+        actions.fetchAccountFavouritedStatusesSuccess?.(accountId, data || [], next);
+        
         return data;
-      } catch(err) {
-        root.statusLists.fetchOrExpandAccountFavouritedStatusesFail(accountId, err);
+      } catch (err) {
+        actions.fetchOrExpandAccountFavouritedStatusesFail?.(accountId, err);
         console.error('favouritesSlice.fetchAccountFavouritedStatuses failed', err);
+        return null;
       }
     },
 
     async expandAccountFavouritedStatuses(accountId) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+      const state = rootGet();
+      const actions = getActions();
+      const listKey = `favourites:${accountId}`;
+      const listState = state.statusLists?.[listKey];
 
-      const url = root.statusLists[`favourites:${accountId}`]?.next || null;
-
-      if (url === null || root.statusLists[`favourites:${accountId}`]?.isLoading) {
-        return;
+      if (!isLoggedIn(state) || !listState?.next || listState?.isLoading) {
+        return null;
       }
-      root.statusLists.fetchOrExpandAccountFavouritedStatusesRequest(accountId);
+
+      actions.fetchOrExpandAccountFavouritedStatusesRequest?.(accountId);
+
       try {
-        const res = await fetch(url, { method: 'GET' });
-        if (!res.ok) throw new Error(`Failed to expand account favourites (${res.status})`);
+        const res = await fetch(listState.next, { method: 'GET' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
         const data = await res.json();
-        const next = res.next();
-        root.importer?.importFetchedStatuses?.(data || []);
-        root.statusLists.expandAccountFavouritedStatusesSuccess(accountId, data || [], next);
+        const next = getNextUrl(res);
+
+        actions.importFetchedStatuses?.(data || []);
+        actions.expandAccountFavouritedStatusesSuccess?.(accountId, data || [], next);
+        
         return data;
       } catch (err) {
-        root.statusLists.fetchOrExpandAccountFavouritedStatusesFail(accountId, err);
+        actions.fetchOrExpandAccountFavouritedStatusesFail?.(accountId, err);
         console.error('favouritesSlice.expandAccountFavouritedStatuses failed', err);
         return null;
       }
     }
   };
 }
-
-export default createFavouritesSlice;

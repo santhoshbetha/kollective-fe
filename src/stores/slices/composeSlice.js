@@ -47,6 +47,20 @@ const statusToMentionsArray = (status, account) => {
   return Object.freeze(deduped);
 };
 
+// Replaces statusToTextMentions & statusToMentionsArray
+const getMentionsData = (status, account) => {
+  const author = status?.account?.acct || "";
+  const myAcct = account?.acct || "";
+  
+  const mentions = (status?.mentions || []).map(m => m.acct);
+  const deduped = [...new Set([author, ...mentions])].filter(a => a && a !== myAcct);
+  
+  return {
+    array: deduped,
+    text: deduped.map(m => `@${m} `).join("")
+  };
+};
+
 const privacyPreference = (a, b) => {
   const order = ["public", "unlisted", "private", "direct"];
 
@@ -109,38 +123,36 @@ const getExplicitMentions = (me, status) => {
 
 // `getIn` / `setIn` are imported from the shared helpers.
 
-const initialState = {
-  default: {
-    caretPosition: null,
-    content_type: "text/plain",
-    editorState: null,
-    focusDate: null,
-    group_id: null,
-    idempotencyKey: crypto.randomUUID() || String(Date.now()),
-    id: null,
-    in_reply_to: null,
-    is_changing_upload: false,
-    is_composing: false,
-    is_submitting: false,
-    is_uploading: false,
-    media_attachments: [],
-    poll: null,
-    privacy: "public",
-    progress: 0,
-    quote: null,
-    resetFileKey: getResetFileKey(),
-    schedule: null,
-    sensitive: false,
-    spoiler: false,
-    spoiler_text: "",
-    suggestions: [],
-    suggestion_token: null,
-    tagHistory: [],
-    text: "",
-    to: new Set(),
-    group_timeline_visible: false, // TruthSocial
-  },
-};
+const getInitialComposeState = () => ({
+  caretPosition: null,
+  content_type: "text/plain",
+  editorState: null,
+  focusDate: null,
+  group_id: null,
+  idempotencyKey: crypto.randomUUID(),
+  id: null,
+  in_reply_to: null,
+  is_changing_upload: false,
+  is_composing: false,
+  is_submitting: false,
+  is_uploading: false,
+  media_attachments: [],
+  poll: null,
+  privacy: "public",
+  progress: 0,
+  quote: null,
+  resetFileKey: Math.floor(Math.random() * 0x10000),
+  schedule: null,
+  sensitive: false,
+  spoiler: false,
+  spoiler_text: "",
+  suggestions: [],
+  suggestion_token: null,
+  tagHistory: [],
+  text: "",
+  to: [], // Use standard array for 'to'
+  group_timeline_visible: false,
+});
 
 export const createComposeSlice = (
   setScoped,
@@ -149,1180 +161,755 @@ export const createComposeSlice = (
   rootGet,
 ) => {
   // Keep an internal `set` alias so existing code can remain unchanged.
-  const set = setScoped;
+  const getActions = () => rootGet();
 
   let cancelFetchComposeSuggestions = null;
 
+  // Internal helper to ensure a specific compose key exists
+  const ensureCompose = (state, key) => {
+    const k = key || "default";
+    if (!state[k]) state[k] = getInitialComposeState();
+    return state[k];
+  };
+
+  // Internal helper to handle the common logic of resetting IDs/Privacy
+  const applyResetIdentifiers = (compose, id) => {
+    // Standard JS string parsing
+    compose.in_reply_to = id.startsWith("reply:") ? id.slice(6) : null;
+    
+    if (id.startsWith("group:")) {
+      compose.privacy = "group";
+      compose.group_id = id.slice(6);
+    }
+    
+    // Cycle the key to prevent accidental duplicate submissions
+    compose.idempotencyKey = crypto.randomUUID();
+  };
+
   return {
-    ...initialState.default,
+    ...getInitialComposeState(),
 
     composeTypeChange: (key, content_type) => {
-      set((state) => {
-        const cur = state[key] || initialState.default;
-        state[key] = {
-          ...cur,
-          content_type: content_type,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.content_type = content_type;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeSpoilernessChange: (key) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          spoiler_text: "",
-          sensitive: !cur.sensitive,
-          spoiler: !cur.spoiler,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.sensitive = !compose.sensitive;
+        compose.spoiler = !compose.spoiler;
+        compose.spoiler_text = "";
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
-    composeSpoilerTextChange: (key, spoiler_text) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          spoiler_text: spoiler_text,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+    composeSpoilerTextChange: (key, text) => {
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.spoiler_text = text;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeVisibilityChange: (key, value) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          privacy: value,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.privacy = value;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeChange: (key, text) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          text: text,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.text = text;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
-    composeReply: (key, status, account, explicitAddressing, preserveSpoilers) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        const base = {
-          group_id: status?.group?.id || null,
-          in_reply_to: status?.id || null,
-          to: explicitAddressing ? statusToMentionsArray(status, account) : [],
-          text: !explicitAddressing
-            ? statusToTextMentions(status, account)
-            : "",
-          privacy: privacyPreference(
-            status?.visibility || initialState.default.privacy,
-            initialState.default.privacy,
-          ),
-          focusDate: new Date(),
-          caretPosition: null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-          content_type: initialState.default.content_type,
-        };
+    composeReply: (key, status, account, explicitAddressing) => {
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        const { array, text } = getMentionsData(status, account);
 
-        if (preserveSpoilers && status && status.spoiler_text) {
-          base.spoiler = true;
-          base.sensitive = true;
-          base.spoiler_text = status.spoiler_text;
-        }
-
-        state[k] = {
-          ...cur,
-          ...base,
-        };
+        compose.group_id = status?.group?.id || null;
+        compose.in_reply_to = status?.id || null;
+        compose.to = explicitAddressing ? array : [];
+        compose.text = explicitAddressing ? "" : text;
+        compose.focusDate = new Date();
+        compose.idempotencyKey = crypto.randomUUID();
+        
+        // Handle privacy preference
+        const statusPrivacy = status?.visibility || "public";
+        compose.privacy = privacyPreference(statusPrivacy, "public");
       });
     },
 
     composeEventReply: (key, status, account) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          in_reply_to: status?.id || null,
-          to: statusToMentionsArray(status, account),
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+      setScoped((state) => {
+        // 1. Get the specific compose instance (default, modal, etc.)
+        const compose = ensureCompose(state, key);
+
+        // 2. Direct Immer mutations
+        compose.in_reply_to = status?.id || null;
+        
+        // 3. Use the plain JS helper for mentions
+        const { array } = getMentionsData(status, account);
+        compose.to = array;
+
+        // 4. Regenerate idempotency key
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeQuote: (key, status) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
+      setScoped((state) => {
+        // 1. Default to 'compose-modal' for quotes as per your original logic
         const k = key || "compose-modal";
-        const cur = state[k] || initialState.default;
-        const author = (status && status.account && status.account.acct) || "";
+        const compose = ensureCompose(state, k);
+        const author = status?.account?.acct || "";
 
-        const base = {
-          quote: status?.id || null,
-          to: [author],
-          text: "",
-          privacy: privacyPreference(
-            status?.visibility || initialState.default.privacy,
-            initialState.default.privacy,
-          ),
-          focusDate: new Date(),
-          caretPosition: null,
-          content_type: initialState.default.content_type,
-          spoiler: false,
-          spoiler_text: "",
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+        // 2. Apply Base Quote properties
+        compose.quote = status?.id || null;
+        compose.to = author ? [author] : [];
+        compose.text = "";
+        compose.focusDate = new Date();
+        compose.caretPosition = null;
+        compose.spoiler = false;
+        compose.spoiler_text = "";
+        compose.idempotencyKey = crypto.randomUUID();
 
-        if (status?.visibility === "group") {
-          if (status.group?.group_visibility === "everyone") {
-            base.privacy = privacyPreference(
-              "public",
-              initialState.default.privacy,
-            );
-          } else if (status.group?.group_visibility === "members_only") {
-            base.group_id = status.group?.id || null;
-            base.privacy = "group";
+        // 3. Handle Privacy Logic
+        const defaultPrivacy = "public"; // or getInitialComposeState().privacy
+        compose.privacy = privacyPreference(status?.visibility || defaultPrivacy, defaultPrivacy);
+
+        // 4. Group-Specific Visibility logic
+        if (status?.visibility === "group" && status.group) {
+          const visibility = status.group.group_visibility;
+          
+          if (visibility === "everyone") {
+            compose.privacy = privacyPreference("public", defaultPrivacy);
+          } else if (visibility === "members_only") {
+            compose.group_id = status.group.id || null;
+            compose.privacy = "group";
           }
         }
-
-        state[k] = {
-          ...cur,
-          ...base,
-        };
       });
     },
 
     composeSubmitRequest: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          is_submitting: true,
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.is_submitting = true;
       });
     },
 
     composeUploadChangeRequest: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          is_changing_upload: true,
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        // Direct mutation: Immer tracks this and updates the store immutably
+        compose.is_changing_upload = true;
       });
     },
 
     composeReplyOrQuoteCancel: (key, id) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        const base = {
-          ...cur,
-          in_reply_to: id.startsWith("reply:") ? id.slice(6) : null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        
+        // 1. Reset specific identifiers
+        // Replicates the logic of slicing the "reply:" or "group:" prefix
+        compose.in_reply_to = id.startsWith("reply:") ? id.slice(6) : null;
+        
+        // 2. Handle Group-specific logic
         if (id.startsWith("group:")) {
-          base.privacy = "group";
-          base.group_id = id.slice(6);
+          compose.privacy = "group";
+          compose.group_id = id.slice(6);
         }
 
-        state[k] = base;
+        // 3. Cycle the idempotency key to prevent submission collisions
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeReset: (key, id) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        const base = {
-          ...cur,
-          in_reply_to: id.startsWith("reply:") ? id.slice(6) : null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
-        if (id.startsWith("group:")) {
-          base.privacy = "group";
-          base.group_id = id.slice(6);
-        }
-
-        state[k] = base;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        applyResetIdentifiers(compose, id);
       });
     },
     
     composeSubmitSuccess: (key, id) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        const base = {
-          ...cur,
-          in_reply_to: id.startsWith("reply:") ? id.slice(6) : null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
-        if (id.startsWith("group:")) {
-          base.privacy = "group";
-          base.group_id = id.slice(6);
-        }
-
-        state[k] = base;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        // Clear submitting state and reset identifiers
+        compose.is_submitting = false; 
+        applyResetIdentifiers(compose, id);
       });
     },
 
     composeSubmitFail: (key) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          is_submitting: false,
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.is_submitting = false;
       });
     },
 
-    composeUploadChangeFail: (key) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          is_changing_upload: false,
-        };
+   composeUploadChangeFail: (key) => {
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.is_changing_upload = false;
       });
-    },
+    }, //san till here
 
     composeUploadRequest: (key) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          is_uploading: true,
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.is_uploading = true;
       });
     },
 
     composeUploadSuccess: (key, media) => {
       if (!media) return;
 
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-
-        // Normalize input and ensure we work with a plain-array copy
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        
+        // 1. Normalize into a Plain Old JavaScript Object (POJO)
         const normalized = AttachmentNormalizer.normalizeAttachment(media);
+        if (!normalized) return;
 
-        const makeArray = (val) => {
-          if (Array.isArray(val)) return val.slice();
-          if (val instanceof Set) return Array.from(val);
-          if (!val) return [];
-          return Array.from(val);
-        };
+        // 2. Deduplicate using standard Array logic
+        const newId = normalized.id || normalized.url || normalized.preview_url;
+        const exists = compose.media_attachments.some(item => (item.id || item) === newId);
 
-        const current = makeArray(cur.media_attachments);
-
-        // Determine a stable id to dedupe by
-        const newId =
-          normalized &&
-          (normalized.id ?? normalized.url ?? normalized.preview_url ?? null);
-        const exists = newId
-          ? current.some((it) => {
-              const id = it && (it.id ?? getProp(it, "id"));
-              return id === newId;
-            })
-          : false;
-
-        const nextList = exists ? current : [...current, normalized];
-
-        const out = {
-          ...cur,
-          media_attachments: nextList,
-          is_uploading: false,
-          resetFileKey: getResetFileKey(),
-          idempotencyKey: crypto.randomUUID(),
-        };
-
-        // If this is the first attachment added and compose had spoiler/sensitive defaults, preserve sensitivity
-        if (
-          current.length === 0 &&
-          nextList.length > 0 &&
-          (cur.spoiler || cur.sensitive)
-        ) {
-          out.sensitive = true;
+        if (!exists) {
+          // Standard Array push (Immer handles the immutability)
+          compose.media_attachments.push(normalized);
         }
 
-        state[k] = out;
+        // 3. Reset UI states
+        compose.is_uploading = false;
+        compose.resetFileKey = Math.floor(Math.random() * 0x10000);
+        compose.idempotencyKey = crypto.randomUUID();
+
+        // 4. Handle Sensitivity Logic
+        // If this is the first attachment and the post was marked as spoiler/sensitive
+        if (compose.media_attachments.length === 1 && (compose.spoiler || compose.sensitive)) {
+          compose.sensitive = true;
+        }
       });
     },
 
     composeUploadFail: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          is_uploading: false,
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.is_uploading = false;
       });
     },
 
-    composeUploadUndo: (key, media_id) => {
-      if (media_id === undefined || media_id === null) return;
+    composeUploadUndo: (key, mediaId) => {
+      if (mediaId == null) return;
 
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        const originalLength = compose.media_attachments.length;
 
-        const makeArray = (val) => {
-          if (Array.isArray(val)) return val.slice();
-          if (val instanceof Set) return Array.from(val);
-          if (!val) return [];
-          try {
-            return Array.from(val);
-          } catch {
-            return [];
+        // 1. Native filter replaces manual array conversion and getProp
+        compose.media_attachments = compose.media_attachments.filter(
+          (item) => item.id !== mediaId
+        );
+
+        // 2. Only update if something was actually removed
+        if (compose.media_attachments.length !== originalLength) {
+          compose.idempotencyKey = crypto.randomUUID();
+
+          // 3. Auto-clear sensitivity if no media left
+          if (compose.media_attachments.length === 0) {
+            compose.sensitive = false;
           }
-        };
-
-        const current = makeArray(cur.media_attachments);
-        const prevLen = current.length;
-
-        const filtered = current.filter((item) => {
-          const id = item && (item.id ?? getProp(item, "id"));
-          return id !== media_id;
-        });
-
-        if (filtered.length === prevLen) return; // nothing removed
-
-        const out = {
-          ...cur,
-          media_attachments: filtered,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
-        if (filtered.length === 0) {
-          out.sensitive = false;
         }
-
-        state[k] = out;
       });
     },
 
     composeUploadProgress: (key, loaded, total) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          progress: Math.round((loaded / total) * 100),
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.progress = Math.round((loaded / total) * 100);
       });
     },
 
     composeMention: (key, text, account) => {
-      set((state) => {
+      setScoped((state) => {
         const k = key || "compose-modal";
-        const cur = state[k] || initialState.default;
-        const currentText = text;
+        const compose = ensureCompose(state, k);
 
-        // The logic from the original snippet using plain JS
-        const updatedTextArray = [
-          currentText.trim(),
-          `@${account.acct} `,
-        ].filter((str) => str.length !== 0);
-
-        const newText = updatedTextArray.join(" ");
-        const base = {
-          ...cur,
-          text: newText,
-          focusDate: new Date(),
-          caretPosition: null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
-        state[k] = base;
+        // Build new text using standard array join
+        const parts = [text.trim(), `@${account.acct} `].filter(s => s.length > 0);
+        
+        compose.text = parts.join(" ");
+        compose.focusDate = new Date();
+        compose.caretPosition = null;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeDirect: (key, text, account) => {
-      set((state) => {
+      setScoped((state) => {
         const k = key || "compose-modal";
-        const cur = state[k] || initialState.default;
-        const currentText = text;
+        const compose = ensureCompose(state, k);
 
-        // The logic from the original snippet using plain JS
-        const updatedTextArray = [
-          currentText.trim(),
-          `@${account.acct} `,
-        ].filter((str) => str.length !== 0);
-
-        const newText = updatedTextArray.join(" ");
-        const base = {
-          ...cur,
-          text: newText,
-          privacy: "direct",
-          focusDate: new Date(),
-          caretPosition: null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
-        state[k] = base;
+        const parts = [text.trim(), `@${account.acct} `].filter(s => s.length > 0);
+        
+        compose.text = parts.join(" ");
+        compose.privacy = "direct"; // Explicitly set to direct message
+        compose.focusDate = new Date();
+        compose.caretPosition = null;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeGroupPost: (key, group_id) => {
-      // id could be a scoped compose key (e.g. 'compose-modal')
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          privacy: "direct",
-          group_id: group_id,
-          focusDate: new Date(),
-          caretPosition: null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.privacy = "group"; // Note: changed from 'direct' to 'group' to match context
+        compose.group_id = group_id;
+        compose.focusDate = new Date();
+        compose.caretPosition = null;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeSuggestionsClear: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          suggestions: null,
-          suggestion_token: null,
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.suggestions = []; // Use empty array instead of null for better UI iteration
+        compose.suggestion_token = null;
       });
     },
 
     composeSuggestionsReady: (key, accounts, emojis, token) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
 
-        // 1. Prepare the data using standard JavaScript map()
-        // The original logic checks if 'action.accounts' exists first.
-        let newSuggestionsList;
-
+        // 1. Prepare logic using standard JS
         if (accounts) {
-          // It maps APIEntity items to just their 'id'
-          newSuggestionsList = accounts.map((item) => item.id);
+          compose.suggestions = accounts.map((item) => item.id);
         } else if (emojis) {
-          // Or uses the action.emojis array directly
-          newSuggestionsList = emojis;
+          compose.suggestions = emojis;
         } else {
-          // Handle the case where neither is present (maybe clear the list)
-          newSuggestionsList = null;
+          compose.suggestions = [];
         }
 
-        state[k] = {
-          ...cur,
-          suggestions: newSuggestionsList,
-          suggestion_token: token || null, // Ensure a token is always set or cleared
-        };
+        compose.suggestion_token = token || null;
       });
     },
 
     composeSuggestionSelect: (key, position, token, completion, path) => {
-      // Immutable update: compute new compose object and replace it
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        const newTokenLength = token?.length ?? 0;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        const tokenLength = token?.length ?? 0;
 
-        const oldText = String(getIn(cur, path) || "");
+        // 2. Standard String manipulation replaces 'getIn'/'setIn'
+        // 'path' is usually ['text'] or ['spoiler_text']
+        const fieldName = path[path.length - 1]; 
+        const oldText = String(compose[fieldName] || "");
+        
         const updatedText = `${oldText.slice(0, position)}${completion} ${oldText.slice(
-          position + newTokenLength,
+          position + tokenLength
         )}`;
 
-        let out = setIn(cur, path, updatedText);
+        // 3. Direct Mutation
+        compose[fieldName] = updatedText;
+        compose.suggestions = [];
+        compose.suggestion_token = null;
+        compose.idempotencyKey = crypto.randomUUID();
 
-        out = {
-          ...out,
-          suggestion_token: null,
-          suggestions: null,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
-        if (path.length === 1 && path[0] === "text") {
-          out.focusDate = new Date();
-          out.caretPosition = position + completion.length + 1; // +1 for the added space
+        // 4. Handle UI focus/caret for main text field
+        if (fieldName === "text") {
+          compose.focusDate = new Date();
+          compose.caretPosition = position + completion.length + 1;
         }
-
-        state[k] = out;
       });
     },
 
     composeSuggestionTagsUpdate: (key, token, tags) => {
-      // Validate inputs defensively
-      if (!token || typeof token !== "string" || !Array.isArray(tags)) {
-        // Clear suggestions if inputs are invalid
-        set((state) => {
-          const k = key || "default";
-          const cur = state[k] || initialState.default;
-          state[k] = {
-            ...cur,
-            suggestions: null,
-            suggestion_token: null,
-          };
-        });
-        return;
-      }
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
 
-      const prefix = token.slice(1).toLowerCase();
+        // 1. Validation check
+        if (!token || typeof token !== "string" || !Array.isArray(tags)) {
+          compose.suggestions = [];
+          compose.suggestion_token = null;
+          return;
+        }
 
-      const newSuggestions = tags
-        .filter(
-          (tag) => tag && tag.name && tag.name.toLowerCase().startsWith(prefix),
-        )
-        .slice(0, 4)
-        .map((tag) => `#${tag.name}`);
+        const prefix = token.slice(1).toLowerCase();
 
-      // Freeze suggestions (shallow) so callers receive an immutable array.
-      let frozen;
-      try {
-        frozen = Object.freeze(newSuggestions.slice());
-      } catch {
-        frozen = newSuggestions;
-      }
+        // 2. Filter and Map using standard JS
+        // No need for Object.freeze as Immer produces an immutable state
+        compose.suggestions = tags
+          .filter(tag => tag?.name?.toLowerCase().startsWith(prefix))
+          .slice(0, 4)
+          .map(tag => `#${tag.name}`);
 
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          suggestions: frozen,
-          suggestion_token: token,
-        };
+        compose.suggestion_token = token;
       });
     },
 
     composeTagHistoryUpdate: (key, tags) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          tagHistory: tags,
-        };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.tagHistory = tags || [];
       });
     },
 
     composeTimelineDelete: (key, id) => {
-      set((state) => {
+      setScoped((state) => {
         const k = key || "compose-modal";
-        const cur = state[k] || initialState.default;
-        if (id === cur.in_reply_to) {
-          state[k] = { ...cur, in_reply_to: null };
-          return;
-        } else if (id === cur.quote) {
-          state[k] = { ...cur, quote: null };
-          return;
-        } else {
-          return;
+        const compose = state[k];
+        
+        // Only modify if the deleted ID matches a reference in this compose instance
+        if (!compose) return;
+
+        if (id === compose.in_reply_to) {
+          compose.in_reply_to = null;
+        } else if (id === compose.quote) {
+          compose.quote = null;
         }
       });
     },
 
     composeEmojiInsert: (key, position, emoji, needsSpace) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        const oldText = cur.text;
-        const emojiText =
-          emoji.native !== undefined ? emoji.native : emoji.colons;
-        const emojiData = needsSpace ? " " + emojiText : emojiText;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        
+        const oldText = compose.text || "";
+        const emojiText = emoji.native !== undefined ? emoji.native : emoji.colons;
+        const emojiData = needsSpace ? ` ${emojiText}` : emojiText;
 
-        const base = {
-          ...cur,
-          text: `${oldText.slice(0, position)}${emojiData} ${oldText.slice(position)}`,
-          focusDate: new Date(),
-          caretPosition: position + emoji.length + 1,
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-        };
-
-        state[k] = base;
+        // 3. String manipulation and Caret update
+        compose.text = `${oldText.slice(0, position)}${emojiData} ${oldText.slice(position)}`;
+        compose.focusDate = new Date();
+        // +1 for the space we add after the emoji
+        compose.caretPosition = position + emojiData.length + 1;
+        compose.idempotencyKey = crypto.randomUUID();
       });
     },
 
     composeUploadChangeSuccess: (key, media) => {
       if (!media) return;
 
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-
-        const attachments = Array.isArray(cur.media_attachments)
-          ? cur.media_attachments
-          : [];
-
-        const updated_media = attachments.map((item) => {
-          if (item && item.id === media.id) {
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        
+        // Use standard JS .map() to replace the specific attachment
+        compose.media_attachments = compose.media_attachments.map((item) => {
+          if (item.id === media.id) {
             return AttachmentNormalizer.normalizeAttachment(media);
           }
           return item;
         });
 
-        state[k] = {
-          ...cur,
-          is_changing_upload: false,
-          media_attachments: updated_media,
-        };
+        compose.is_changing_upload = false;
       });
     },
 
-    composeSetStatus: (
-      key,
-      status,
-      rawText,
-      explicitAddressing,
-      spoilerText,
-      contentType,
-     // v,
-      withRedraft,
-    ) => {
-      set((state) => {
+    composeSetStatus: (key, status, rawText, explicitAddressing, spoilerText, contentType, withRedraft) => {
+      setScoped((state) => {
         const k = key || "compose-modal";
-        const cur = state[k] || initialState.default;
-        // Use shared `getIn` which handles Immutable-like or plain JS
-        const getStatus = (path) => {
-          if (!status) return undefined;
-          return getIn(status, path);
-        };
+        const compose = ensureCompose(state, k);
 
-        const accountId = getStatus(["account", "id"]) ?? undefined;
+        // 1. Extract IDs and Properties using Optional Chaining
+        const accountId = status?.account?.id;
+        const quoteId = status?.quote?.id || null;
+        const groupId = status?.group?.id || null;
+        const inReplyTo = status?.in_reply_to_id || status?.in_reply_to?.id || null;
 
-        let base = {};
+        // 2. Handle Text & Mentions
+        // Replaces the DOMParser 'expandMentions' and 'htmlToPlaintext' logic
+        const text = rawText || htmlToPlaintext(expandMentions(status));
+        const to = explicitAddressing ? [...getExplicitMentions(accountId, status)] : [];
+
+        // 3. Metadata and Privacy
+        const statusSpoilerText = (typeof spoilerText === "string" && spoilerText.length > 0)
+          ? spoilerText
+          : (status?.spoiler_text || "");
+
+        // 4. Update the Compose State directly via Immer
         if (withRedraft && status) {
-          base = { id: getStatus(["id"]) ?? undefined };
+          compose.id = status.id;
         }
 
-        const quoteId = getStatus(["quote", "id"]) ?? null;
-        const groupId = getStatus(["group", "id"]) ?? null;
-        const inReplyTo = getStatus(["in_reply_to_id"]) ?? getStatus(["in_reply_to", "id"]) ?? null;
+        compose.text = text;
+        compose.to = to;
+        compose.in_reply_to = inReplyTo;
+        compose.privacy = status?.visibility || compose.privacy;
+        compose.focusDate = new Date();
+        compose.caretPosition = null;
+        compose.spoiler = Boolean(statusSpoilerText.length > 0);
+        compose.spoiler_text = statusSpoilerText;
+        compose.content_type = contentType || "text/plain";
+        compose.quote = quoteId;
+        compose.group_id = groupId;
+        compose.media_attachments = status?.media_attachments || [];
+        compose.idempotencyKey = crypto.randomUUID();
 
-        // Build the base compose state using defensive accessors
-        const visibility = getStatus(["visibility"]) ?? cur.privacy;
-        const statusSpoilerText =
-          typeof spoilerText === "string" && spoilerText.length > 0
-            ? spoilerText
-            : getStatus(["spoiler_text"]) || "";
-        const statusMedia =
-          getStatus(["media_attachments"]) ||
-          cur.media_attachments ||
-          null;
-        const pollVal = getStatus(["poll"]);
+        // 5. Handle Polls
+        if (status?.poll) {
+          const p = status.poll;
+          // Standard JS map() for poll options
+          const opts = (p.options || []).map(o => o.title ?? o);
 
-        const base2 = {
-          ...base,
-          text: rawText || htmlToPlaintext(expandMentions(status)),
-          to: explicitAddressing ? getExplicitMentions(accountId, status) : [],
-          in_reply_to: inReplyTo,
-          privacy: visibility,
-          focusDate: new Date(),
-          caretPosition: null,
-          spoiler: Boolean(statusSpoilerText && statusSpoilerText.length > 0),
-          spoiler_text: statusSpoilerText || "",
-          idempotencyKey:
-            typeof crypto !== "undefined" && crypto?.randomUUID
-              ? crypto.randomUUID()
-              : String(Date.now()),
-          content_type: contentType || "text/plain",
-          quote: quoteId,
-          group_id: groupId,
-          media_attachments: statusMedia,
-        };
-
-        let result = { ...base2 };
-
-        if (pollVal) {
-          // Use shared safe helpers: convert pollVal to plain and coerce options to array
-          const p = asPlain(pollVal) || {};
-          const rawOptions = p.options || [];
-          const opts = asArray(rawOptions).map((o) => {
-            const title = getProp(o, "title");
-            if (title !== undefined && title !== null) return title;
-            if (o && o.title !== undefined) return o.title;
-            return o;
-          });
-
-          const multiple = Boolean(p.multiple);
-
-          result = {
-            ...result,
-            poll: {
-              options: opts || [],
-              multiple: multiple,
-              expires_in: 24 * 3600,
-            },
+          compose.poll = {
+            options: opts,
+            multiple: Boolean(p.multiple),
+            expires_in: 24 * 3600,
           };
-        }
-
-        try {
-          state[k] = Object.freeze(result);
-        } catch {
-          state[k] = result;
         }
       });
     },
 
     composePollAdd: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        // If a poll already exists, don't overwrite it
-        if (cur.poll) return;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        if (compose.poll) return;
 
-        const newPoll = {
+        compose.poll = {
           options: ["", ""],
           multiple: false,
           expires_in: 24 * 3600,
-        };
-
-        state[k] = {
-          ...cur,
-          poll: newPoll,
         };
       });
     },
 
     composePollRemove: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        if (!cur.poll) return;
-        state[k] = { ...cur, poll: null };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.poll = null;
       });
     },
 
     composeScheduleAdd: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        if (cur.schedule) return;
-        state[k] = { ...cur, schedule: new Date(Date.now() + 10 * 60 * 1000) };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        if (compose.schedule) return;
+        // Default to 10 minutes in the future
+        compose.schedule = new Date(Date.now() + 10 * 60 * 1000);
       });
     },
 
     composeScheduleSet: (key, date) => {
-      // Accept Date, ISO string, or timestamp. Ignore undefined.
       if (date === undefined) return;
-      let d = date;
-      if (!(d instanceof Date)) {
-        d = new Date(d);
-      }
+      
+      const d = date instanceof Date ? date : new Date(date);
       if (Number.isNaN(d.getTime())) return;
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = { ...cur, schedule: d };
+
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.schedule = d;
       });
     },
 
     composeScheduleRemove: (key) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        if (!cur.schedule) return;
-        state[k] = { ...cur, schedule: null };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.schedule = null;
       });
     },
 
     composePollOptionAdd: (key, title) => {
-      set((state) => {
-        if (!title || typeof title !== "string") return;
-        const k = key || "default";
-        const trimmed = title.trim();
-        if (trimmed.length === 0) return;
+      if (typeof title !== "string" || !title.trim()) return;
+      const trimmed = title.trim();
 
-        const cur = state[k] || initialState.default;
-        // Ensure poll exists
-        const poll = cur.poll || {
-          options: [],
-          multiple: false,
-          expires_in: 24 * 3600,
-        };
-        const currentOptions = getIn(poll, ["options"]) || [];
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        
+        // 1. Ensure poll object exists
+        if (!compose.poll) {
+          compose.poll = {
+            options: [],
+            multiple: false,
+            expires_in: 24 * 3600,
+          };
+        }
 
-        // Normalize to array
-        const optsArray = Array.isArray(currentOptions)
-          ? currentOptions.slice()
-          : Array.from(currentOptions || []);
-
-        // Avoid duplicates
-        if (optsArray.includes(trimmed)) return;
-
-        const updatedOptions = [...optsArray, trimmed];
-
-        const out = {
-          ...cur,
-          poll: {
-            ...(poll || {}),
-            options: updatedOptions,
-          },
-        };
-
-        state[k] = out;
+        // 2. Add option if it doesn't already exist (dedupe)
+        if (!compose.poll.options.includes(trimmed)) {
+          // Standard JS push works perfectly with Immer
+          compose.poll.options.push(trimmed);
+        }
       });
     },
 
     composePollOptionChange: (key, index, title) => {
-      set((state) => {
-        if (!title || typeof title !== "string") return;
-        if (typeof index !== "number" || index < 0) return;
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-
-        const currentOptions = getIn(cur.poll || {}, ["options"]) || [];
-        const optsArray = Array.isArray(currentOptions)
-          ? currentOptions.slice()
-          : Array.from(currentOptions || []);
-
-        if (index >= optsArray.length) return; // invalid index
+      if (typeof title !== "string" || typeof index !== "number" || index < 0) return;
+      
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        const options = compose.poll?.options;
+        if (!options || index >= options.length) return;
 
         const trimmed = title.trim();
-        if (trimmed.length === 0) return;
+        if (trimmed.length === 0 || options[index] === trimmed) return;
 
-        if (optsArray[index] === trimmed) return; // no change
-
-        optsArray[index] = trimmed;
-
-        state[k] = {
-          ...cur,
-          poll: {
-            ...(cur.poll || {}),
-            options: optsArray,
-          },
-        };
+        // Direct array mutation via Immer
+        options[index] = trimmed;
       });
     },
 
     composePollOptionRemove: (key, title) => {
-      set((state) => {
-        if (!title || typeof title !== "string") return;
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
+      if (typeof title !== "string") return;
 
-        const currentOptions = getIn(cur.poll || {}, ["options"]) || [];
-        const optsArray = Array.isArray(currentOptions)
-          ? currentOptions.slice()
-          : Array.from(currentOptions || []);
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        if (!compose.poll?.options) return;
 
-        const updatedOptions = optsArray.filter((o) => o !== title);
-
-        // If nothing changed, don't update
-        if (updatedOptions.length === optsArray.length) return;
-
-        state[k] = {
-          ...cur,
-          poll: {
-            ...(cur.poll || {}),
-            options: updatedOptions,
-          },
-        };
+        // Standard JS filter
+        const originalLength = compose.poll.options.length;
+        compose.poll.options = compose.poll.options.filter(o => o !== title);
+        
+        // Immer only triggers a re-render if the length actually changed
       });
     },
 
     composePollSettingsChange: (key, expiresIn, isMultiple) => {
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        let changed = false;
-        const poll = { ...(cur.poll || {}) };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        if (!compose.poll) return;
 
-        if (expiresIn !== undefined && expiresIn !== null) {
-          poll.expires_in = expiresIn;
-          changed = true;
+        if (expiresIn != null) {
+          compose.poll.expires_in = expiresIn;
         }
-
         if (typeof isMultiple === "boolean") {
-          poll.multiple = isMultiple;
-          changed = true;
+          compose.poll.multiple = isMultiple;
         }
-
-        if (!changed) return;
-
-        state[k] = { ...cur, poll };
       });
     },
 
     composeAddToMentions: (key, account) => {
-      set((state) => {
-        if (!account) return;
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
+      if (!account) return;
+      const acct = typeof account === "string" ? account : (account?.acct ?? account?.id);
+      if (!acct) return;
 
-        const acct =
-          typeof account === "string"
-            ? account
-            : (account?.acct ?? account?.id ?? null);
-        if (!acct) return;
-
-        // Prefer explicit mentions list if present, otherwise fall back to `to` directly
-        const mentionsPath = ["to"];
-        const current = getIn(cur, mentionsPath) || (mentionsPath.length === 2 ? new Set() : []);
-
-        if (current instanceof Set) {
-          const next = new Set(current);
-          next.add(acct);
-          state[k] = { ...cur, to: next };
-          return;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        
+        // Ensure 'to' is an array (replacing Set logic)
+        if (!Array.isArray(compose.to)) compose.to = [];
+        
+        if (!compose.to.includes(acct)) {
+          compose.to.push(acct);
         }
-
-        const arr = Array.isArray(current) ? current.slice() : Array.from(current || []);
-        if (arr.includes(acct)) return;
-        const updated = [...arr, acct];
-        state[k] = { ...cur, to: updated };
       });
     },
 
     composeRemoveFromMentions: (key, account) => {
-      set((state) => {
-        if (!account) return;
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
+      if (!account) return;
+      const acct = typeof account === "string" ? account : (account?.acct ?? account?.id);
+      if (!acct) return;
 
-        const acct =
-          typeof account === "string"
-            ? account
-            : (account?.acct ?? account?.id ?? null);
-        if (!acct) return;
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        if (!Array.isArray(compose.to)) return;
 
-        const mentionsPath = ["to"];
-        const current = getIn(cur, mentionsPath) || (mentionsPath.length === 2 ? new Set() : []);
-
-        if (current instanceof Set) {
-          if (!current.has(acct)) return;
-          const next = new Set(current);
-          next.delete(acct);
-          state[k] = { ...cur, to: next };
-          return;
-        }
-
-        const arr = Array.isArray(current) ? current.slice() : Array.from(current || []);
-        const filtered = arr.filter((x) => x !== acct);
-        if (filtered.length === arr.length) return;
-        state[k] = { ...cur, to: filtered };
+        compose.to = compose.to.filter(x => x !== acct);
       });
     },
 
     composeSetGroupTimelineVisible: (key, groupTimelineVisible) => {
-      // No-op if undefined (avoid accidental toggles). Coerce value to boolean.
       if (groupTimelineVisible === undefined) return;
 
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = { ...cur, group_timeline_visible: Boolean(groupTimelineVisible) };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        compose.group_timeline_visible = Boolean(groupTimelineVisible);
       });
     },
 
     fetchMeSuccess(me) {
-      // Normalize/defensively read incoming `me` settings (may be Immutable-like)
-      const settings = getIn(me, ['pleroma_settings_store', 'kollective-fe']) || {};
-      const defaultPrivacy = settings?.defaultPrivacy ?? 'public';
-      const defaultContentType = settings?.defaultContentType ?? 'text/plain';
+      // 1. Standard JS access replaces getIn for nested settings
+      const settings = me?.pleroma_settings_store?.['kollective-fe'] || {};
+      const { defaultPrivacy, defaultContentType } = settings;
 
-      set((state) => {
-        const k = 'default';
-        const cur = state[k] || initialState.default;
+      setScoped((state) => {
+        const compose = ensureCompose(state, 'default');
 
-        // Start with current compose defaults and apply any overrides
-        let out = { ...cur };
-        if (defaultPrivacy) out = { ...out, privacy: defaultPrivacy };
-        if (defaultContentType) out = { ...out, content_type: defaultContentType };
+        // 2. Direct mutation based on incoming user preferences
+        if (defaultPrivacy) compose.privacy = defaultPrivacy;
+        if (defaultContentType) compose.content_type = defaultContentType;
 
-        // Read persisted tag history via the Settings helper (use .get(id))
-        const storedTags = (me && me.id) ? (tagHistory.get(me.id) || []) : [];
-        out = { ...out, tagHistory: storedTags };
-
-        // Make the returned compose state shallow-immutable when possible
-        try {
-          state[k] = Object.freeze(out);
-        } catch {
-          state[k] = out;
+        // 3. Sync tag history from your persisted settings utility
+        // Replaces .get(id) with standard JS property access or Map.get()
+        if (me?.id) {
+          compose.tagHistory = tagHistory.get?.(me.id) || tagHistory[me.id] || [];
         }
       });
     },
 
+    // In Zustand, patchMeSuccess usually shares the same logic as fetchMeSuccess
     patchMeSuccess(me) {
-      // Normalize/defensively read incoming `me` settings (may be Immutable-like)
-      const settings = getIn(me, ['pleroma_settings_store', 'kollective-fe']) || {};
-      const defaultPrivacy = settings?.defaultPrivacy ?? 'public';
-      const defaultContentType = settings?.defaultContentType ?? 'text/plain';
-
-      set((state) => {
-        const k = 'default';
-        const cur = state[k] || initialState.default;
-
-        // Start with current compose defaults and apply any overrides
-        let out = { ...cur };
-        if (defaultPrivacy) out = { ...out, privacy: defaultPrivacy };
-        if (defaultContentType) out = { ...out, content_type: defaultContentType };
-
-        // Read persisted tag history via the Settings helper (use .get(id))
-        const storedTags = (me && me.id) ? (tagHistory.get(me.id) || []) : [];
-        out = { ...out, tagHistory: storedTags };
-
-        // Make the returned compose state shallow-immutable when possible
-        try {
-          state[k] = Object.freeze(out);
-        } catch {
-          state[k] = out;
-        }
-      });
+      return this.fetchMeSuccess(me);
     },
 
-    changeSetting: (key, path, value) => {
-      set((state) => {
-        const k = "default";
-        const pathString = path.join(',');
-        const cur = state[k] || initialState.default;
-        let out;
+    changeSetting: (path, value) => {
+      setScoped((state) => {
+        const compose = ensureCompose(state, 'default');
+        const pathString = Array.isArray(path) ? path.join(',') : path;
+
+        // 4. Update compose defaults when user changes global settings
         switch (pathString) {
           case 'defaultPrivacy':
-            out = { ...cur, privacy: value };
+            compose.privacy = value;
             break;
           case 'defaultContentType':
-            out = { ...cur, content_type: value };
-            break;
-          default:
+            compose.content_type = value;
             break;
         }
-        state[k] = out;
       });
     },
 
     composeEditorStateSet: (key, editorState) => {
-      // Ignore undefined (no-op). Allow `null` to explicitly clear editor state.
       if (editorState === undefined) return;
 
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        state[k] = { ...cur, editorState: editorState === null ? null : editorState };
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        // Supports rich text editor state (e.g., Draft.js or Lexical)
+        compose.editorState = editorState;
       });
     },
 
     eventComposeCancel: (key) => {
-      set((state) => {
+      setScoped((state) => {
         const k = key || "event-compose-modal";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          text: "" 
-        };
+        const compose = ensureCompose(state, k);
+        compose.text = ""; 
       });
     },
 
     eventformSet: (key, text) => {
-      set((state) => {
+      setScoped((state) => {
         const k = key || "event-compose-modal";
-        const cur = state[k] || initialState.default;
-        state[k] = {
-          ...cur,
-          text: text,
-        };
+        const compose = ensureCompose(state, k);
+        compose.text = text;
       });
     },
     
     composeChangeMediaOrder: (key, a, b) => {
-      // a and b may be indexes (numbers) or attachment ids (strings/numbers)
-      set((state) => {
-        const k = key || "default";
-        const cur = state[k] || initialState.default;
-        const current = Array.isArray(cur.media_attachments)
-          ? cur.media_attachments.slice()
-          : Array.from(cur.media_attachments || []);
+      setScoped((state) => {
+        const compose = ensureCompose(state, key);
+        const current = compose.media_attachments;
 
         if (!current || current.length === 0) return;
 
-        const getId = (item) => (item && (item.id ?? getProp(item, "id")));
-
+        // Helper to find index by number or by attachment ID
         const findIndex = (val) => {
           if (typeof val === "number") {
-            return val >= 0 && val < current.length ? val : -1;
+            return (val >= 0 && val < current.length) ? val : -1;
           }
-          return current.findIndex((it) => getId(it) === val);
+          return current.findIndex((it) => (it.id ?? it) === val);
         };
 
         const indexA = findIndex(a);
@@ -1330,25 +917,19 @@ export const createComposeSlice = (
 
         if (indexA < 0 || indexB < 0 || indexA === indexB) return;
 
-        // Remove item from indexA
+        // Immer allows direct mutation of the array via splice
         const [item] = current.splice(indexA, 1);
-
-        // If we removed an earlier element, adjust target index
-        const targetIndex = indexB > indexA ? indexB - 1 : indexB;
-
-        // Insert at targetIndex
-        current.splice(targetIndex, 0, item);
-
-        state[k] = { ...cur, media_attachments: current };
+        current.splice(indexB, 0, item);
       });
     },
 
     setComposeToStatus(status, rawText, spoilerText, contentType, withRedraft) {
-      this.composeSetStatus(
+      // Use getActions() to call the sibling action via the root store
+      getActions().composeSetStatus(
         "compose-modal",
         status,
         rawText,
-        true, //explicitAddressing //TODO: check later
+        true, // explicitAddressing
         spoilerText,
         contentType,
         withRedraft,
@@ -1356,198 +937,217 @@ export const createComposeSlice = (
     },
 
     async replyCompose(status) {
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+      
+      // 1. Get features and settings from root state
       const { explicitAddressing } = getFeatures();
-      const preserveSpoilers = root.settings.getSettings()["preserveSpoilers"];
-      const account = selectOwnAccount(root);
-
+      const preserveSpoilers = state.settings?.preserveSpoilers ?? false;
+      
+      // 2. Use your existing selector logic (assuming it's a pure util)
+      const account = selectOwnAccount(state);
       if (!account) return;
 
-      root.compose.composeReply(
+      // 3. Call uniquely named actions from the root
+      actions.composeReply(
         "compose-modal",
         status,
         account,
         explicitAddressing,
-        preserveSpoilers,
+        preserveSpoilers
       );
 
-      root.modal.openModalAction("COMPOSE");
+      // 4. Open the modal via the modal slice action
+      actions.openModalAction("COMPOSE");
     },
 
     async quoteCompose(status) {
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
+      
       const { explicitAddressing } = getFeatures();
-      const account = selectOwnAccount(root);
-
+      const account = selectOwnAccount(state);
       if (!account) return;
 
-      root.compose.composeQuote(
+      actions.composeQuote(
         "compose-modal", 
         status,
-        selectOwnAccount(root),
+        account,
         explicitAddressing
       );
 
-      root.modal.openModalAction("COMPOSE");  
+      actions.openModalAction("COMPOSE");  
     },
 
     groupComposeModal(group) {
-      const root = rootGet();
+      const actions = getActions();
       const composeId = `group:${group.id}`;
 
-      root.compose.groupComposePost(
+      actions.composeGroupPost(
         "compose-modal",
         group.id
       );
 
-      root.modal.openModalAction("COMPOSE", { composeId });
-
+      // Pass the specific group context to the modal action
+      actions.openModalAction("COMPOSE", { composeId });
     },
 
     mentionCompose(account) {
-      const root = rootGet();
+      const actions = getActions();
 
-      root.compose.composeMention(
+      actions.composeMention(
         "compose-modal",
-        "",
+        "", // Initial empty text
         account
       );
 
-      root.modal.openModalAction("COMPOSE");  
+      actions.openModalAction("COMPOSE");  
     },
 
     directCompose(account) {
-      const root = rootGet();
+      const actions = getActions();
 
-      root.compose.composeDirect(
+      actions.composeDirect(
         "compose-modal",
         "",
         account
       );
 
-      root.modal.openModalAction("COMPOSE");  
+      actions.openModalAction("COMPOSE");  
     },
 
     directComposeById(accountId) {
-      const root = rootGet();
-      const account = selectAccount(root, accountId);
+      const state = rootGet();
+      const actions = getActions();
+      
+      // Use your selector with the plain JS state
+      const account = selectAccount(state, accountId);
       if (!account) return;
 
-      root.compose.composeDirect(
+      actions.composeDirect(
         "compose-modal",
         "",
         account
       );
 
-      root.modal.openModalAction("COMPOSE");
+      actions.openModalAction("COMPOSE");
     },
 
-   insertIntoTagHistory(composeId, recognizedTags, text) {
-      const root = rootGet();
-      const oldHistory = root.compose[composeId]?.tagHistory || [];
-      const me = root.auth.me;
-      const names = recognizedTags.filter(
-        tag => text.match(new RegExp(`#${tag.name}`, 'i'))
-      ).map(tag => tag.name);
+    insertIntoTagHistory(composeId, recognizedTags, text) {
+      const state = rootGet();
+      const actions = getActions();
+      
+      const oldHistory = state.compose?.[composeId]?.tagHistory || [];
+      const me = state.auth?.me;
+      if (!me) return;
 
-      const intersectedOldHistory = oldHistory.filter(name => names.findIndex(newName => newName.toLowerCase() === name.toLowerCase()) === -1);
+      // 1. Filter tags actually present in the text
+      const names = recognizedTags
+        .filter(tag => new RegExp(`#${tag.name}`, 'i').test(text))
+        .map(tag => tag.name);
 
-      names.push(...intersectedOldHistory.toJS());
+      // 2. Merge with old history, removing duplicates (Case-Insensitive)
+      const intersectedOldHistory = oldHistory.filter(
+        oldName => !names.some(newName => newName.toLowerCase() === oldName.toLowerCase())
+      );
 
-      const newHistory = names.slice(0, 1000);
+      // 3. Combine and truncate to 1000 items
+      const newHistory = [...names, ...intersectedOldHistory].slice(0, 1000);
 
+      // 4. Persist to your external storage utility (tagHistory)
       tagHistory.set(me, newHistory);
 
-      this.composeTagHistoryUpdate(
-        composeId,
-        newHistory
-      );
-   },
+      // 5. Update the store state
+      actions.composeTagHistoryUpdate(composeId, newHistory);
+    },
       
-    handleComposeSubmit(composeId, data, status, _edit) {
-      this.insertIntoTagHistory(
+    handleComposeSubmit(composeId, data, statusText) {
+      const actions = getActions();
+
+      // 1. Update tag history based on submitted content
+      actions.insertIntoTagHistory(
         composeId,
         data.tags || [],
-        status
+        statusText
       );
 
-      this.composeSubmitSuccess(
+      // 2. Mark submission as successful and reset the compose instance
+      // Using a plain object spread for data
+      actions.composeSubmitSuccess(
         composeId,
         { ...data }
       );
 
-      //TODO: add toast notification
+      // Note: You can now trigger a toast here via:
+      // actions.showToast("Post submitted successfully!");
     },
 
     needsDescriptions(composeId) {
-      const root = rootGet();
-      const media = this.compose[composeId]?.media_attachments || [];
-      const missingDescriptionModal = root.getSettings()?.["missingDescriptionModal"];
+      const state = rootGet();
+      const compose = state.compose?.[composeId];
+      const media = compose?.media_attachments || [];
+      const missingDescriptionModal = state.settings?.missingDescriptionModal;
 
-      const hasMissing = media.filter(item => !item.description).length > 0;
-
+      const hasMissing = media.some(item => !item.description);
       return hasMissing && missingDescriptionModal;
     },
 
     validateSchedule(composeId) {
-      const compose = this.compose[composeId];
-       const schedule = compose?.schedule;
-      if (!compose || !compose.schedule) return true;
+      const state = rootGet();
+      const compose = state.compose?.[composeId];
+      if (!compose?.schedule) return true;
 
-      const fiveMinutesFromNow = new Date(new Date().getTime() + 300000);
-
-      return schedule.getTime() > fiveMinutesFromNow.getTime();
+      // 5 minutes from now check
+      const threshold = Date.now() + 300000;
+      return compose.schedule.getTime() > threshold;
     },
 
-    submitCompose(composeId, opts) {
-      const root = rootGet();
+    async submitCompose(composeId, opts = {}) {
+      const state = rootGet();
+      const actions = getActions();
       const { history, force = false } = opts;
-      if (!isLoggedIn(root)) {
-        return;
-      }
 
-      const compose = this.compose[composeId];
+      if (!isLoggedIn(state)) return;
+
+      const compose = state.compose?.[composeId];
       if (!compose) return;
 
-      const status   = compose.text;
-      const media    = compose.media_attachments;
-      const statusId = compose.id;
-      let to         = compose.to;
-
-      if (!this.validateSchedule(composeId)) {
-        //TODO: show toast notification
+      // 1. Validation Checks
+      if (!actions.validateSchedule(composeId)) {
+        actions.showToast?.("Schedule must be at least 5 minutes in the future.");
         return;
       }
 
-      if (!force && this.needsDescriptions(composeId)) {
-        root.modal.openModalAction("MISSING_DESCRIPTION", { 
+      if (!force && actions.needsDescriptions(composeId)) {
+        actions.openModalAction("MISSING_DESCRIPTION", { 
           onContinue: () => {
-            root.modal.closeModalAction("MISSING_DESCRIPTION");
-            root.compose.submitCompose(composeId, { history, force: true });
+            actions.closeModalAction("MISSING_DESCRIPTION");
+            actions.submitCompose(composeId, { history, force: true });
           }
         });
         return;
       }
 
-      const mentions = status.match(/(?:^|\s)@([^@\s]+(?:@[^@\s]+)?)/gi);
-
+      // 2. Mentions Extraction (Standard JS Set for union)
+      const statusText = compose.text;
+      const mentions = statusText.match(/(?:^|\s)@([^@\s]+(?:@[^@\s]+)?)/gi);
+      let to = Array.isArray(compose.to) ? [...compose.to] : [];
+      
       if (mentions) {
-        to = to.union(mentions.map(mention => mention.trim().slice(1)));
+        const extracted = mentions.map(m => m.trim().slice(1));
+        to = [...new Set([...to, ...extracted])]; // Replaces .union()
       }
 
-      this.composeSubmitRequest(
-        composeId
-      );
+      // 3. UI State: Requesting
+      actions.composeSubmitRequest(composeId);
+      actions.closeModal?.();
 
-      root.modal.closeModal();
-
-      const idempotencyKey = compose.idempotencyKey;
-
-      const params= {
-        status,
+      // 4. API Params Construction
+      const params = {
+        status: statusText,
         in_reply_to_id: compose.in_reply_to,
         quote_id: compose.quote,
-        media_ids: media.map(item => item.id),
+        media_ids: (compose.media_attachments || []).map(item => item.id),
         sensitive: compose.sensitive,
         spoiler_text: compose.spoiler_text,
         visibility: compose.privacy,
@@ -1559,212 +1159,213 @@ export const createComposeSlice = (
 
       if (compose.privacy === 'group') {
         params.group_id = compose.group_id;
-        params.group_timeline_visible = compose.group_timeline_visible; // Truth Social
+        params.group_timeline_visible = compose.group_timeline_visible;
       }
 
-      return root.statuses.createStatus(params, idempotencyKey, statusId)
-        .then((data) => {
-          if (!statusId && data.visibility === 'direct' && rootGet().conversations.mounted <= 0 && history) {
-            history.push('/messages');
-          }
-          this.handleComposeSubmit(
-            composeId,
-            data,
-            status,
-            !!statusId
-          );
-        })
-        .catch(() => {
-          this.composeSubmitFail(
-            composeId
-          );
-        });
+      try {
+        const data = await actions.createStatus(params, compose.idempotencyKey, compose.id);
+        
+        // Navigation Logic
+        if (!compose.id && data.visibility === 'direct' && state.conversations?.mounted <= 0 && history) {
+          history.push('/messages');
+        }
+
+        actions.handleComposeSubmit(composeId, data, statusText);
+      } catch (err) {
+        console.error("Submission failed", err);
+        actions.composeSubmitFail(composeId);
+      }
     },
 
     uploadCompose(composeId, files, intl) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return;
-      }
-      
-      if (!files || files.length === 0) {
-        return;
-      }
+      const state = rootGet();
+      const actions = getActions();
+      if (!isLoggedIn(state) || !files?.length) return;
 
-      const attachmentLimit = 4;//TOCDO: check later
-      const media  = this.compose[composeId]?.media_attachments;
-      const progress = new Array(files.length).fill(0);
-      const mediaCount = media ? media.length : 0;
+      const attachmentLimit = 4;
+      const media = state.compose?.[composeId]?.media_attachments || [];
+      const mediaCount = media.length;
 
       if (files.length + mediaCount > attachmentLimit) {
-        //TODO: add toast
+        actions.showToast?.(`Maximum ${attachmentLimit} attachments allowed.`);
         return;
       }
 
-      this.composeUploadRequest(
-        composeId
-      );
+      actions.composeUploadRequest(composeId);
 
-      Array.from(files).forEach((f, i) => {
-        if (mediaCount + i > attachmentLimit - 1) return;
+      // Track individual file progress in an array
+      const progressTracker = new Array(files.length).fill(0);
 
-        root.media.uploadFile(
-          f,
+      Array.from(files).forEach((file, i) => {
+        if (mediaCount + i >= attachmentLimit) return;
+
+        actions.uploadFile(
+          file,
           intl,
-          (data) => this.composeUploadSuccess(composeId, data, f)),
+          (data) => actions.composeUploadSuccess(composeId, data),
           (error) => {
             console.error(error);
-            this.composeUploadFail(composeId, error);
+            actions.composeUploadFail(composeId);
           },
-          (e) => {
-            progress[i] = e.loaded;
-            this.composeUploadProgress(composeId, progress.reduce((a, v) => a + v, 0), e.total);
+          (event) => {
+            progressTracker[i] = event.loaded;
+            const totalLoaded = progressTracker.reduce((a, v) => a + v, 0);
+            actions.composeUploadProgress(composeId, totalLoaded, event.total);
           }
+        );
       });
     },
 
-    changeUploadCompose(composeId, id, params) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return;
+    async changeUploadCompose(composeId, id, params) {
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return;
+
+      actions.composeUploadChangeRequest(composeId);
+
+      try {
+        const response = await actions.updateMedia(id, params);
+        const data = await response.json();
+        actions.composeUploadChangeSuccess(composeId, data);
+      } catch (error) {
+        console.error("Media update failed", error);
+        actions.composeUploadChangeFail(composeId);
       }
-
-      this.composeUploadChangeRequest(
-        composeId
-      );
-
-      root.media.updateMedia(
-        id,
-        params
-      ).then((response) => {
-        return response.json()
-      }).then((data) => {
-        this.composeUploadChangeSuccess(composeId, data);
-      }).catch((error) => {
-        console.error(error);
-        this.composeUploadChangeFail(composeId, error);
-      });
     },
 
     clearComposeSuggestions(composeId) {
-      this.composeSuggestionsClear(composeId);
+      getActions().composeSuggestionsClear(composeId);
     },
 
-    fetchComposeSuggestionsAccounts: throttle(async function (composeId, token) {
+    // 1. Throttled Account Search
+    // Note: Use a regular function (not arrow) if you need 'this' or pass it to throttle
+    fetchComposeSuggestionsAccounts: throttle(async (composeId, token) => {
       cancelFetchComposeSuggestions?.abort();
-      const root = rootGet();
+      cancelFetchComposeSuggestions = new AbortController();
+
+      const actions = getActions();
+
       try {
-        const response = await fetch(`/api/v1/accounts/search`, {
+        const query = new URLSearchParams({
+          q: token.slice(1),
+          resolve: false,
+          limit: 10,
+        }).toString();
+
+        const response = await fetch(`/api/v1/accounts/search?${query}`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: cancelFetchComposeSuggestions?.signal,
-          searchParams: {
-            q: token.slice(1),
-            resolve: false,
-            limit: 10,
-          }
+          headers: { 'Content-Type': 'application/json' },
+          signal: cancelFetchComposeSuggestions.signal,
         });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
         const data = await response.json();
-        root.importer.importFetchedAccounts(data);
-        this.composeSuggestionsReady(composeId, token, data);
+        
+        // Import fetched account entities
+        actions.importFetchedAccounts?.(data);
+        
+        // Notify the slice the suggestions are ready
+        actions.composeSuggestionsReady(composeId, token, data);
       } catch (error) {
-          if (error.name === 'AbortError') {
-              // TODO: add toast later
-              return;
-          }
-          console.error('Error fetching compose suggestions accounts:', error);
+        if (error.name === 'AbortError') return;
+        console.error('Error fetching suggestions accounts:', error);
       }
     }, 200),
 
+    // 2. Local Emoji Search
     fetchComposeSuggestionsEmojis(composeId, token, customEmojis) {
+      // emojiSearch is a local utility (standard JS)
       const results = emojiSearch(token.replace(':', ''), { maxResults: 10 }, customEmojis);
 
-      this.composeSuggestionsReady(
+      getActions().composeSuggestionsReady(
         composeId,
         token,
         results
       );
     },
 
+   // 3. Tag/Trend Search
     async fetchComposeSuggestionsTags(composeId, token) {
-      const root = rootGet();
       cancelFetchComposeSuggestions?.abort();
+      cancelFetchComposeSuggestions = new AbortController();
 
+      const state = rootGet();
+      const actions = getActions();
       const { trends } = getFeatures();
+
+      // If trends are enabled, use the ones already in the store
       if (trends) {
-        const currentTrends = root.trends.items;
-        this.composeSuggestionTagsUpdate(
-          composeId,
-          token,
-          currentTrends
-        );
+        const currentTrends = state.trends?.items || [];
+        actions.composeSuggestionTagsUpdate(composeId, token, currentTrends);
         return;
       }
 
       try {
-        const response = await fetch(`/api/v1/search`, {
-          method: 'GET',  
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: cancelFetchComposeSuggestions?.signal,
-          searchParams: {
-            q: token.slice(1),
-            limit: 10,
-            type: 'hashtags',
-          }
+        const query = new URLSearchParams({
+          q: token.slice(1),
+          limit: 10,
+          type: 'hashtags',
+        }).toString();
+
+        const response = await fetch(`/api/v1/search?${query}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: cancelFetchComposeSuggestions.signal,
         });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const _data = await response.json();
-        // TODO: use _data
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        // Assuming the API returns a 'hashtags' array
+        actions.composeSuggestionTagsUpdate(composeId, token, data.hashtags || []);
       } catch (error) {
-        if (error instanceof Error) {
-          console.error(`Error name: ${error.name}, message: ${error.message}`);
-          //toast.showAlertForError(error);
-        } else {
-          console.error('An unknown error occurred while fetching compose suggestions tags.');
-        }
+        if (error.name === 'AbortError') return;
+        console.error('Error fetching suggestions tags:', error);
       }
     },
 
+    // 4. Main Entry Point for Suggestions
     fetchComposeSuggestions(composeId, token, customEmojis) {
       const firstChar = token.charAt(0);
+      const actions = getActions();
+
       if (firstChar === '@') {
-        this.fetchComposeSuggestionsAccounts(composeId, token);
+        actions.fetchComposeSuggestionsAccounts(composeId, token);
       } else if (firstChar === ':') {
-        this.fetchComposeSuggestionsEmojis(composeId, token, customEmojis);
+        actions.fetchComposeSuggestionsEmojis(composeId, token, customEmojis);
       } else if (firstChar === '#') {
-        this.fetchComposeSuggestionsTags(composeId, token);
+        actions.fetchComposeSuggestionsTags(composeId, token);
       } else {
-        this.fetchComposeSuggestionsAccounts(composeId, token);
+        actions.fetchComposeSuggestionsAccounts(composeId, token);
       } 
     },
 
+    // 5. Handling Selection
     selectCompositionSuggestion(composeId, position, token, suggestion, path) {
-      const root = rootGet();
-      let completion = '', startPosition = position;
+      const state = rootGet();
+      const actions = getActions();
+      let completion = '';
+      let startPosition = position;
 
+      // Handle Emoji Object
       if (typeof suggestion === 'object' && suggestion.id) {
-        completion    = isNativeEmoji(suggestion) ? suggestion.native : suggestion.colons;
+        completion = isNativeEmoji(suggestion) ? suggestion.native : suggestion.colons;
         startPosition = position - 1;
-
-        root.emojis.chooseEmoji(suggestion);
-      } else if (typeof suggestion === 'string' && suggestion[0] === '#') {
-        completion    = suggestion;
+        actions.chooseEmoji?.(suggestion);
+      } 
+      // Handle Hashtag String
+      else if (typeof suggestion === 'string' && suggestion[0] === '#') {
+        completion = suggestion;
         startPosition = position - 1;
-      } else if (typeof suggestion === 'string') {
-        completion    = selectAccount(root, suggestion).acct;
+      } 
+      // Handle Account ID String
+      else if (typeof suggestion === 'string') {
+        const account = state.accounts?.[suggestion];
+        completion = account?.acct || suggestion;
         startPosition = position;
       }
 
-      this.composeSuggestionSelect(
+      actions.composeSuggestionSelect(
         composeId,
         startPosition,
         token,
@@ -1774,53 +1375,70 @@ export const createComposeSlice = (
     },
 
     openComposeWithText(composeId, text) {
-      const root = rootGet();
-      this.resetCompose(composeId);
-      root.modal.openModalAction("COMPOSE");
-      this.composeChange(composeId, text);
+      const actions = getActions();
+      
+      // 1. Reset the specific compose instance
+      actions.composeReset(composeId);
+      
+      // 2. Open the modal via the modal slice
+      actions.openModalAction("COMPOSE");
+      
+      // 3. Set the initial text
+      actions.composeChange(composeId, text);
     },
 
     addToMentions(composeId, accountId) {
-      const root = rootGet();
-      const account = selectAccount(root, accountId);
+      const state = rootGet();
+      const actions = getActions();
+      
+      // Look up account in normalized JS state
+      const account = state.accounts?.[accountId];
       if (!account) return;
-      this.composeAddToMentions(
+
+      actions.composeAddToMentions(
         composeId,
         account.acct
       );
     },
 
     removeFromMentions(composeId, accountId) {
-      const root = rootGet();
-      const account = selectAccount(root, accountId);
+      const state = rootGet();
+      const actions = getActions();
+      
+      const account = state.accounts?.[accountId];
       if (!account) return;
-      this.composeRemoveFromMentions(
+
+      actions.composeRemoveFromMentions(
         composeId,
         account.acct
       );
     },
 
     eventDiscussionCompose(composeId, status) {
-      const root = rootGet();
+      const state = rootGet();
+      const actions = getActions();
       const { explicitAddressing } = getFeatures();
 
-      this.composeEventReply(
+      // Coordinate with own account data and features
+      actions.composeEventReply(
         composeId,
         status,
-        selectOwnAccount(root),
+        selectOwnAccount(state), // Assuming selector is updated for JS
         explicitAddressing
       );
     },
 
     setEditorState(composeId, editorState) {
-      this.composeEditorStateSet(
+      // Direct pass-through to the internal setter
+      getActions().composeEditorStateSet(
         composeId,
         editorState
       );
     },
 
     changeMediaOrder(composeId, a, b) {
-      this.composeChangeMediaOrder(
+      // Direct pass-through to the internal setter
+      getActions().composeChangeMediaOrder(
         composeId,
         a,
         b

@@ -32,109 +32,94 @@ const messages = defineMessages({
 });
 
 export function createModerationSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
+
+  const getAccountInfo = (accountId) => {
+    const account = selectAccount(rootGet(), accountId) || {};
+    return {
+      acct: account.acct || '',
+      name: account.username || '',
+      isLocal: !!account.local,
+    };
+  };
+
   return {
-        deactivateUserModal(intl, accountId, afterConfirm = () => {}) {
-            const root = rootGet();
-            const acct = selectAccount(root, accountId)?.acct || '';
-            const name = selectAccount(root, accountId)?.username || '';
+    deactivateUserModal(intl, accountId, afterConfirm = () => {}) {
+      const actions = getActions();
+      const { acct, name } = getAccountInfo(accountId);
 
-            const message = intl.formatMessage(messages.deactivateUserPrompt, { acct });
-
-            root.modal.openModalAction('CONFIRM', {
-                icon: UserX,
-                heading: intl.formatMessage(messages.deactivateUserHeading, { acct }),
-                message,
-                confirm: intl.formatMessage(messages.deactivateUserConfirm, { name }),
-                onConfirm: () => {
-                    root.admin.deactivateUsers([accountId])
-                        .then(() => {
-                              // toast.success(intl.formatMessage(messages.userDeactivated, { acct })); // TODO: later
-                            afterConfirm();
-                        })
-                        .catch(() => {});
-                },
-            });
-        },
-
-    deleteUserModal(intl, accountId, afterConfirm = () => {}) {
-      const root = rootGet();
-      const account = selectAccount(root, accountId) || {};
-      const acct = account.acct || '';
-      const name = account.username || '';
-      const local = account.local || false;
-
-      const message = intl.formatMessage(messages.deleteUserPrompt, { acct });
-
-      const confirm = intl.formatMessage(messages.deleteUserConfirm, { name });
-      const checkbox = local ? intl.formatMessage(messages.deleteLocalUserCheckbox) : false;
-
-      root.modal.openModalAction('CONFIRM', {
-        icon: UserMinus,
-        heading: intl.formatMessage(messages.deleteUserHeading, { acct }),
-        message,
-        confirm,
-        checkbox,
-        onConfirm: () => {
-          root.admin.deleteUser(accountId)
-            .then(() => {
-              root.accounts.fetchAccountByUsername(acct);
-              // toast.success(intl.formatMessage(messages.userDeleted, { acct })); // TODO: later
-              afterConfirm();
-            })
-            .catch(() => {});
+      actions.openModalAction('CONFIRM', {
+        icon: UserX,
+        heading: intl.formatMessage(messages.deactivateUserHeading, { acct }),
+        message: intl.formatMessage(messages.deactivateUserPrompt, { acct }),
+        confirm: intl.formatMessage(messages.deactivateUserConfirm, { name }),
+        onConfirm: async () => {
+          try {
+            await actions.deactivateUsers([accountId]);
+            afterConfirm();
+          } catch (e) { /* Error handling logic */ }
         },
       });
     },
 
-        toggleStatusSensitivityModal(intl, statusId, sensitive, afterConfirm = () => {}) {
-            const root = rootGet();
-            const acct = root.statuses?.[statusId]?.account?.acct || '';
+    deleteUserModal(intl, accountId, afterConfirm = () => {}) {
+      const { acct, name, isLocal } = getAccountInfo(accountId);
+      const actions = getActions();
 
-            root.modal.openModalAction('CONFIRM', {
-                icon: TriangleAlert,
-                heading: intl.formatMessage(
-                    sensitive === false ? messages.markStatusSensitiveHeading : messages.markStatusNotSensitiveHeading,
-                ),
-                message: intl.formatMessage(
-                    sensitive === false ? messages.markStatusSensitivePrompt : messages.markStatusNotSensitivePrompt,
-                    { acct },
-                ),
-                confirm: intl.formatMessage(
-                    sensitive === false ? messages.markStatusSensitiveConfirm : messages.markStatusNotSensitiveConfirm,
-                ),
-                onConfirm: () => {
-                    root.admin.toggleStatusVisibility(statusId, sensitive)
-                        .then(() => {
-                            // toast.success(intl.formatMessage(
-                            //   sensitive === false ? messages.statusMarkedSensitive : messages.statusMarkedNotSensitive,
-                            //   { acct },
-                            // ));
-                        })
-                        .catch(() => {});
-                    afterConfirm();
-                },
-            });
+      actions.openModalAction('CONFIRM', {
+        icon: UserMinus,
+        heading: intl.formatMessage(messages.deleteUserHeading, { acct }),
+        message: intl.formatMessage(messages.deleteUserPrompt, { acct }),
+        confirm: intl.formatMessage(messages.deleteUserConfirm, { name }),
+        checkbox: isLocal ? intl.formatMessage(messages.deleteLocalUserCheckbox) : false,
+        onConfirm: async () => {
+          try {
+            await actions.deleteUser(accountId);
+            actions.fetchAccountByUsername(acct);
+            afterConfirm();
+          } catch (e) { /* Error handling logic */ }
         },
+      });
+    },
 
-        deleteStatusModal(intl, statusId, afterConfirm = () => {}) {
-            const root = rootGet();
-            const acct = root.statuses?.[statusId]?.account?.acct || '';
+    toggleStatusSensitivityModal(intl, statusId, sensitive, afterConfirm = () => {}) {
+      const actions = getActions();
+      const acct = rootGet().statuses?.[statusId]?.account?.acct || '';
+      
+      const isMarking = !sensitive; // logic cleanup: if sensitive is false, we are marking it sensitive
 
-            root.modal.openModalAction('CONFIRM', {
-                icon: Trash,
-                heading: intl.formatMessage(messages.deleteStatusHeading),
-                message: intl.formatMessage(messages.deleteStatusPrompt, { acct }),
-                confirm: intl.formatMessage(messages.deleteStatusConfirm),
-                onConfirm: () => {
-                    root.admin.deleteStatus(statusId)
-                        .then(() => {
-                              // toast.success(intl.formatMessage(messages.statusDeleted, { acct }));
-                        })
-                        .catch(() => {});
-                    afterConfirm();
-                },
-            });
-        }
+      actions.openModalAction('CONFIRM', {
+        icon: TriangleAlert,
+        heading: intl.formatMessage(isMarking ? messages.markStatusSensitiveHeading : messages.markStatusNotSensitiveHeading),
+        message: intl.formatMessage(isMarking ? messages.markStatusSensitivePrompt : messages.markStatusNotSensitivePrompt, { acct }),
+        confirm: intl.formatMessage(isMarking ? messages.markStatusSensitiveConfirm : messages.markStatusNotSensitiveConfirm),
+        onConfirm: async () => {
+          try {
+            await actions.toggleStatusVisibility(statusId, sensitive);
+            afterConfirm();
+          } catch (e) { /* Error handling logic */ }
+        },
+      });
+    },
+
+
+    deleteStatusModal(intl, statusId, afterConfirm = () => {}) {
+      const acct = rootGet().statuses?.[statusId]?.account?.acct || '';
+      const actions = getActions();
+
+      actions.openModalAction('CONFIRM', {
+        icon: Trash,
+        heading: intl.formatMessage(messages.deleteStatusHeading),
+        message: intl.formatMessage(messages.deleteStatusPrompt, { acct }),
+        confirm: intl.formatMessage(messages.deleteStatusConfirm),
+        onConfirm: async () => {
+          try {
+            await actions.deleteStatus(statusId);
+            afterConfirm();
+          } catch (e) { /* Error handling logic */ }
+        },
+      });
+    }
 
   };
 }

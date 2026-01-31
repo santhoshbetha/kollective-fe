@@ -3,13 +3,30 @@ import {
   simulateUnEmojiReact,
 } from "../../utils/emoji-reacts";
 import { asPlain, getId } from "../../utils/immutableSafe";
-import settingsSchema from "../../schemas/settings";
 import { shouldHaveCard } from "../../utils/status";
 import { isLoggedIn } from "../../utils/auth";
 import { getFeatures } from "../../utils/features";
 
 export const createStatusesSlice = (setScoped, getScoped, rootSet, rootGet) => {
-  const set = setScoped;
+  const getActions = () => rootGet();
+
+  // Helper for batch updating records
+  const mergeStatus = (state, status, expandSpoilers) => {
+    const s = asPlain(status);
+    if (!s?.id) return;
+    
+    state[s.id] = { ...(state[s.id] || {}), ...s };
+    if (expandSpoilers && state[s.id].spoiler_text) {
+      state[s.id].spoiler_text = "";
+    }
+  };
+
+  // Helper for adjusting parent reply counts
+  const adjustReplyCount = (state, inReplyToId, delta) => {
+    if (!inReplyToId || !state[inReplyToId]) return;
+    const current = state[inReplyToId].replies_count || 0;
+    state[inReplyToId].replies_count = Math.max(0, current + delta);
+  };
 
   const statusExists = (rootState, statusId) => {
     return (rootState.statuses[statusId] || null) !== null;
@@ -17,661 +34,530 @@ export const createStatusesSlice = (setScoped, getScoped, rootSet, rootGet) => {
 
   // Import helpers
   return ({
-    importStatus(status, expandSpoilers) {
-      const s = asPlain(status) || {};
-      if (!s || !s.id) return;
-      set((state) => {
-        const existing = state[s.id] || {};
-        const merged = { ...existing, ...s };
-        if (expandSpoilers && merged.spoiler_text) merged.spoiler_text = "";
-        state[s.id] = merged;
-      });
+    StatusImport(status, expandSpoilers) {
+      setScoped((state) => mergeStatus(state, status, expandSpoilers));
     },
 
-    importStatuses(statuses, expandSpoilers = false) {
+   StatusesImport(statuses, expandSpoilers = false) {
       if (!Array.isArray(statuses)) return;
-      set((state) => {
-        statuses.forEach((status) => {
-          const s = asPlain(status) || {};
-          if (!s || !s.id) return;
-          const existing = state[s.id] || {};
-          const merged = { ...existing, ...s };
-          if (expandSpoilers && merged.spoiler_text) merged.spoiler_text = "";
-          state[s.id] = merged;
-        });
+      setScoped((state) => {
+        statuses.forEach((s) => mergeStatus(state, s, expandSpoilers));
       });
     },
 
     createStatusRequest(params, editing) {
       if (editing) return;
-      if (!params || !params.in_reply_to_id) return;
-      setScoped((state) => {
-        const parent = state[params.in_reply_to_id] || {};
-        const current =
-          typeof parent.replies_count === "number" ? parent.replies_count : 0;
-        state[params.in_reply_to_id] = { ...parent, replies_count: current + 1 };
-      });
+      setScoped((state) => adjustReplyCount(state, params?.in_reply_to_id, 1));
     },
 
     createStatusFail(params, editing) {
       if (editing) return;
-      if (!params || !params.in_reply_to_id) return;
-      setScoped((state) => {
-        const parent = state[params.in_reply_to_id] || {};
-        const current =
-          typeof parent.replies_count === "number" ? parent.replies_count : 0;
-        state[params.in_reply_to_id] = {
-          ...parent,
-          replies_count: Math.max(0, current - 1),
-        };
-      });
+      setScoped((state) => adjustReplyCount(state, params?.in_reply_to_id, -1));
+    },
+
+    deleteStatusRequest(params) {
+      setScoped((state) => adjustReplyCount(state, params?.in_reply_to_id, -1));
+    },
+
+    deleteStatusFail(params) {
+      setScoped((state) => adjustReplyCount(state, params?.in_reply_to_id, 1));
     },
 
     favouriteRequest(status) {
       const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        const current =
-          typeof existing.favourites_count === "number"
-            ? existing.favourites_count
-            : 0;
-        state[id] = {
-          ...existing,
-          favourited: true,
-          favourites_count: Math.max(0, current + 1),
-        };
+      setScoped((state) => {
+        if (!state[id]) return;
+        state[id].favourited = true;
+        state[id].favourites_count = (state[id].favourites_count || 0) + 1;
       });
     },
 
     unFavouriteRequest(status) {
       const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        const current =
-          typeof existing.favourites_count === "number"
-            ? existing.favourites_count
-            : 0;
-        state[id] = {
-          ...existing,
-          favourited: false,
-          favourites_count: Math.max(0, current - 1),
-        };
+      setScoped((state) => {
+        if (!state[id]) return;
+        state[id].favourited = false;
+        state[id].favourites_count = Math.max(0, (state[id].favourites_count || 0) - 1);
       });
     },
 
     dislikeRequest(status) {
       const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        const current =
-          typeof existing.dislikes_count === "number"
-            ? existing.dislikes_count
-            : 0;
-        state[id] = {
-          ...existing,
-          disliked: true,
-          dislikes_count: Math.max(0, current + 1),
-        };
+      setScoped((state) => {
+        if (!state[id]) return;
+        state[id].disliked = true;
+        state[id].dislikes_count = (state[id].dislikes_count || 0) + 1;
       });
     },
 
     undislikeRequest(status) {
       const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        const current =
-          typeof existing.dislikes_count === "number"
-            ? existing.dislikes_count
-            : 0;
-        state[id] = {
-          ...existing,
-          disliked: false,
-          dislikes_count: Math.max(0, current - 1),
-        };
+      setScoped((state) => {
+        if (!state[id]) return;
+        state[id].disliked = false;
+        state[id].dislikes_count = Math.max(0, (state[id].dislikes_count || 0) - 1);
       });
     },
 
     emojiReactRequest(status, emoji, custom) {
       const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = {
-          ...existing,
-          emojiReacts: simulateEmojiReact(existing.emojiReacts, emoji, custom),
-        };
+      setScoped((state) => {
+        if (!state[id]) return;
+        state[id].emojiReacts = simulateEmojiReact(state[id].emojiReacts, emoji, custom);
       });
     },
 
     unEmojiReactRequest(status, emoji) {
       const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = {
-          ...existing,
-          emojiReacts: simulateUnEmojiReact(existing.emojiReacts, emoji),
-        };
+      setScoped((state) => {
+        if (!state[id]) return;
+        state[id].emojiReacts = simulateUnEmojiReact(state[id].emojiReacts, emoji);
       });
     },
+
+    reblogRequest: (status) => setScoped((s) => { s[getId(status)].reblogged = true; }),
+    reblogFail: (status) => setScoped((s) => { s[getId(status)].reblogged = false; }),
+    unreblogRequest: (status) => setScoped((s) => { s[getId(status)].reblogged = false; }),
+    unreblogFail: (status) => setScoped((s) => { s[getId(status)].reblogged = true; }),
+    
+    muteStatusSuccess: (id) => setScoped((s) => { if (s[id]) s[id].muted = true; }),
+    unmuteStatusSuccess: (id) => setScoped((s) => { if (s[id]) s[id].muted = false; }),
 
     favouriteFail(status) {
       const id = getId(status);
       if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = { ...existing, favourited: false };
+      setScoped((ss) => {
+        const existing = ss[id] || {};
+        ss[id] = { ...existing, favourited: false };
       });
     },
 
     dislikeFail(status) {
       const id = getId(status);
       if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = { ...existing, disliked: false };
-      });
-    },
-
-    reblogRequest(status) {
-      const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = { ...existing, reblogged: true };
-      });
-    },
-
-    reblogFail(status) {
-      const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = { ...existing, reblogged: false };
-      });
-    },
-
-    unreblogRequest(status) {
-      const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = { ...existing, reblogged: false };
-      });
-    },
-
-    unreblogFail(status) {
-      const id = getId(status);
-      if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = { ...existing, reblogged: true };
-      });
-    },
-
-    muteStatusSuccess(statusId) {
-      if (!statusId) return;
-      set((state) => {
-        const existing = state[statusId] || {};
-        state[statusId] = { ...existing, muted: true };
-      });
-    },
-
-    unmuteStatusSuccess(statusId) {
-      if (!statusId) return;
-      set((state) => {
-        const existing = state[statusId] || {};
-        state[statusId] = { ...existing, muted: false };
+      setScoped((s) => {
+        const existing = s[id] || {};
+        s[id] = { ...existing, disliked: false };
       });
     },
 
     revealStatus(ids) {
-      if (!Array.isArray(ids)) return;
-      set((state) => {
-        ids.forEach((id) => {
-          const existing = state[id] || {};
-          state[id] = { ...existing, hidden: false };
-        });
+      setScoped((state) => {
+        ids.forEach((id) => { if (state[id]) state[id].hidden = false; });
       });
     },
 
     hideStatus(ids) {
-      if (!Array.isArray(ids)) return;
-      set((state) => {
-        ids.forEach((id) => {
-          const existing = state[id] || {};
-          state[id] = { ...existing, hidden: true };
-        });
-      });
-    },
-
-    deleteStatusRequest(params) {
-      if (!params || !params.in_reply_to_id) return;
-      set((state) => {
-        const parent = state[params.in_reply_to_id] || {};
-        const current =
-          typeof parent.replies_count === "number" ? parent.replies_count : 0;
-        state[params.in_reply_to_id] = {
-          ...parent,
-          replies_count: Math.max(0, current - 1),
-        };
-      });
-    },
-
-    deleteStatusFail(params) {
-      if (!params || !params.in_reply_to_id) return;
-      set((state) => {
-        const parent = state[params.in_reply_to_id] || {};
-        const current =
-          typeof parent.replies_count === "number" ? parent.replies_count : 0;
-        state[params.in_reply_to_id] = { ...parent, replies_count: current + 1 };
+      setScoped((state) => {
+        ids.forEach((id) => { if (state[id]) state[id].hidden = true; });
       });
     },
 
     undoStatusTranslate(id) {
-      if (!id) return;
-      set((state) => {
-        if (state[id]) {
-          const copy = { ...state[id] };
-          delete copy.translation;
-          state[id] = copy;
-        }
+      setScoped((state) => {
+        if (state[id]) delete state[id].translation;
       });
     },
 
     unfilterStatus(id) {
-      if (!id) return;
-      set((state) => {
-        if (!state[id]) return;
-        state[id] = { ...state[id], showFiltered: false };
-      });
-    },
-
-    deleteStatus(id, references) {
-      if (!id) return;
-      set((state) => {
-        const toDelete = new Set();
-        const rec = (sid) => {
-          if (!state[sid] || toDelete.has(sid)) return;
-          toDelete.add(sid);
-          const refs = references;
-          if (Array.isArray(refs)) refs.forEach(rec);
-        };
-        rec(id);
-        toDelete.forEach((sid) => delete state[sid]);
+      setScoped((state) => {
+        if (state[id]) state[id].showFiltered = false;
       });
     },
 
     joinEventRequest(id) {
       if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = {
-          ...existing,
-          event: { ...(existing.event || {}), join_state: "pending" },
-        };
+      setScoped((state) => {
+        if (!state[id]) return;
+        // Ensure the event object exists before mutating
+        state[id].event = state[id].event || {};
+        state[id].event.join_state = "pending";
       });
     },
 
     joinEventFail(id) {
       if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = {
-          ...existing,
-          event: { ...(existing.event || {}), join_state: null },
-        };
+      setScoped((state) => {
+        if (state[id]?.event) {
+          state[id].event.join_state = null;
+        }
       });
     },
 
     leaveEventRequest(id) {
       if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = {
-          ...existing,
-          event: { ...(existing.event || {}), join_state: null },
-        };
+      setScoped((state) => {
+        if (state[id]?.event) {
+          state[id].event.join_state = null;
+        }
       });
     },
 
     leaveEventFail(id, previousState) {
       if (!id) return;
-      set((state) => {
-        const existing = state[id] || {};
-        state[id] = {
-          ...existing,
-          event: { ...(existing.event || {}), join_state: previousState },
-        };
+      setScoped((state) => {
+        if (state[id]?.event) {
+          state[id].event.join_state = previousState;
+        }
       });
     },
 
-    async createStatus(params, idempotencyKey, statusId) {
-      const root = rootGet();
-      const settings = settingsSchema.parse(root.settings.toJS() || {});//TOD check this later
+    // Ensure your store is created with immer: create(...)(immer((set) => ({ ... })))
+    deleteStatusFromStatuses: (id, references) => setScoped((state) => {
+      const recursiveDelete = (targetId, targetRefs) => {
+        // 1. Process child references recursively
+        targetRefs.forEach(([refId, subRefs = []]) => {
+          recursiveDelete(refId, subRefs);
+        });
 
+        // 2. Mutate the draft directly using the 'delete' keyword
+        delete state.statuses[targetId];
+      };
+
+      recursiveDelete(id, references);
+    }),
+
+    async createStatus(params, idempotencyKey, statusId) {
+      const actions = getActions();
+      const isEditing = !!statusId;
+
+      // Extract settings safely using root selectors
+      const settings = actions.settings?.getSettings?.() || {};
       if (settings.discloseClient) {
         params.disclose_client = true;
       }
-      this.createStatusRequest(params, idempotencyKey, { editing: !!statusId });
-      root.timelines.createTimelineStatusRequest(params, idempotencyKey, { editing: !!statusId });
-      root.pendingStatuses.createStatusRequest(params, idempotencyKey, { editing: !!statusId });
-      root.contexts.createContextStatusRequest(params, idempotencyKey, { editing: !!statusId });
 
-      const method = statusId === null ? 'POST' : 'PUT';
-      const path = statusId === null ? '/api/v1/statuses' : `/api/v1/statuses/${statusId}`;
-      const headers = { 'Idempotency-Key': idempotencyKey };
+      // 1. Notify all interested slices of the request
+      const requestPayload = [params, idempotencyKey, { editing: isEditing }];
+      actions.createStatusRequest(...requestPayload);
+      actions.createTimelineStatusRequest?.(...requestPayload);
+      actions.createStatusRequest?.(...requestPayload);
+      actions.createContextStatusRequest?.(...requestPayload);
 
+      const isNew = statusId === null;
+      const path = isNew ? '/api/v1/statuses' : `/api/v1/statuses/${statusId}`;
+      
       try {
         const res = await fetch(path, {
-          method,
-          headers,
+          method: isNew ? 'POST' : 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey 
+          },
           body: JSON.stringify(params),
         });
+
         if (!res.ok) throw new Error(`Failed to create status (${res.status})`);
         const status = await res.json();
 
-        // The backend might still be processing the rich media attachment
         if (!status.card && shouldHaveCard(status)) {
           status.expectsCard = true;
         }
 
-        root.importer?.importFetchedStatus?.(status, idempotencyKey);
+        // 2. Import entity and notify success across slices
+        actions.importFetchedStatus?.(status, idempotencyKey);
+        
+        const successArgs = [status, params, idempotencyKey, { editing: isEditing }];
+        actions.createStatusSuccess?.(...successArgs);
+        actions.createScheduledStatusSuccess?.(...successArgs);
+        actions.createStatusListStatusSuccess?.(...successArgs);
+        actions.createTimelineStatusSuccess?.(...successArgs);
+        actions.createContextStatusSuccess?.(...successArgs);
 
-        root.pendingStatuses.createStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
-        root.scheduledStatuses?.createStatusSuccess?.(status, params, idempotencyKey, { editing: !!statusId });
-        root.statusLists?.createStatusListStatusSuccess?.(status, params, idempotencyKey, { editing: !!statusId });
-        root.timelines.createTimelineStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
-        root.contexts.createContextStatusSuccess(status, params, idempotencyKey, { editing: !!statusId });
-
-        // Poll the backend for the updated card
+        // 3. Handle Card Polling
         if (status.expectsCard) {
-          const delay = 1000;
-
-          const poll = (retries = 5) => {
-            fetch(`/api/v1/statuses/${status.id}`, { method: "GET" }
-            ).then(async (response) => {
-              if (!response.ok) {
-                throw new Error(
-                  `Failed to poll status for card (${response.status})`,
-                );
-              }
-              const data = await response.json();
+          const poll = async (retries = 5) => {
+            try {
+              const pRes = await fetch(`/api/v1/statuses/${status.id}`);
+              if (!pRes.ok) return;
+              
+              const data = await pRes.json();
               if (data.card) {
-                // Update the status with the new card
-                root.importer?.importFetchedStatus?.(data);
-              } else if (retries > 0 && response.status === 200) {
-                // Retry after delay
-                setTimeout(() => poll(retries - 1), delay);
+                actions.importFetchedStatus?.(data);
+              } else if (retries > 0) {
+                setTimeout(() => poll(retries - 1), 1500);
               }
-            })
-              .catch((error) => {
-                console.error("Error polling status for card:", error);
-              });
+            } catch (e) { console.error("Card poll failed", e); }
           };
-
-          setTimeout(() => poll(), delay);
+          setTimeout(poll, 1000);
         }
 
         return status;
       } catch (error) {
-        this.createStatusFail(error, params, idempotencyKey, { editing: !!statusId });
+        actions.createStatusFail(error, params, idempotencyKey, { editing: isEditing });
         throw error;
       }
     },
 
     async editStatus(id) {
-      const root = rootGet();
-      let status = root.statuses[id];
-
-      if (status.poll) {
-        status = status['poll', root.polls[status.poll]];
-      }
+      const actions = getActions();
+      const status = rootGet().statuses[id];
+      if (!status) return;
 
       try {
-        const res = await fetch(`/api/v1/statuses/${id}`, { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to fetch status (${res.status})`);
+        const res = await fetch(`/api/v1/statuses/${id}`);
+        if (!res.ok) throw new Error("Failed to fetch status");
+        
         const data = await res.json();
-        root.composeStatus.setComposeToStatus(status, data.text, data.spoiler_text, data.content_type, false);
-        root.modal.openModalAction('COMPOSE');
+        // Consolidate status with potential poll data before opening modal
+        const statusWithPoll = status.poll ? { ...status, poll: rootGet().polls[status.poll] } : status;
+        
+        actions.composeStatus?.setComposeToStatus?.(statusWithPoll, data.text, data.spoiler_text, data.content_type, false);
+        actions.openModalAction?.('COMPOSE');
       } catch (error) {
-        console.error("Error in editStatus:", error);
+        console.error("editStatus failed", error);
       }
     },
 
     async fetchStatus(id) {
-      const root = rootGet();
-      const skipLoading = statusExists(root, id);
-
+      const actions = getActions();
       try {
-        const res = await fetch(`/api/v1/statuses/${id}`, { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to fetch status (${res.status})`);
+        const res = await fetch(`/api/v1/statuses/${id}`);
+        if (!res.ok) throw new Error("Status not found");
+        
         const status = await res.json();
-        root.importer?.importFetchedStatus?.(status);
-        if (status.group) {
-          root.groups.fetchGroupRelationships([status.group.id])
+        actions.importFetchedStatus?.(status);
+        
+        if (status.group?.id) {
+          actions.fetchGroupRelationships?.([status.group.id]);
         }
         return status;
       } catch (error) {
-        console.error("Error in fetchStatus:", error);
+        console.error("fetchStatus failed", error);
       }
     },
 
     async deleteStatus(id, withRedraft) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return null;
-      }
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
 
-      let status = root.statuses[id];
-      if (status.poll) {
-        status = status['poll', root.polls[status.poll]];
-      }
+      const status = rootGet().statuses[id];
+      if (!status) return;
 
-      this.deleteStatusRequest(status);
+      actions.deleteStatusRequest(status);
 
       try {
         const res = await fetch(`/api/v1/statuses/${id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error(`Failed to delete status (${res.status})`);
-        root.timelines.deleteFromTimelines(id);
-
+        if (!res.ok) throw new Error("Delete failed");
+        
         const data = await res.json();
+        actions.deleteFromTimelines?.(id);
 
         if (withRedraft) {
-          root.composeStatus.setComposeToStatus(status, data.text, data.spoiler_text, data.pleroma?.content_type, withRedraft);
-          root.modal.openModalAction('COMPOSE');
+          const statusWithPoll = status.poll ? { ...status, poll: rootGet().polls[status.poll] } : status;
+          actions.setComposeToStatus?.(statusWithPoll, data.text, data.spoiler_text, data.kollective?.content_type, true);
+          actions.openModalAction?.('COMPOSE');
         }
       } catch (error) {
-        this.deleteStatusFail({ params: status }); //TODO check later
-        console.error("Error in deleteStatus:", error);
+        actions.deleteStatusFail({ params: status });
+        console.error("deleteStatus failed", error);
       }
     },
 
     updateStatus(status) {
-      const root = rootGet();
-      root.importer?.importFetchedStatus?.(status);
+      const actions = getActions();
+      
+      // Coordinate with the central importer to update the status in state
+      actions.importFetchedStatus?.(status);
     },
 
     async fetchContext(id) {
-      const root = rootGet();
+      const actions = getActions();
+      const stringId = String(id);
+
       try {
-        const res = await fetch(`/api/v1/statuses/${id}/context`, { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to fetch context (${res.status})`);
-        const context = await res.json();
-        if (Array.isArray(context)) {
-          // Mitra: returns a list of statuses
-          root.importer?.importFetchedStatuses?.(context);
-        } else if (typeof context === 'object') {
-          const { ancestors, descendants } = context;
-          const statuses = ancestors.concat(descendants);
-          root.importer?.importFetchedStatuses?.(statuses);
-          root.contexts.fetchContextSuccess(id, ancestors, descendants);
-        } else {
-          throw context;
+        const res = await fetch(`/api/v1/statuses/${stringId}/context`);
+        if (!res.ok) throw new Error(`Context fetch failed: ${res.status}`);
+        
+        const data = await res.json();
+
+        // 1. Handle Mitra-style (Flat array of statuses)
+        if (Array.isArray(data)) {
+          actions.importFetchedStatuses?.(data);
+        } 
+        // 2. Handle Mastodon-style (Ancestors/Descendants object)
+        else if (data && typeof data === 'object') {
+          const { ancestors = [], descendants = [] } = data;
+          const allStatuses = [...ancestors, ...descendants];
+          
+          actions.importFetchedStatuses?.(allStatuses);
+          actions.contexts?.fetchContextSuccess?.(stringId, ancestors, descendants);
         }
-        return context;
+
+        return data;
       } catch (error) {
-        console.error("Error in fetchContext:", error);
-        if (error.response && error.response.status === 404) {
-          root.timelines.deleteFromTimelines(id);
+        console.error("StatusesSlice.fetchContext failed", error);
+        
+        // Handle 404: If the status no longer exists, remove it from timelines
+        if (error.status === 404 || error.response?.status === 404) {
+          actions.deleteFromTimelines?.(stringId);
         }
       }
     },
 
-    async fetchNext(statusId, next) {
-      const root = rootGet();
-      const response = root[next];//TODO check later
-      const data = await response.json();
+    async fetchNext(statusId, nextUrl) {
+      const actions = getActions();
+      if (!nextUrl) return;
 
-      root.importer.importFetchedStatuses(data);
+      try {
+        const res = await fetch(nextUrl);
+        if (!res.ok) throw new Error("Failed to fetch next context page");
 
-      root.contexts.fetchContextSuccess({
-        id: statusId,
-        ancestors: [],
-        descendants: data
-      }
-      );
+        const data = await res.json();
+        
+        // Import entities
+        actions.importFetchedStatuses?.(data);
 
-      return {
-        next: response.pagination().next
+        // Update context slice (appending to descendants)
+        actions.contexts?.fetchContextSuccess?.({
+          id: statusId,
+          ancestors: [],
+          descendants: data
+        });
+
+        // Determine if there is another page based on the Link header
+        const nextLink = typeof res.next === 'function' ? res.next() : null;
+        
+        return { next: nextLink };
+      } catch (error) {
+        console.error("StatusesSlice.fetchNext failed", error);
       }
     },
 
     async fetchAncestors(id) {
-      const root = rootGet();
+      const actions = getActions();
       try {
-        const res = await fetch(`/api/v1/statuses/${id}/context/ancestors`, { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to fetch ancestors (${res.status})`);
+        const res = await fetch(`/api/v1/statuses/${id}/context/ancestors`);
+        if (!res.ok) throw new Error(`Ancestors fetch failed (${res.status})`);
+        
         const ancestors = await res.json();
-        root.importer?.importFetchedStatuses?.(ancestors);
+        actions.importFetchedStatuses?.(ancestors);
         return ancestors;
       } catch (error) {
-        console.error("Error in fetchAncestors:", error);
+        console.error("StatusesSlice.fetchAncestors failed", error);
       }
     },
 
     async fetchDescendants(id) {
-      const root = rootGet();
+      const actions = getActions();
       try {
-        const res = await fetch(`/api/v1/statuses/${id}/context/descendants`, { method: "GET" });
-        if (!res.ok) throw new Error(`Failed to fetch descendants (${res.status})`);
+        const res = await fetch(`/api/v1/statuses/${id}/context/descendants`);
+        if (!res.ok) throw new Error(`Descendants fetch failed (${res.status})`);
+        
         const descendants = await res.json();
-        root.importer?.importFetchedStatuses?.(descendants);
+        actions.importFetchedStatuses?.(descendants);
         return descendants;
       } catch (error) {
-        console.error("Error in fetchDescendants:", error);
+        console.error("StatusesSlice.fetchDescendants failed", error);
       }
     },
 
     async fetchStatusWithContext(id) {
-      const root = rootGet();
+      const actions = getActions();
       const features = getFeatures();
 
       if (features.paginatedContext) {
-        await this.fetchStatus(id);
+        // 1. Fetch the main status first
+        await actions.fetchStatus(id);
 
+        // 2. Fetch context parts in parallel
         const [ancestors, descendants] = await Promise.all([
-          this.fetchAncestors(id),
-          this.fetchDescendants(id)
+          actions.fetchAncestors(id),
+          actions.fetchDescendants(id)
         ]);
 
-        this.contexts.fetchContextSuccess(id, ancestors, descendants);
+        // 3. Notify context slice of the combined results
+        actions.contexts?.fetchContextSuccess?.(id, ancestors || [], descendants || []);
 
-        return descendants.pagination();
+        // Return pagination if supported by your fetch wrapper
+        return typeof descendants?.pagination === 'function' ? descendants.pagination() : { next: null };
       } else {
+        // Fallback for non-paginated instances
         await Promise.all([
-          this.fetchContext(id),
-          this.fetchStatus(id),
+          actions.fetchContext(id),
+          actions.fetchStatus(id),
         ]);
-        return {
-          next: null, prev: null
-        }
+        return { next: null, prev: null };
       }
     },
 
     async muteStatus(id) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return null;
-      }
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
 
       try {
         const res = await fetch(`/api/v1/statuses/${id}/mute`, { method: "POST" });
-        if (!res.ok) throw new Error(`Failed to mute status (${res.status})`);
-        this.muteStatusSuccess(id);
+        if (!res.ok) throw new Error(`Mute failed (${res.status})`);
+        
+        actions.muteStatusSuccess(id);
       } catch (error) {
-        console.error("Error in muteStatus:", error);
+        console.error("StatusesSlice.muteStatus failed", error);
       }
     },
 
     async unmuteStatus(id) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return null;
-      }
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
 
       try {
         const res = await fetch(`/api/v1/statuses/${id}/unmute`, { method: "POST" });
-        if (!res.ok) throw new Error(`Failed to unmute status (${res.status})`);
-        this.unmuteStatusSuccess(id);
+        if (!res.ok) throw new Error(`Unmute failed (${res.status})`);
+        
+        actions.unmuteStatusSuccess(id);
       } catch (error) {
-        console.error("Error in unmuteStatus:", error);
+        console.error("StatusesSlice.unmuteStatus failed", error);
       }
     },
 
     toggleMuteStatus(status) {
-      if (status.muted) {
-        return this.unmuteStatus(status.id);
-      } else {
-        return this.muteStatus(status.id);
-      }
+      const actions = getActions();
+      return status.muted 
+        ? actions.unmuteStatus(status.id) 
+        : actions.muteStatus(status.id);
     },
 
     hideStatusAction(ids) {
-      const root = rootGet();
-      if (!Array.isArray(ids)) {
-        ids = [ids];
-      }
-      root.statuses.hideStatus(ids);
+      const actions = getActions();
+      const idArray = Array.isArray(ids) ? ids : [ids];
+      actions.hideStatus(idArray);
     },
 
     revealStatusAction(ids) {
-      const root = rootGet();
-      if (!Array.isArray(ids)) {
-        ids = [ids];
-      }
-      root.statuses.revealStatus(ids);
+      const actions = getActions();
+      const idArray = Array.isArray(ids) ? ids : [ids];
+      actions.revealStatus(idArray);
     },
 
     toggleStatusHidden(status) {
-      if (status.hidden) {
-        return this.revealStatusAction(status.id);
-      } else {
-        return this.hideStatusAction(status.id);
-      }
+      const actions = getActions();
+      return status.hidden 
+        ? actions.revealStatusAction(status.id) 
+        : actions.hideStatusAction(status.id);
     },
 
     async translateStatus(id, lang) {
-      const root = rootGet();
       try {
         const res = await fetch(`/api/v1/statuses/${id}/translate`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ target_language: lang }),
         });
-        if (!res.ok) throw new Error(`Failed to translate status (${res.status})`);
+
+        if (!res.ok) throw new Error(`Translation failed (${res.status})`);
+        
         const data = await res.json();
-        root.statuses.translateStatusSuccess({ id, translation: data });
+        
+        // Update local state via Immer setter
+        setScoped((state) => {
+          if (state[id]) {
+            state[id].translation = data;
+          }
+        });
       } catch (error) {
-        console.error("Error in translateStatus:", error);
+        console.error("StatusesSlice.translateStatus failed", error);
       }
-    }
+    },
+
   });
 };
 

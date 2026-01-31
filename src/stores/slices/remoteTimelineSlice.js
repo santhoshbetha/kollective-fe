@@ -1,76 +1,64 @@
-import { getIn } from "../../utils/immutableSafe";
-
 export function createRemoteTimelineSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
+  const getActions = () => rootGet();
   // get not used
   return {
+    // --- Initial State ---
     remoteTimeline: [],
     helpers: {},
+
     setHelpers(helpers) {
-      set((s) => {
-        s.helpers = helpers || {};
+      setScoped((state) => {
+        state.helpers = helpers || {};
       });
     },
 
     importRemote(items = []) {
-      try {
-        const importer = rootGet().importer;
-        if (importer && typeof importer.importFetchedStatuses === "function") {
-          importer.importFetchedStatuses(items);
-          return;
-        }
-      } catch (err) {
-        void err;
+      const actions = getActions();
+      
+      // Coordinate with central importer if available
+      if (actions.importFetchedStatuses) {
+        actions.importFetchedStatuses(items);
+        return;
       }
-      set((s) => {
-        s.remoteTimeline = (s.remoteTimeline || []).concat(items || []);
+
+      // Fallback: direct mutation of local state
+      setScoped((state) => {
+        state.remoteTimeline.push(...items);
       });
     },
 
     clearRemote() {
-      set((s) => {
-        s.remoteTimeline = [];
+      setScoped((state) => {
+        state.remoteTimeline = [];
       });
     },
 
     getPinnedHosts() {
-      const root = rootGet();
-      const settings = root.getSettings?.();
-      return getIn(settings, ["remote_timeline", "pinnedHosts"]) || [];
+      const actions = getActions();
+      // Using optional chaining for clean path traversal
+      return actions.getSettings?.()?.remote_timeline?.pinnedHosts || [];
     },
 
     pinHost(host) {
-      const root = rootGet();
-      const pinnedHosts = this.getPinnedHosts() || [];
+      const actions = getActions();
+      // Use local helper via actions reference
+      const pinnedHosts = actions.getPinnedHosts();
 
-      // Normalize to plain array
-      const arr = Array.isArray(pinnedHosts)
-        ? pinnedHosts.slice()
-        : Array.from(pinnedHosts || []);
+      if (pinnedHosts.includes(host)) return null;
 
-      // Prepend if not present
-      if (!arr.includes(host)) arr.unshift(host);
+      const newPinned = [host, ...pinnedHosts];
 
-      if (root.settings && typeof root.settings.changeSetting === "function") {
-        return root.settings.changeSetting(["remote_timeline", "pinnedHosts"], arr);
-      }
-      return null;
+      // Call external slice action
+      return actions.changeSetting?.(["remote_timeline", "pinnedHosts"], newPinned);
     },
 
     unpinHost(host) {
-      const root = rootGet();
-      const pinnedHosts = this.getPinnedHosts() || [];
+      const actions = getActions();
+      const pinnedHosts = actions.getPinnedHosts();
 
-      const arr = Array.isArray(pinnedHosts)
-        ? pinnedHosts.slice()
-        : Array.from(pinnedHosts || []);
+      const filtered = pinnedHosts.filter((h) => h !== host);
 
-      const filtered = arr.filter((h) => h !== host);
-
-      if (root.settings && typeof root.settings.changeSetting === "function") {
-        return root.settings.changeSetting(["remote_timeline", "pinnedHosts"], filtered);
-      }
-      return null;
+      return actions.changeSetting?.(["remote_timeline", "pinnedHosts"], filtered);
     },
 
   };

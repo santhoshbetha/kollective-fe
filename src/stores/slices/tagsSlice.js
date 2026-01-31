@@ -1,6 +1,15 @@
 import { normalizeTag } from "../../normalizers/tag";
 
 export function createTagsSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
+
+  // Internal helper for toggling following state locally
+  const setFollowing = (name, value) => {
+    setScoped((state) => {
+      if (state[name]) state[name].isFollowing = value;
+    });
+  };
+
   return {
     fetchHashtagSuccess(name, tag) {
       setScoped((state) => {
@@ -8,105 +17,95 @@ export function createTagsSlice(setScoped, getScoped, rootSet, rootGet) {
       });
     },
 
-    followHashtagRequest(name) {
-      setScoped((state) => {
-        if (state[name]) {
-          state[name].isFollowing = true;
-        }
-      });
-    },
 
-    unfollowHashtagFail(name) {
-      setScoped((state) => {
-        if (state[name]) {
-          state[name].isFollowing = true;
-        }
-      });
-    },
-
-    followHashtagFail(name) {
-      setScoped((state) => {
-        if (state[name]) {
-          state[name].isFollowing = false;
-        }
-      });
-    },
-
-    unfollowHashtagRequest(name) {
-      setScoped((state) => {
-        if (state[name]) {
-          state[name].isFollowing = false;
-        }
-      });
-    },
+    followHashtagRequest: (name) => setFollowing(name, true),
+    followHashtagFail: (name) => setFollowing(name, false),
+    unfollowHashtagRequest: (name) => setFollowing(name, false),
+    unfollowHashtagFail: (name) => setFollowing(name, true),
 
     async fetchHashtagAction(name) {
+      const actions = getActions();
       try {
         const res = await fetch(`/api/v1/tags/${encodeURIComponent(name)}`);
         if (!res.ok) throw new Error(`Failed to fetch hashtag (${res.status})`);
+        
         const tag = await res.json();
-        this.fetchHashtagSuccess(name, tag);
+        actions.fetchHashtagSuccess(name, tag);
       } catch (error) {
-        console.error('Failed to fetch hashtag:', error);
+        console.error('TagsSlice.fetchHashtagAction failed', error);
       }
     },
 
     async followHashtagAction(name) {
-      this.followHashtagRequest(name);
+      const actions = getActions();
+      actions.followHashtagRequest(name);
+      
       try {
         const res = await fetch(`/api/v1/tags/${encodeURIComponent(name)}/follow`, {
           method: "POST",
         });
-        if (!res.ok) throw new Error(`Failed to follow hashtag (${res.status})`);
+        if (!res.ok) throw new Error(`Follow failed (${res.status})`);
       } catch (error) {
-        console.error('Failed to follow hashtag:', error);
-        this.followHashtagFail(name);
+        actions.followHashtagFail(name);
+        console.error('TagsSlice.followHashtagAction failed', error);
       }
     },
 
     async unfollowHashtagAction(name) {
-      this.unfollowHashtagRequest(name);
+      const actions = getActions();
+      actions.unfollowHashtagRequest(name);
+      
       try {
         const res = await fetch(`/api/v1/tags/${encodeURIComponent(name)}/unfollow`, {
           method: "POST",
         });
-        if (!res.ok) throw new Error(`Failed to unfollow hashtag (${res.status})`);
+        if (!res.ok) throw new Error(`Unfollow failed (${res.status})`);
       } catch (error) {
-        console.error('Failed to unfollow hashtag:', error);
-        this.unfollowHashtagFail(name);
+        actions.unfollowHashtagFail(name);
+        console.error('TagsSlice.unfollowHashtagAction failed', error);
       }
     },
+    
+    async fetchFollowedHashtags() {
+      const actions = getActions();
+      const followedTags = actions.followedTags;
 
-  async fetchFollowedHashtags() {
-    const root = rootGet();
-    this.fetchFollowedHashtagsRequest();
+      followedTags?.fetchFollowedHashtagsRequest?.();
+      
       try {
         const res = await fetch(`/api/v1/followed_tags`);
-        if (!res.ok) throw new Error(`Failed to fetch followed hashtags (${res.status})`);
+        if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
+        
         const data = await res.json();
-        const next = res.next();
-        root.followedTags.fetchFollowedHashtagsSuccess(data || [], next);
+        const next = typeof res.next === 'function' ? res.next() : null;
+
+        followedTags?.fetchFollowedHashtagsSuccess?.(data || [], next);
       } catch (error) {
-        root.followedTags.fetchFollowedHashtagsFail();
-        console.error('Failed to fetch followed hashtags:', error);
+        followedTags?.fetchFollowedHashtagsFail?.();
+        console.error('TagsSlice.fetchFollowedHashtags failed', error);
       }
     },
 
     async expandFollowedHashtags() {
-      const root = rootGet();
-      const url = root.followedTags.next;
-      if (url === null || root.followedTags.isLoading) return;
+      const actions = getActions();
+      const followedTags = actions.followedTags;
+      const url = followedTags?.next;
 
-      root.followedTags.expandFollowedHashtagsRequest();
+      if (!url || followedTags?.isLoading) return;
+
+      followedTags.expandFollowedHashtagsRequest?.();
+      
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Failed to expand followed hashtags (${res.status})`);
+        if (!res.ok) throw new Error(`Expand failed (${res.status})`);
+        
         const data = await res.json();
-        const next = res.next();
-        root.followedTags.expandFollowedHashtagsSuccess(data || [], next);
+        const next = typeof res.next === 'function' ? res.next() : null;
+
+        followedTags.expandFollowedHashtagsSuccess?.(data || [], next);
       } catch (error) {
-        root.followedTags.expandFollowedHashtagsFail();
-        console.error('Failed to expand followed hashtags:', error);
+        followedTags.expandFollowedHashtagsFail?.();
+        console.error('TagsSlice.expandFollowedHashtags failed', error);
       }   
     },
 

@@ -1,142 +1,137 @@
-// Action-only slice for emoji reaction operations. No local state — only actions.
-
 import { isLoggedIn } from "../../utils/auth";
 
 export function createEmojiReactsSlice(setScoped, getScoped, rootSet, rootGet) {
-  return {
+  // Helper to access root actions (all spread slices)
+  const getActions = () => rootGet();
 
+  return {
     async simpleEmojiReact(status, emoji, custom) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+      const state = rootGet();
+      const actions = getActions();
+      if (!isLoggedIn(state)) return null;
 
       const emojiReacts = Array.isArray(status.reactions) ? status.reactions : [];
 
-      // If user already favourited and trying to react with thumbs-up, unfavourite instead
+      // 1. Special case: 👍 + Favourite toggle
       if (emoji === '👍' && status.favourited) {
-        return root.interactions?.unfavourite?.(status) ?? null;
+        return actions.unfavourite?.(status) ?? null;
       }
 
+      // 2. Undo logic if already reacted with this specific emoji
       const undo = emojiReacts.some((e) => e.me === true && e.name === emoji);
-      if (undo) return this.unEmojiReact(status, emoji);
+      if (undo) return actions.unEmojiReact(status, emoji);
 
       try {
-        // Remove any other emoji reacts from the current user
+        // 3. Clear existing reacts from 'me' (Pleroma allows only one emoji react at a time)
         const myReacts = emojiReacts.filter((e) => e.me === true).map((e) => e.name);
+        
         for (const name of myReacts) {
-          // await each removal to keep server/state in sync
-          // ignore individual failures and proceed
           try {
-            // this.unEmojiReact returns a promise
-            await this.unEmojiReact(status, name);
-          } catch {
-              // swallow individual errors
-            }
-        }
-
-        // If the status was favourited, try to unfavourite it first
-        if (status.favourited) {
-          try {
-            await root.interactions?.unfavourite?.(status);
-          } catch {
-            // ignore
+            await actions.unEmojiReact(status, name);
+          } catch (e) {
+            // Swallow individual removal errors
           }
         }
 
-        if (emoji === '👍') {
-          return root.interactions?.favourite?.(status) ?? null;
+        // 4. Handle transition from Favourite to Emoji React
+        if (status.favourited) {
+          try {
+            await actions.unfavourite?.(status);
+          } catch (e) {}
         }
 
-        return this.emojiReact(status, emoji, custom);
+        // 5. Finalize React: Thumbs up maps back to native Favourite
+        if (emoji === '👍') {
+          return actions.favourite?.(status) ?? null;
+        }
+
+        return actions.emojiReact(status, emoji, custom);
       } catch (err) {
-        console.error(err);
+        console.error('simpleEmojiReact failed', err);
         return null;
       }
     },
 
-    fetchEmojiReacts(id, emoji) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) {
-        return;
-      }
+    async fetchEmojiReacts(id, emoji) {
+      const actions = getActions();
+      const state = rootGet();
+      if (!isLoggedIn(state)) return;
 
       const url = emoji
-      ? `/api/v1/pleroma/statuses/${id}/reactions/${emoji}`
-      : `/api/v1/pleroma/statuses/${id}/reactions`;
+        ? `/api/v1/pleroma/statuses/${id}/reactions/${encodeURIComponent(emoji)}`
+        : `/api/v1/pleroma/statuses/${id}/reactions`;
 
-      fetch(url)
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error(`Failed to fetch emoji reacts (${res.status})`);
-          }
-          return res.json();
-        })
-        .then((data) => {
-          if (Array.isArray(data)) {
-            for (const emojiReact of data) {
-              if (emojiReact.accounts) {
-                root.importer?.importFetchedAccounts?.(emojiReact.accounts);
-              }
-            }
-          }
-          this.fetchEmojiReactsSuccess(id, data)
-        })
-        .catch((err) => {
-          this.fetchEmojiReactsFail(id, err);
-          console.error('fetchEmojiReacts failed', err);
-        });
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const data = await res.json();
+
+        if (Array.isArray(data)) {
+          // Import accounts from nested reactions
+          const allAccounts = data.flatMap(react => react.accounts || []);
+          actions.importFetchedAccounts?.(allAccounts);
+        }
+
+        actions.fetchEmojiReactsSuccess?.(id, data);
+      } catch (err) {
+        actions.fetchEmojiReactsFail?.(id, err);
+        console.error('fetchEmojiReacts failed', err);
+      }
     },
 
     async emojiReact(status, emoji, custom) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
 
       try {
-        root.statuses?.emojiReactRequest?.(status, emoji, custom);
+        // Optimistic UI request
+        actions.emojiReactRequest?.(status, emoji, custom);
 
         const res = await fetch(
           `/api/v1/statuses/${status.id}/reactions/${encodeURIComponent(emoji)}`,
           { method: 'POST' },
         );
 
-        if (!res.ok) throw new Error(`Failed to emoji react (${res.status})`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
-        root.importer?.importFetchedStatus?.(data);
-        root.statuses?.emojiReactSuccess?.(status, emoji);
+        // Sync store with returned status object
+        actions.importFetchedStatus?.(data);
+        actions.emojiReactSuccess?.(status, emoji);
         return data;
       } catch (err) {
-        console.error('emojiReactsSlice.emojiReact failed', err);
-        root.statuses?.emojiReactFail?.(status, emoji, err);
+        console.error('emojiReact failed', err);
+        actions.emojiReactFail?.(status, emoji, err);
         return null;
       }
     },
 
     async unEmojiReact(status, emoji) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return null;
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return null;
 
       try {
-        root.statuses?.unEmojiReactRequest?.(status, emoji);
+        // Optimistic UI request
+        actions.unEmojiReactRequest?.(status, emoji);
 
         const res = await fetch(
           `/api/v1/statuses/${status.id}/reactions/${encodeURIComponent(emoji)}`,
           { method: 'DELETE' },
         );
 
-        if (!res.ok) throw new Error(`Failed to unemoji react (${res.status})`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
-        root.importer?.importFetchedStatus?.(data);
-        root.statuses?.unEmojiReactSuccess?.(status, emoji);
+        actions.importFetchedStatus?.(data);
+        actions.unEmojiReactSuccess?.(status, emoji);
         return data;
       } catch (err) {
-        console.error('emojiReactsSlice.unEmojiReact failed', err);
-        root.statuses?.unEmojiReactFail?.(status, emoji, err);
+        console.error('unEmojiReact failed', err);
+        actions.unEmojiReactFail?.(status, emoji, err);
         return null;
       }
-    },  
-
-
+    },
   };
 }
 

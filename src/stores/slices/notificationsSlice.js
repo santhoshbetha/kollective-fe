@@ -42,12 +42,29 @@ const minifyNotification = (notification) => {
   };
 };
 
-const fixNotification = (notification) => {
-  const normalized = normalizeNotification(notification) || {};
-  return minifyNotification(normalized);
+//const fixNotification = (notification) => {
+ // const normalized = normalizeNotification(notification) || {};
+  //return minifyNotification(normalized);
+//};
+
+const fixNotification = (n) => {
+  const normalized = normalizeNotification(n) || {};
+  return {
+    ...normalized,
+    account: normalized.account?.id ?? normalized.account,
+    target: normalized.target?.id ?? normalized.target,
+    status: normalized.status?.id ?? normalized.status,
+  };
 };
 
-const isValid = (notification) => {
+const sortMapById = (map) => {
+  const entries = Array.from(map.entries()).sort((a, b) => {
+    return parseInt(b[0], 10) - parseInt(a[0], 10); // Simple descending ID sort
+  });
+  return new Map(entries);
+};
+
+/*const isValid = (notification) => {
   try {
     if (!notification || typeof notification !== "object") return false;
     // Ensure the notification is a known type
@@ -77,6 +94,16 @@ const isValid = (notification) => {
   } catch {
     return false;
   }
+};*/
+
+const isValid = (n) => {
+  if (!n || typeof n !== "object" || !validType(n.type)) return false;
+  if (!n.account || (typeof n.account === "object" && n.account.id == null)) return false;
+  
+  const needsStatus = ["mention", "reblog", "favourite", "poll", "status"].includes(n.type);
+  if (needsStatus && (!n.status || (typeof n.status === "object" && n.status.id == null))) return false;
+  
+  return true;
 };
 
 const countFuture = (notifications, lastId) => {
@@ -115,29 +142,51 @@ const countFuture = (notifications, lastId) => {
 const noOp = () => new Promise(f => f(undefined));
 
 export function createNotificationsSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
+
+  // Private helper for removing follow request notifications
+  const removeFollowRequests = (state, accountId) => {
+    for (const [id, notification] of state.items.entries()) {
+      if (
+        notification.account === accountId &&
+        notification.type === "follow_request"
+      ) {
+        state.items.delete(id);
+      }
+    }
+  };
+
+  const updateUnreadFromMarker = (state, marker) => {
+    let lastReadId = -1;
+    try {
+      const m = asPlain(marker) || {};
+      const n = m.notifications || {};
+      lastReadId = n.last_read_id ?? n.lastReadId ?? -1;
+    } catch {
+      lastReadId = -1;
+    }
+
+    const parsedId = parseId(lastReadId);
+    if (!lastReadId || parsedId <= 0) return;
+
+    state.unread = countFuture(state.items, lastReadId);
+    state.lastRead = lastReadId;
+  };
+
   return {
     items: new Map(),
+    queuedNotifications: new Map(),
     hasMore: true,
     top: false,
     unread: 0,
     isLoading: false,
-    queuedNotifications: new Map(), //max = MAX_QUEUED_NOTIFICATIONS
-    totalQueuedNotificationsCount: 0, //used for queuedItems overflow for MAX_QUEUED_NOTIFICATIONS+
+    totalQueuedNotificationsCount: 0,
     lastRead: -1,
 
-    expandNotificationsRequest() {
-      setScoped((state) => {
-        state.isLoading = true;
-      });
-    },
+    expandNotificationsRequest: () => setScoped(s => { s.isLoading = true; }),
+    expandNotificationsFail: () => setScoped(s => { s.isLoading = false; }),
 
-    expandNotificationsFail() {
-      setScoped((state) => {
-        state.isLoading = false;
-      });
-    },
-
-    setNotificationsFilter(path, value) {
+    setNotificationsFilter() {
       setScoped((state) => {
         state.items = new Map();
         state.hasMore = true;
@@ -146,190 +195,109 @@ export function createNotificationsSlice(setScoped, getScoped, rootSet, rootGet)
 
     scrollToTopNotifications(top) {
       setScoped((state) => {
-        if (top) {
-          state.unread = 0;
-        }
+        if (top) state.unread = 0;
         state.top = top;
       });
     },
 
     updateNotifications(notification) {
       setScoped((state) => {
-        let newMap = new Map(state.items);
-
-        if (state.top && newMap.size > 40) {
-          // Take the first 20 entries. Note: Native JS Map doesn't have a 'take' method.
-          // We simulate this by creating a new Map from a slice of the entries.
-          const entries = Array.from(newMap.entries()).slice(0, 20);
-          newMap = new Map(entries);
+        // Handle Map pruning if at top
+        if (state.top && state.items.size > 40) {
+          const kept = Array.from(state.items.entries()).slice(0, 20);
+          state.items = new Map(kept);
         }
 
-        // Set the new notification (overwrites if ID exists)
-        newMap.set(notification.id, fixNotification(notification));
-
-        // Sort the entries. Native JS Map iteration order is insertion order,
-        // so sorting requires converting to an array, sorting, then converting back.
-        const sortedEntries = Array.from(newMap.entries()).sort((a, b) =>
-          comparator(a[1], b[1]),
-        );
-        newMap = new Map(sortedEntries);
-
-        return { items: newMap };
+        state.items.set(notification.id, fixNotification(notification));
+        state.items = sortMapById(state.items);
       });
     },
 
     updateNotificationsQueue(notification, intlMessages, intlLocale) {
       setScoped((state) => {
-        let newMap = new Map(state.queuedNotifications);
-
-        const alreadyExists =
-          state.queuedNotifications.has(notification.id) ||
-          state.items.has(notification.id);
-        if (alreadyExists) return state;
-
-        // Set the new notification (overwrites if ID exists)
-        newMap.set(notification.id, {
-          notification: notification,
-          intlMessages: intlMessages,
-          intlLocale: intlLocale,
-        });
-
-        // Sort the entries by the inner notification object
-        const sortedEntries = Array.from(newMap.entries()).sort((a, b) =>
-          comparator(a[1].notification, b[1].notification),
-        );
-        newMap = new Map(sortedEntries);
-
-        const MAX_QUEUED_NOTIFICATIONS = 40;
-        // Trim to max size
-        if (newMap.size > MAX_QUEUED_NOTIFICATIONS) {
-          const entries = Array.from(newMap.entries()).slice(
-            0,
-            MAX_QUEUED_NOTIFICATIONS,
-          );
-          newMap = new Map(entries);
+        if (state.queuedNotifications.has(notification.id) || state.items.has(notification.id)) {
+          return;
         }
 
-        return {
-          queuedNotifications: newMap,
-          totalQueuedNotificationsCount:
-            state.totalQueuedNotificationsCount + 1,
-        };
+        state.queuedNotifications.set(notification.id, {
+          notification,
+          intlMessages,
+          intlLocale,
+        });
+
+        state.queuedNotifications = sortMapById(state.queuedNotifications);
+        state.totalQueuedNotificationsCount += 1;
+
+        // Trim Queue
+        if (state.queuedNotifications.size > MAX_QUEUED_NOTIFICATIONS) {
+          const trimmed = Array.from(state.queuedNotifications.entries()).slice(0, MAX_QUEUED_NOTIFICATIONS);
+          state.queuedNotifications = new Map(trimmed);
+        }
       });
     },
 
     dequeueNotifications() {
       setScoped((state) => {
-        if (state.totalQueuedNotificationsCount <= 0) return state;
-
-        // clear the queue
-        return {
-          queuedNotifications: new Map(),
-          totalQueuedNotificationsCount: 0,
-        };
+        state.queuedNotifications = new Map();
+        state.totalQueuedNotificationsCount = 0;
       });
     },
 
     expandNotificationsSuccess(notifications, next) {
       setScoped((state) => {
-        const newMap = new Map(state.items);
-
-        const newItems = notifications.map(normalizeNotification);
-        newItems.forEach((notification) => {
-          if (isValid(notification)) {
-            newMap.set(notification.id, fixNotification(notification));
+        notifications.forEach((n) => {
+          const normalized = normalizeNotification(n);
+          if (isValid(normalized)) {
+            state.items.set(normalized.id, fixNotification(n));
           }
         });
 
-        // Sort the entries
-        const sortedEntries = Array.from(newMap.entries()).sort((a, b) =>
-          comparator(a[1], b[1]),
-        );
-        return {
-          items: new Map(sortedEntries),
-          hasMore: !!next,
-          isLoading: false,
-        };
+        state.items = sortMapById(state.items);
+        state.hasMore = !!next;
+        state.isLoading = false;
       });
     },
 
     blockAccountSuccess(relationship) {
       setScoped((state) => {
-        const newMap = new Map(state.items);
-        const blockedAccountId = relationship.id;
-
-        // Remove notifications from the blocked account
-        for (const [id, notification] of newMap.entries()) {
-          if (notification.account === blockedAccountId) {
-            newMap.delete(id);
+        const blockedId = relationship.id;
+        for (const [id, n] of state.items.entries()) {
+          if (n.account === blockedId) {
+            state.items.delete(id);
           }
         }
-
-        return { items: newMap };
       });
     },
 
-    muteAccoutSuccess(relationship) {
+    muteAccountSuccess(relationship) {
+      if (!relationship.muting_notifications) return;
+      
       setScoped((state) => {
-        if (!relationship.muting_notifications) {
-          return state;
-        }
-        const newMap = new Map(state.items);
-        const mutedAccountId = relationship.id;
-
-        // Remove notifications from the muted account
-        for (const [id, notification] of newMap.entries()) {
-          if (notification.account === mutedAccountId) {
-            newMap.delete(id);
+        const mutedId = relationship.id;
+        for (const [id, n] of state.items.entries()) {
+          if (n.account === mutedId) {
+            state.items.delete(id);
           }
         }
-
-        return { items: newMap };
       });
     },
 
     authorizeFollowRequestSuccess(accountId) {
       setScoped((state) => {
-        const newMap = new Map(state.items);
-
-        // Remove follow_request notifications for this account
-        for (const [id, notification] of newMap.entries()) {
-          if (
-            notification.account === accountId &&
-            notification.type === "follow_request"
-          ) {
-            newMap.delete(id);
-          }
-        }
-
-        return { items: newMap };
+        removeFollowRequests(state, accountId);
       });
     },
 
     rejectFollowRequestSuccess(accountId) {
       setScoped((state) => {
-        const newMap = new Map(state.items);
-
-        // Remove follow_request notifications for this account
-        for (const [id, notification] of newMap.entries()) {
-          if (
-            notification.account === accountId &&
-            notification.type === "follow_request"
-          ) {
-            newMap.delete(id);
-          }
-        }
-
-        return { items: newMap };
+        removeFollowRequests(state, accountId);
       });
     },
 
     clearNotifications() {
       setScoped((state) => {
-        return {
-          items: new Map(),
-          hasMore: true,
-        };
+        state.items = new Map();
+        state.hasMore = true;
       });
     },
 
@@ -341,81 +309,33 @@ export function createNotificationsSlice(setScoped, getScoped, rootSet, rootGet)
 
     fetchMarkerSuccess(marker) {
       setScoped((state) => {
-        // marker may be Immutable-like or plain JS — normalize then read safely
-        let lastReadId = -1;
-        try {
-          const m = asPlain(marker) || {};
-          lastReadId = (m.notifications && (m.notifications.last_read_id ?? m.notifications.lastReadId)) ?? -1;
-        } catch {
-          lastReadId = -1;
-        }
-
-        lastReadId = lastReadId == null ? -1 : lastReadId;
-        if (!lastReadId || parseId(lastReadId) <= 0) return state;
-
-        const notifications = state.items;
-        const unread = countFuture(notifications, lastReadId);
-
-        state.unread = unread;
-        state.lastRead = lastReadId;
+        updateUnreadFromMarker(state, marker);
       });
     },
 
     saveMarkerRequest(marker) {
       setScoped((state) => {
-        // marker may be Immutable-like or plain JS — normalize then read safely
-        let lastReadId = -1;
-        try {
-          const m = asPlain(marker) || {};
-          lastReadId = (m.notifications && (m.notifications.last_read_id ?? m.notifications.lastReadId)) ?? -1;
-        } catch {
-          lastReadId = -1;
-        }
-
-        lastReadId = lastReadId == null ? -1 : lastReadId;
-        if (!lastReadId || parseId(lastReadId) <= 0) return state;
-
-        const notifications = state.items;
-        const unread = countFuture(notifications, lastReadId);
-
-        state.unread = unread;
-        state.lastRead = lastReadId;
+        updateUnreadFromMarker(state, marker);
       });
     },
 
     saveMarkerSuccess(marker) {
       setScoped((state) => {
-        // marker may be Immutable-like or plain JS — normalize then read safely
-        let lastReadId = -1;
-        try {
-          const m = asPlain(marker) || {};
-          lastReadId = (m.notifications && (m.notifications.last_read_id ?? m.notifications.lastReadId)) ?? -1;
-        } catch {
-          lastReadId = -1;
-        }
-
-        lastReadId = lastReadId == null ? -1 : lastReadId;
-        if (!lastReadId || parseId(lastReadId) <= 0) return state;
-
-        const notifications = state.items;
-        const unread = countFuture(notifications, lastReadId);
-
-        state.unread = unread;
-        state.lastRead = lastReadId;
+        updateUnreadFromMarker(state, marker);
       });
     },
 
     deleteStatusFromNotifications(id) {
       setScoped((state) => {
-        const newMap = new Map(state.items);
-        newMap.delete(id);
-        return { items: newMap };
+        // Direct deletion on the Map draft via Immer
+        state.items.delete(id);
       });
     },
 
     setNotification(payload) {
       setScoped((state) => {
-        if (payload.timelineId in state) {
+        // Dynamic key check on the scoped state object
+        if (Object.hasOwn(state, payload.timelineId)) {
           state[payload.timelineId] = payload.value;
         }
       });
@@ -423,289 +343,221 @@ export function createNotificationsSlice(setScoped, getScoped, rootSet, rootGet)
 
     resetNotifications() {
       setScoped((state) => {
-        state.home = false
+        state.home = false;
         state.public = false;
         state.instance = false;
       });
     },
 
     fetchRelatedRelationships(notifications) {
-      const accountIds = notifications.filter(item => item.type === 'follow').map(item => item.account.id);
-      if (accountIds.length === 0) return Promise.resolve();
+      const actions = getActions();
+      const accountIds = notifications
+        .filter(n => n.type === 'follow')
+        .map(n => n.account?.id)
+        .filter(Boolean);
 
-      const root = rootGet();
-      return root.accounts.fetchRelationships(accountIds);
+      if (accountIds.length === 0) return Promise.resolve();
+      return actions.fetchRelationships(accountIds);
     },
 
     updateNotificationsAction(notification) {
-      const root = rootGet();
-      const showInColumn = getIn(root.settings.getSettings(), ['notifications', 'shows', notification.type]) || true;
+      const actions = getActions();
+      const showInColumn = actions.getSettings()?.notifications?.shows?.[notification.type] ?? true;
 
-      if (notification.account) {
-        root.importer.importFetchedAccount(notification.account);
-      }
-
-      // Used by Move notification
-      if (notification.target) {
-        root.importer.importFetchedAccount(notification.target);
-      }
-
-      if (notification.status) {
-        root.importer.importFetchedStatus(notification.status);
-      }
+      // Batch import entities
+      if (notification.account) actions.importFetchedAccount(notification.account);
+      if (notification.target) actions.importFetchedAccount(notification.target);
+      if (notification.status) actions.importFetchedStatus(notification.status);
 
       if (showInColumn) {
-        this.updateNotifications(notification);
-        this.userLists.updateFollowRequestNotifications(notification);
-        this.fetchRelatedRelationships([notification]);
+        actions.updateNotifications(notification);
+        actions.updateFollowRequestNotifications?.(notification);
+        actions.fetchRelatedRelationships([notification]);
       }
     },
 
     updateNotificationsQueueAction(notification, intlMessages, intlLocale, curPath) {
-      const root = rootGet();
-      if (!notification.type) return; // drop invalid notifications
-      if (notification.type === 'pleroma:chat_mention') return; // Drop chat notifications, handle them per-chat
-      if (notification.type === 'chat') return; // Drop Truth Social chat notifications.
+      const actions = getActions();
+      
+      // 1. Filter out ignored types
+      if (!notification.type || ['pleroma:chat_mention', 'chat'].includes(notification.type)) return;
 
-      const showAlert = getIn(root.settings.getSettings(), ['notifications', 'alerts', notification.type]);
-      const filters = getFilters(root, { contextType: 'notifications' });
-      const playSound = getIn(root.settings.getSettings(), ['notifications', 'sounds', notification.type]);
-
-      let filtered = false;
-      const isOnNotificationsPage = curPath === '/notifications';
-
-      if (['mention', 'status'].includes(notification.type)) {
+      const settings = actions.getSettings()?.notifications || {};
+      const showAlert = settings.alerts?.[notification.type];
+      const playSound = settings.sounds?.[notification.type];
+      const filters = getFilters(rootGet(), { contextType: 'notifications' });
+      
+      let isFiltered = false;
+      if (['mention', 'status'].includes(notification.type) && notification.status) {
         const regex = regexFromFilters(filters);
-        const searchIndex = notification.status.spoiler_text + '\n' + htmlToPlaintext(notification.status.content);
-        filtered = regex && regex.test(searchIndex);
+        const text = `${notification.status.spoiler_text}\n${htmlToPlaintext(notification.status.content)}`;
+        isFiltered = !!(regex && regex.test(text));
       }
 
-      try {
-        // eslint-disable-next-line compat/compat
-        const isNotificationsEnabled = window.Notification?.permission === 'granted';
-        if (showAlert && !filtered && isNotificationsEnabled) {
-          const template = (intlMessages && intlMessages[`notification.${notification.type}`]) || NOTIFICATION_TEMPLATES[`notification.${notification.type}`] || '{name}';
-          const name = notification.account.display_name && notification.account.display_name.length > 0 ? notification.account.display_name : notification.account.username;
-          const title = template.replace('{name}', name);
-          const body = (notification.status && notification.status.spoiler_text.length > 0) ? notification.status.spoiler_text : htmlToPlaintext(notification.status ? notification.status.content : '');
+      // 2. Browser Notifications
+      if (showAlert && !isFiltered && window.Notification?.permission === 'granted') {
+        const template = intlMessages?.[`notification.${notification.type}`] || NOTIFICATION_TEMPLATES[`notification.${notification.type}`] || '{name}';
+        const name = notification.account.display_name || notification.account.username;
+        const title = template.replace('{name}', name);
+        const body = notification.status?.spoiler_text || htmlToPlaintext(notification.status?.content || '');
 
-          navigator.serviceWorker.ready.then(serviceWorkerRegistration => {
-            serviceWorkerRegistration.showNotification(title, {
-              body,
-              icon: notification.account.avatar,
-              tag: notification.id,
-              data: {
-                url: '/notifications',
-              },
-            }).catch(console.error);
-          }).catch(console.error);
-        }
-      } catch (e) {
-        console.warn(e);
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification(title, {
+            body,
+            icon: notification.account.avatar,
+            tag: notification.id,
+            data: { url: '/notifications' },
+          });
+        }).catch(console.warn);
       }
 
-      if (playSound && !filtered) {
+      // 3. Audio & State
+      if (playSound && !isFiltered) {
          useBoundStore.getState().playSound('boop');
       }
 
-      if (isOnNotificationsPage) {
-        this.updateNotificationsQueue(notification, intlMessages, intlLocale);
+      if (curPath === '/notifications') {
+        actions.updateNotificationsQueue(notification, intlMessages, intlLocale);
       } else {
-        this.updateNotifications(notification);
+        actions.updateNotifications(notification);
       }
     },
 
     dequeueNotificationsAction() {
-      const root = rootGet();
-      const queuedNotifications = root.notifications.queuedNotifications;
-      const totalQueuedNotificationsCount = root.notifications.totalQueuedNotificationsCount;
+      const actions = getActions();
+      const { queuedNotifications, totalQueuedNotificationsCount } = getScoped();
 
-      if (totalQueuedNotificationsCount === 0) {
-        return;
-      } else if (totalQueuedNotificationsCount > 0 && totalQueuedNotificationsCount <= MAX_QUEUED_NOTIFICATIONS) {
-        queuedNotifications.forEach((block) => {
-          this.updateNotificationsAction(block.notification);
-        });
+      if (totalQueuedNotificationsCount === 0) return;
+
+      if (totalQueuedNotificationsCount <= MAX_QUEUED_NOTIFICATIONS) {
+        queuedNotifications.forEach(block => actions.updateNotificationsAction(block.notification));
       } else {
-        this.expandNotifications();
+        actions.expandNotifications();
       }
 
-      this.dequeueNotifications();
-      this.markReadNotifications();
+      actions.dequeueNotifications();
+      // Ensure markRead exists on your slice/root
+      actions.markReadNotifications?.(); 
     },
 
     async expandNotifications({ maxId } = {}, done = noOp) {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return Promise.resolve();
+      const actions = getActions();
+      if (!isLoggedIn(rootGet()) || rootGet().notifications.isLoading) return await done();
 
+      actions.expandNotificationsRequest();
+
+      const settings = actions.getSettings()?.notifications || {};
+      const activeFilter = settings.quickFilter?.active;
       const features = getFeatures();
-      const activeFilter = getIn(root.settings.getSettings(), [
-        "notifications",
-        "quickFilter",
-        "active",
-      ]);
-      const isLoadingMore = !!maxId;
+      
+      const params = new URLSearchParams();
+      if (maxId) params.append('max_id', maxId);
 
-      // Avoid duplicate concurrent loads
-      if (root.notifications.isLoading) {
-        await done();
-        return Promise.resolve();
-      }
-
-      this.expandNotificationsRequest();
-
-      // Build params gently — support older object-shape logic while using URLSearchParams later
-      const paramsObj = {};
-      if (maxId) paramsObj.max_id = maxId;
-
+      // Handle Filtering Logic
       if (activeFilter === "all") {
-        if (features.notificationsIncludeTypes) {
-          paramsObj.types = NOTIFICATION_TYPES.filter((type) => !EXCLUDE_TYPES.includes(type));
-        } else {
-          paramsObj.exclude_types = EXCLUDE_TYPES;
-        }
+        features.notificationsIncludeTypes 
+          ? NOTIFICATION_TYPES.filter(t => !EXCLUDE_TYPES.includes(t)).forEach(t => params.append('types[]', t))
+          : EXCLUDE_TYPES.forEach(t => params.append('exclude_types[]', t));
       } else if (activeFilter) {
-        if (features.notificationsIncludeTypes) {
-          paramsObj.types = Array.isArray(activeFilter) ? activeFilter : [activeFilter];
-        } else {
-          paramsObj.exclude_types = excludeTypesFromFilter(activeFilter);
-        }
+        const filters = Array.isArray(activeFilter) ? activeFilter : [activeFilter];
+        features.notificationsIncludeTypes
+          ? filters.forEach(t => params.append('types[]', t))
+          : excludeTypesFromFilter(activeFilter).forEach(t => params.append('exclude_types[]', t));
       }
-
-      if (!maxId && root.notifications.items.size > 0) {
-        paramsObj.since_id = getIn(root.notifications, ['items', 0, 'id']);
-      }
-
-      this.expandNotificationsRequest(isLoadingMore);
 
       try {
-        const res = await fetch('/api/v1/notifications/' + new URLSearchParams(paramsObj), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            //Authorization: `Bearer ${root.auth.app?.access_token}`,
-          },
-        });
-        if (!res.ok) throw new Error(`Failed to expand notifications (${res.status})`);
+        const res = await fetch(`/api/v1/notifications?${params}`);
+        if (!res.ok) throw new Error('Fetch failed');
+        
         const data = await res.json();
-        // `res` is a native Response; parse `Link` header if present to find `next`.
-        const link = res.headers ? res.headers.get('link') : null;
-        const next = link ? link : null;
+        const next = res.headers.get('link');
 
-        const entries = (data).reduce((acc, item) => {
-          if (item.account?.id) {
-            acc.accounts[item.account.id] = item.account;
-          }
+        // Extract entities for importer
+        const accounts = new Set();
+        const statuses = new Set();
+        data.forEach(item => {
+          if (item.account) accounts.add(item.account);
+          if (item.target) accounts.add(item.target);
+          if (item.status) statuses.add(item.status);
+        });
 
-          // Used by Move notification
-          if (item.target?.id) {
-            acc.accounts[item.target.id] = item.target;
-          }
+        actions.importFetchedAccounts(Array.from(accounts));
+        actions.importFetchedStatuses(Array.from(statuses));
 
-          if (item.status?.id) {
-            acc.statuses[item.status.id] = item.status;
-          }
-
-          return acc;
-        }, { accounts: {}, statuses: {} });
-
-        root.importer.importFetchedAccounts(Object.values(entries.accounts));
-        root.importer.importFetchedStatuses(Object.values(entries.statuses));
-
-        const statusesFromGroups = (Object.values(entries.statuses)).filter((status) => !!status.group);
-        const root = rootGet();
-        root.groups?.fetchGroupRelationships?.(statusesFromGroups);
-
-        this.expandNotificationsSuccess(data, next, isLoadingMore)
-
-        await this.fetchRelatedRelationships(data || []);
-        await done();
-        return Promise.resolve();
+        actions.expandNotificationsSuccess(data, next, !!maxId);
+        await actions.fetchRelatedRelationships(data);
       } catch (e) {
-        this.expandNotificationsFail();
-        console.error(e);
+        actions.expandNotificationsFail();
+      } finally {
         await done();
-        return Promise.resolve();
       }
     },
 
     clearNotificationsAction() {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return;
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return;
 
-      this.clearNotifications();
-
-      try {
-        void fetch('/api/v1/notifications/clear', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            //Authorization: `Bearer ${root.auth.app?.access_token}`,
-          },
-        });
-      } catch (e) {
-        console.error('notificationsSlice.clearNotifications failed', e);
-      }
+      actions.clearNotifications();
+      fetch('/api/v1/notifications/clear', { method: 'POST' }).catch(console.warn);
     },
 
     scrollTopNotifications(top) {
-      this.scrollToTopNotifications(top);
-      this.markReadNotifications();
+      const actions = getActions();
+      actions.scrollToTopNotifications(top);
+      actions.markReadNotifications();
     },
 
     setFilter(filterType) {
-      const root = rootGet();
+      const actions = getActions();
 
-      this.setNotificationsFilter(['notifications', 'quickFilter', 'active'], filterType);
-      root.settings.setNotificationsFilter(['notifications', 'quickFilter', 'active'], filterType);
-      this.expandNotifications();
-      this.settings.saveSettings();
+      // Update both local slice state and persistent settings
+      actions.setNotificationsFilter(['notifications', 'quickFilter', 'active'], filterType);
+      actions.setNotificationsFilter?.(['notifications', 'quickFilter', 'active'], filterType);
+      
+      actions.expandNotifications();
+      actions.saveSettings?.();
     },
 
-    markRead(max_id) {
+    async markRead(max_id) {
       try {
-        const res = fetch('/api/v1/notifications/mark_read', {
+        // Return the fetch promise so callers can await it if necessary
+        return await fetch('/api/v1/notifications/mark_read', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            //Authorization: `Bearer ${root.auth.app?.access_token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ max_id }),
         });
-        return res
       } catch (e) {
         console.error('notificationsSlice.markRead failed', e);
         return null;
       }
     },
 
-    markReadNotififications() {
-      const root = rootGet();
-      if (!isLoggedIn(root)) return;
-      // Get the first entry in the Map of notifications (if any)
-      const firstEntry = this.items.entries().next();
-      const topNotificationId = firstEntry.done ? undefined : (firstEntry.value[1]?.id ?? firstEntry.value[0]);
-      const lastReadId = root.notifications.lastRead;
-      if (!lastReadId || parseId(lastReadId) <= 0) return;
+    markReadNotifications() {
+      const actions = getActions();
+      if (!isLoggedIn(rootGet())) return;
 
-      if (topNotificationId && (lastReadId === -1 || compareId(topNotificationId, lastReadId) > 0)) {
+      // Access state safely from scoped getter
+      const { items, lastRead } = getScoped();
+      
+      // Get the first (newest) entry in the Map
+      const firstEntry = items.entries().next();
+      if (firstEntry.done) return;
+
+      const topNotificationId = firstEntry.value[1]?.id ?? firstEntry.value[0];
+      const parsedLastRead = parseId(lastRead);
+
+      if (topNotificationId && (parsedLastRead <= 0 || compareId(topNotificationId, lastRead) > 0)) {
         const marker = {
           notifications: {
             last_read_id: topNotificationId,
           },
         };
 
-        this.markers.saveMarker(marker);
-        this.markRead(topNotificationId)
+        // Coordinate with markers slice and API
+        actions.saveMarker?.(marker);
+        actions.markRead(topNotificationId);
       }
     },
-
-
-
-
-
-
-
   };
 }
 

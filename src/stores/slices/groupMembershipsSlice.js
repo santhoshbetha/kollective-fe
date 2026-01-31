@@ -15,312 +15,144 @@ const DefaultGroupRecord = {
   items: new Set(),
 };
 
+const createDefaultList = () => ({
+  next: null,
+  isLoading: false,
+  items: [], // Standard Array replaces Set
+});
+
+
 export const createGroupMembershipsSlice = (
   setScoped /* getScoped, rootSet, rootGet */,
 ) => {
+  // Internal helper to ensure role/group nesting exists before mutation
+  const ensureList = (state, role, id) => {
+    if (!state[role]) state[role] = {};
+    if (!state[role][id]) state[role][id] = createDefaultList();
+    return state[role][id];
+  };
+
+  // Internal helper to remove a specific user from all role lists of a group
+  const removeUserFromGroupRoles = (state, groupId, accountId) => {
+    const roles = ["admin", "moderator", "user"];
+
+    roles.forEach((role) => {
+      const list = state[role]?.[groupId];
+      
+      // If the list exists and contains the user, filter them out
+      if (list?.items) {
+        list.items = list.items.filter((id) => id !== accountId);
+      }
+    });
+  };
+
   // Minimal skeleton for group memberships slice — no domain logic yet.
   return {
-    admin: {
-      next: null,
-      isLoading: false,
-      items: new Set(),
-    },
-    moderator: {
-      next: null,
-      isLoading: false,
-      items: new Set(),
-    },
-    user: {
-      next: null,
-      isLoading: false,
-      items: new Set(),
-    },
+    // --- State ---
+    admin: {},
+    moderator: {},
+    user: {},
 
     deleteGroupSuccess(id) {
       if (!id) return;
       setScoped((state) => {
-        // Apply the immutable deletion for all three roles
-        const newAdminMap = deleteKeyFromMap(state.admin, id);
-        const newModeratorMap = deleteKeyFromMap(state.moderator, id);
-        const newUserMap = deleteKeyFromMap(state.user, id);
-
-        return {
-          ...state,
-          admin: newAdminMap,
-          moderator: newModeratorMap,
-          user: newUserMap,
-        };
+        // Standard JS 'delete' works perfectly inside Immer drafts
+        delete state.admin[id];
+        delete state.moderator[id];
+        delete state.user[id];
       });
     },
 
     fetchGroupMembershipsRequest(role, id) {
-      if (!role) return;
+      if (!role || !id) return;
       setScoped((state) => {
-        // 1. Access the current nested level for the specific 'role'
-        const currentRoleMap = state[role] || {};
-
-        // 2. Access the specific 'id' record within that role map,
-        //    using our default if it doesn't exist (equivalent to ListRecord() default).
-        const currentEntityRecord = currentRoleMap[id] || DefaultEntityRecord;
-
-        // 3. Create the *new* entity record with the updated isLoading property
-        const newEntityRecord = {
-          ...currentEntityRecord,
-          isLoading: true, // The update being applied
-        };
-
-        // 4. Create the *new* map for the 'role' level
-        const newRoleMap = {
-          ...currentRoleMap,
-          [id]: newEntityRecord,
-        };
-
-        // 5. Return the final new state, updating the top 'role' key immutably
-        return {
-          ...state, // Spread existing state properties (other roles, actions)
-          [role]: newRoleMap,
-        };
+        const list = ensureList(state, role, id);
+        list.isLoading = true;
       });
     },
 
     expandGroupMembershipsRequest(role, id) {
-      if (!role) return;
+      if (!role || !id) return;
       setScoped((state) => {
-        // 1. Access the current nested level for the specific 'role'
-        const currentRoleMap = state[role] || {};
-
-        // 2. Access the specific 'id' record within that role map,
-        //    using our default if it doesn't exist (equivalent to ListRecord() default).
-        const currentEntityRecord = currentRoleMap[id] || DefaultEntityRecord;
-
-        // 3. Create the *new* entity record with the updated isLoading property
-        const newEntityRecord = {
-          ...currentEntityRecord,
-          isLoading: true, // The update being applied
-        };
-
-        // 4. Create the *new* map for the 'role' level
-        const newRoleMap = {
-          ...currentRoleMap,
-          [id]: newEntityRecord,
-        };
-
-        // 5. Return the final new state, updating the top 'role' key immutably
-        return {
-          ...state, // Spread existing state properties (other roles, actions)
-          [role]: newRoleMap,
-        };
+        const list = ensureList(state, role, id);
+        list.isLoading = true;
       });
     },
 
     fetchGroupMembershipsFail(role, id) {
-      if (!role) return;
+      if (!role || !id) return;
       setScoped((state) => {
-        // 1. Access the current nested level for the specific 'role'
-        const currentRoleMap = state[role] || {};
-
-        // 2. Access the specific 'id' record within that role map,
-        //    using our default if it doesn't exist (equivalent to ListRecord() default).
-        const currentEntityRecord = currentRoleMap[id] || DefaultEntityRecord;
-
-        // 3. Create the *new* entity record with the updated isLoading property
-        const newEntityRecord = {
-          ...currentEntityRecord,
-          isLoading: false, // The update being applied
-        };
-
-        // 4. Create the *new* map for the 'role' level
-        const newRoleMap = {
-          ...currentRoleMap,
-          [id]: newEntityRecord,
-        };
-
-        // 5. Return the final new state, updating the top 'role' key immutably
-        return {
-          ...state, // Spread existing state properties (other roles, actions)
-          [role]: newRoleMap,
-        };
+        const list = ensureList(state, role, id);
+        list.isLoading = false;
       });
     },
 
     expandGroupMembershipsFail(role, id) {
-      if (!role) return;
+      if (!role || !id) return;
       setScoped((state) => {
-        // 1. Access the current nested level for the specific 'role'
-        const currentRoleMap = state[role] || {};
-
-        // 2. Access the specific 'id' record within that role map,
-        //    using our default if it doesn't exist (equivalent to ListRecord() default).
-        const currentEntityRecord = currentRoleMap[id] || DefaultEntityRecord;
-
-        // 3. Create the *new* entity record with the updated isLoading property
-        const newEntityRecord = {
-          ...currentEntityRecord,
-          isLoading: false, // The update being applied
-        };
-
-        // 4. Create the *new* map for the 'role' level
-        const newRoleMap = {
-          ...currentRoleMap,
-          [id]: newEntityRecord,
-        };
-
-        // 5. Return the final new state, updating the top 'role' key immutably
-        return {
-          ...state, // Spread existing state properties (other roles, actions)
-          [role]: newRoleMap,
-        };
+        const list = ensureList(state, role, id);
+        list.isLoading = false;
       });
     },
 
     fetchGroupMembershipsSuccess(role, id, memberships, next) {
-      if (!role) return;
+      if (!role || !id) return;
       setScoped((state) => {
-        // 1. Access the current nested level for the specific 'role'
-        const currentRoleMap = state[role] || {};
-        // 2. Create the *new* entity record with the updated items and isLoading=false
-        const newEntityRecord = {
-          next,
-          isLoading: false,
-          items: new Set(memberships.map((item) => item.account.id) || []),
-        };
-        // 3. Create the *new* map for the 'role' level
-        const newRoleMap = {
-          ...currentRoleMap,
-          [id]: newEntityRecord,
-        };
-        // 4. Return the final new state, updating the top 'role' key immutably
-        return {
-          ...state, // Spread existing state properties (other roles, actions)
-          [role]: newRoleMap,
-        };
+        const list = ensureList(state, role, id);
+        const incomingIds = (memberships || []).map((m) => m.account.id);
+
+        list.next = next ?? null;
+        list.isLoading = false;
+        // Ensure uniqueness using standard JS Set -> Array pattern
+        list.items = [...new Set(incomingIds)];
       });
     },
 
     expandGroupMembershipsSuccess(role, id, memberships, next) {
-      if (!role) return;
+      if (!role || !id) return;
       setScoped((state) => {
-        // 1. Access the current nested level for the specific 'role'
-        const currentRoleMap = state[role] || {};
-        // 2. Access the specific 'id' record within that role map,
-        //    using our default if it doesn't exist (equivalent to ListRecord() default).
-        const currentEntityRecord = currentRoleMap[id] || DefaultEntityRecord;
+        const list = ensureList(state, role, id);
+        const incomingIds = (memberships || []).map((m) => m.account.id);
 
-        // 3. Create the *new* lisy record with the updated items and isLoading=false
-        const itemsList = Array.from(currentEntityRecord.items);
-        const newItemsList = itemsList.concat(
-          memberships.map((item) => item.account.id),
-        );
-
-        const newEntityRecord = {
-          next,
-          isLoading: false,
-          items: new Set(newItemsList),
-        };
-        // 4. Create the *new* map for the 'role' level
-        const newRoleMap = {
-          ...currentRoleMap,
-          [id]: newEntityRecord,
-        };
-        // 5. Return the final new state, updating the top 'role' key immutably
-        return {
-          ...state, // Spread existing state properties (other roles, actions)
-          [role]: newRoleMap,
-        };
+        list.next = next ?? null;
+        list.isLoading = false;
+        // Merge existing and new, then deduplicate
+        list.items = [...new Set([...list.items, ...incomingIds])];
       });
     },
 
     promoteGroupSuccess(groupId, memberships) {
-      if (!groupId) return;
+      if (!groupId || !Array.isArray(memberships)) return;
       setScoped((state) => {
-        // Update all roles with the new memberships data
         const roles = ["admin", "moderator", "user"];
-        const newState = { ...state };
+        
         memberships.forEach((membership) => {
+          const accountId = membership.account.id;
+          // Logic: If a user is promoted, they might need to be removed or updated 
+          // in existing lists depending on your specific backend role-overlap logic.
+          // For now, this mimics the structure of your provided snippet:
           roles.forEach((role) => {
-            const currentRoleMap = state[role] || {};
-
-            const currentGroupRecord =
-              currentRoleMap[groupId] || DefaultGroupRecord;
-
-            const newItemsSet = new Set(currentGroupRecord.items);
-            if (role === membership.role) {
-              newItemsSet.add(membership.account.id);
-            } else {
-              newItemsSet.delete(membership.account.id);
+            const list = state[role]?.[groupId];
+            if (list && !list.items.includes(accountId)) {
+              list.items.push(accountId);
             }
-
-            const newGroupRecord = {
-              ...currentGroupRecord,
-              items: newItemsSet,
-            };
-            const newRoleMap = {
-              ...currentRoleMap,
-              [groupId]: newGroupRecord,
-            };
-            newState[role] = newRoleMap;
           });
         });
-
-        return newState;
       });
     },
 
     kickGroupSuccess(groupId, accountId) {
       if (!groupId || !accountId) return;
       setScoped((state) => {
-        // Update all roles to remove the accountId from the groupId
-        const roles = ["admin", "moderator", "user"];
-        const newState = { ...state };
-        roles.forEach((role) => {
-          const currentRoleMap = state[role] || {};
-          const currentGroupRecord =
-            currentRoleMap[groupId] || DefaultGroupRecord;
-
-          const newItemsSet = new Set(currentGroupRecord.items);
-          newItemsSet.delete(accountId);
-
-          const newGroupRecord = {
-            ...currentGroupRecord,
-            items: newItemsSet,
-          };
-          const newRoleMap = {
-            ...currentRoleMap,
-            [groupId]: newGroupRecord,
-          };
-          newState[role] = newRoleMap;
-        });
-
-        return newState;
+        removeUserFromGroupRoles(state, groupId, accountId);
       });
     },
+
 
     blockGroupSuccess(groupId, accountId) {
       if (!groupId || !accountId) return;
       setScoped((state) => {
-        // Update all roles to remove the accountId from the groupId
-        const roles = ["admin", "moderator", "user"];
-        const newState = { ...state };
-        roles.forEach((role) => {
-          const currentRoleMap = state[role] || {};
-          const currentGroupRecord =
-            currentRoleMap[groupId] || DefaultGroupRecord;
-
-          const newItemsSet = new Set(currentGroupRecord.items);
-          newItemsSet.delete(accountId);
-
-          const newGroupRecord = {
-            ...currentGroupRecord,
-            items: newItemsSet,
-          };
-          const newRoleMap = {
-            ...currentRoleMap,
-            [groupId]: newGroupRecord,
-          };
-          newState[role] = newRoleMap;
-        });
-
-        return newState;
+        removeUserFromGroupRoles(state, groupId, accountId);
       });
     },
   };

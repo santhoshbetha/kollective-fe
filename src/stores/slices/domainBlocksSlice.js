@@ -2,132 +2,131 @@
 
 import { isLoggedIn } from "../../utils/auth";
 
+const selectAccountsByDomain = (state, domain) => {
+  const accountsStore = state.accounts || {}; // Replaces state.entities["ACCOUNTS"]
+  const searchString = `@${domain}`;
+  
+  return Object.values(accountsStore)
+    .filter(acc => acc?.acct?.endsWith(searchString))
+    .map(acc => acc.id);
+};
 
 export function createDomainBlocksSlice(setScoped, getScoped, rootSet, rootGet) {
+  const getActions = () => rootGet();
 
-    function selectAccountsByDomain(state, domain){
-        const store = state.entities["ACCOUNTS"]?.store;
-        const entries = store ? Object.entries(store) : undefined;
-        const accounts = entries
-            ?.filter(([_, item]) => item && item.acct.endsWith(`@${domain}`))
-            .map(([_, item]) => item.id);
-        return accounts || [];
-    }
+  function selectAccountsByDomain(state, domain){
+      const store = state.entities["ACCOUNTS"]?.store;
+      const entries = store ? Object.entries(store) : undefined;
+      const accounts = entries
+          ?.filter(([_, item]) => item && item.acct.endsWith(`@${domain}`))
+          .map(([_, item]) => item.id);
+      return accounts || [];
+  }
 
   return {
 
-    blockDomain(domain) {
-        const root = rootGet();
-        if (!isLoggedIn(root)) return;
+async blockDomain(domain) {
+      const state = rootGet();
+      const actions = getActions();
+      if (!isLoggedIn(state)) return;
 
-        fetch('/api/v1/domain_blocks', {
+      try {
+        const res = await fetch('/api/v1/domain_blocks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain }),
-        }).then((res) => {
-          if (!res.ok) throw new Error(`Failed to block domain (${res.status})`);
-          return res.json();
-        }).then((data) => {
-          const accounts = selectAccountsByDomain(root, domain);
-          if (!accounts) return;
-          root.relationships?.domainBlockSuccess(accounts);
-          root.suggestions?.domainBlockSuccess(accounts);
-        }).catch((err) => {
-          console.error('domainBlocksSlice.blockDomain failed', err);
+          body: JSON.stringify({ domain }),
         });
+
+        if (!res.ok) throw new Error(`Failed to block domain (${res.status})`);
+        
+        const data = await res.json();
+        const affectedAccountIds = selectAccountsByDomain(state, domain);
+
+        // Notify slices using uniquely named actions to avoid collisions
+        actions.domainBlockRelationshipSuccess?.(affectedAccountIds);
+        actions.domainBlockSuggestionSuccess?.(affectedAccountIds);
+        
+        return data;
+      } catch (err) {
+        console.error('domainBlocksSlice.blockDomain failed', err);
+      }
     },
 
-    unblockDomain(domain) {
-        const root = rootGet();
-        if (!isLoggedIn(root)) return;
-        fetch(`/api/v1/domain_blocks/${encodeURIComponent(domain)}`, { //TODO: check later
+    async unblockDomain(domain) {
+      const state = rootGet();
+      const actions = getActions();
+      if (!isLoggedIn(state)) return;
+
+      try {
+        const res = await fetch(`/api/v1/domain_blocks/${encodeURIComponent(domain)}`, {
           method: 'DELETE',
-        }).then((res) => {
-            if (!res.ok) throw new Error(`Failed to unblock domain (${res.status})`);   
-            return res.json();
-        }).then((data) => {
-          const accounts = selectAccountsByDomain(root, domain);
-          if (!accounts) return;
-          root.relationships?.domainUnblockSuccess(accounts);
-          root.suggestions?.domainUnblockSuccess(accounts);
-        }).catch((err) => {
-          console.error('domainBlocksSlice.unblockDomain failed', err);
         });
+
+        if (!res.ok) throw new Error(`Failed to unblock domain (${res.status})`);
+
+        const data = await res.json();
+        const affectedAccountIds = selectAccountsByDomain(state, domain);
+
+        actions.domainUnblockRelationshipSuccess?.(affectedAccountIds);
+        actions.domainUnblockSuggestionSuccess?.(affectedAccountIds);
+        
+        return data;
+      } catch (err) {
+        console.error('domainBlocksSlice.unblockDomain failed', err);
+      }
     },
 
     // Fetch list of blocked domains
-    async fetchBlockedDomains() {
-      if (!isLoggedIn(rootGet())) return [];
-      const root = rootGet();
-      try {
-        const res = await fetch('/api/v1/domain_blocks', { method: 'GET' });
-        if (!res.ok) throw new Error(`Failed to fetch blocked domains (${res.status})`);
-        const data = await res.json();
+    async fetchDomainBlocks() {
+      const state = rootGet();
+      const actions = getActions();
+      if (!isLoggedIn(state)) return [];
 
-        // Notify any slice that wants the list
-        root.domainLists?.fetchBlockedDomainsSuccess?.(data);
+      try {
+        const res = await fetch('/api/v1/domain_blocks', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        
+        const data = await res.json();
+        // Standard Link header parsing instead of .next()
+        const link = res.headers.get('Link');
+        const next = link?.match(/<([^>]+)>;\s*rel="next"/i)?.[1] || null;
+
+        actions.fetchDomainBlocksSuccess?.(data, next);
         return data;
-      } catch (err) {
-        console.error('domainBlocksSlice.fetchBlockedDomains failed', err);
+      } catch (error) {
+        console.error('domainBlocksSlice.fetchDomainBlocks failed', error);
         return [];
       }
     },
 
-    fetchDomainBlocks() {
-      const root = rootGet();
-        if (!isLoggedIn(root)) {
-            return;
-        }
+    async expandDomainBlocks() {
+      const state = rootGet();
+      const actions = getActions();
+      if (!isLoggedIn(state)) return;
 
-      fetch('/api/v1/domain_blocks', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',       
-        },
-      })
-      .then(async (response) => {   
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }   
-        const next = response.next();
-        const data = await response.json();
-        // handle success
-        root.domainLists?.fetchDomainBlocksSuccess(data, next);
-      }).catch((error) => {
-            // handle error     
-            console.error('Error: fetchDomainBlocks failed', error);
+      const url = state.domainLists?.blocks?.next;
+      if (!url) return;
+
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
         });
-    },
 
-    expandDomainBlocks() {
-        const root = rootGet();
-        if (!isLoggedIn(root)) {
-            return;
-        }   
-        const url = root.domainLists.blocks.next;
-
-        if (!url) {
-        return;
-        } 
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         
-        fetch(url, {
-            method: 'GET',
-            headers: {      
-                'Content-Type': 'application/json', 
-            },
-        })
-        .then(async (response) => {     
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }       
-            const newNext = response.next();
-            const data = await response.json();     
-            // handle success
-            root.domainLists?.fexpandDomainBlocksSuccess(data, newNext);
-        }   ).catch((error) => {     
-            // handle error     
-            console.error('Error: expandDomainBlocks failed', error);
-        });     
+        const data = await res.json();
+        const link = res.headers.get('Link');
+        const newNext = link?.match(/<([^>]+)>;\s*rel="next"/i)?.[1] || null;
+
+        actions.expandDomainBlocksSuccess?.(data, newNext);
+      } catch (error) {
+        console.error('domainBlocksSlice.expandDomainBlocks failed', error);
+      }
     },
   };
 }

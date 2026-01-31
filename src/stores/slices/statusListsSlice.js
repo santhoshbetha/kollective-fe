@@ -1,387 +1,147 @@
 export const StatusListRecord = {
   next: null,
   loaded: false,
-  isLoading: null,
+  isLoading: false,
   items: new Set(),
 };
 
-const getStatusId = (status) =>
-  typeof status === "string" ? status : status.id;
+const getStatusId = (status) => (typeof status === "string" ? status : status?.id);
 
 const getStatusIds = (statuses) =>
   new Set((Array.isArray(statuses) ? statuses : []).map(getStatusId));
 
 export function createstatusListsSlice(setScoped, getScoped, rootSet, rootGet) {
-  const set = setScoped;
-  // get not used
-  return {
-    fetchOrExpandFavouritedStatusesRequest() {
-      set((state) => {
-        if (!state["favourites"]) {
-          state["favourites"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["favourites"].isLoading = true;
-      });
-    },
+  const getActions = () => rootGet();
 
-    fetchOrExpandFavouritedStatusesFail() {
-      set((state) => {
-        if (!state["favourites"]) {
-          state["favourites"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["favourites"].isLoading = false;
-      });
-    },
+  const ensureList = (state, key) => {
+    if (!state[key]) {
+      state[key] = { ...StatusListRecord, items: new Set() };
+    }
+    return state[key];
+  };
+
+  const handleRequest = (key) => setScoped((s) => { ensureList(s, key).isLoading = true; });
+  const handleFail = (key) => setScoped((s) => { ensureList(s, key).isLoading = false; });
+
+  const handleSuccess = (key, statuses, next, isExpand = false) => {
+    setScoped((state) => {
+      const list = ensureList(state, key);
+      const data = Array.isArray(statuses) ? statuses : [];
+
+      if (!isExpand) list.items.clear(); // For fetch (non-expand), clear existing
+
+      data.forEach((s) => list.items.add(getStatusId(s)));
+      
+      list.next = next;
+      list.isLoading = false;
+      list.loaded = true;
+    });
+  };
+
+  return {
+    fetchOrExpandAccountFavouritedStatusesRequest: (accId) => handleRequest(`favourites:${accId}`),
+    fetchOrExpandAccountFavouritedStatusesFail: (accId) => handleFail(`favourites:${accId}`),
+    fetchAccountFavouritedStatusesSuccess: (accId, statuses, next) => handleSuccess(`favourites:${accId}`, statuses, next),
+    expandAccountFavouritedStatusesSuccess: (accId, statuses, next) => handleSuccess(`favourites:${accId}`, statuses, next, true),
+    
+    fetchOrExpandFavouritedStatusesRequest: () => handleRequest("favourites"),
+    fetchOrExpandFavouritedStatusesFail: () => handleFail("favourites"),
 
     fetchFavouritedStatusesSuccess(statuses, next) {
-      set((state) => {
-        if (!state["favourites"]) {
-          state["favourites"] = { ...StatusListRecord, items: new Set() };
-        }
-        const list = state["favourites"];
-        (Array.isArray(statuses) ? statuses : []).forEach((status) =>
-          list.items.add(getStatusId(status)),
-        );
-        list.next = next;
-        list.loaded = true;
-        list.isLoading = false;
-      });
+      handleSuccess("favourites", statuses, next);
     },
 
     expandFavouritedStatusesSuccess(statuses, next) {
-      set((state) => {
-        if (!state["favourites"]) {
-          state["favourites"] = { ...StatusListRecord, items: new Set() };
-        }
-        const newIds = getStatusIds(statuses);
-        const list = state["favourites"];
-        // merge newIds into existing Set
-        for (const id of newIds) list.items.add(id);
-        list.next = next;
-        list.isLoading = false;
-      });
-    },
-
-    fetchOrExpandAccountFavouritedStatusesRequest(accountId) {
-      const key = `favourites:${accountId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        state[key].isLoading = true;
-      });
-    },
-
-    fetchOrExpandAccountFavouritedStatusesFail(accountId) {
-      const key = `favourites:${accountId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        state[key].isLoading = false;
-      });
-    },
-
-    fetchAccountFavouritedStatusesSuccess(accountId, statuses, next) {
-      const key = `favourites:${accountId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        const list = state[key];
-        (Array.isArray(statuses) ? statuses : []).forEach((status) =>
-          list.items.add(getStatusId(status)),
-        );
-        list.next = next;
-        list.loaded = true;
-        list.isLoading = false;
-      });
-    },
-
-    expandAccountFavouritedStatusesSuccess(accountId, statuses, next) {
-      const key = `favourites:${accountId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        const newIds = getStatusIds(statuses);
-        const list = state[key];
-        // merge newIds into existing Set
-        for (const id of newIds) list.items.add(id);
-        list.next = next;
-        list.isLoading = false;
-      });
+      handleSuccess("favourites", statuses, next, true);
     },
 
     favouriteSuccess(status) {
-      const statusId = getStatusId(status);
-      set((state) => {
-        if (!state["favourites"]) {
-          state["favourites"] = { ...StatusListRecord, items: new Set() };
-        }
-        // Prepend the favourite so it appears first in iteration order
-        const existing = state["favourites"].items || new Set();
-        state["favourites"].items = new Set([
-          statusId,
-          ...Array.from(existing),
-        ]);
+      setScoped((state) => {
+        const list = ensureList(state, "favourites");
+        const statusId = getStatusId(status);
+        // Prepend: Convert to array, unshift, and re-create Set to preserve order
+        list.items = new Set([statusId, ...Array.from(list.items)]);
       });
     },
 
     unfavouriteSuccess(status) {
-      const statusId = getStatusId(status);
-      set((state) => {
-        if (!state["favourites"]) {
-          state["favourites"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["favourites"].items.delete(statusId);
+      setScoped((state) => {
+        const list = ensureList(state, "favourites");
+        list.items.delete(getStatusId(status));
       });
     },
 
     fetchPinnedStatusesSuccess(statuses, next) {
-      set((state) => {
-        if (!state["pins"]) {
-          state["pins"] = { ...StatusListRecord, items: new Set() };
-        }
-        const list = state["pins"];
-        (Array.isArray(statuses) ? statuses : []).forEach((status) =>
-          list.items.add(getStatusId(status)),
-        );
-        list.loaded = true;
-        list.next = next;
-        list.isLoading = false;
-      });
+      handleSuccess("pins", statuses, next);
     },
 
     pinSuccess(status) {
-      const statusId = getStatusId(status);
-      set((state) => {
-        if (!state["pins"]) {
-          state["pins"] = { ...StatusListRecord, items: new Set() };
-        }
-        // Prepend the pin so it appears first in iteration order
-        const existing = state["pins"].items || new Set();
-        state["pins"].items = new Set([statusId, ...Array.from(existing)]);
+      setScoped((s) => {
+        const list = ensureList(s, "pins");
+        const id = getStatusId(status);
+        list.items = new Set([id, ...Array.from(list.items)]);
       });
     },
 
     unpinSuccess(status) {
-      const statusId = getStatusId(status);
-      set((state) => {
-        if (!state["pins"]) {
-          state["pins"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["pins"].items.delete(statusId);
+      setScoped((s) => {
+        const list = ensureList(s, "pins");
+        list.items.delete(getStatusId(status));
       });
     },
 
-    fetchOrExpandScheduledStatusesRequest() {
-      set((state) => {
-        if (!state["scheduled_statuses"]) {
-          state["scheduled_statuses"] = {
-            ...StatusListRecord,
-            items: new Set(),
-          };
-        }
-        state["scheduled_statuses"].isLoading = true;
-      });
-    },
-
-    fetchOrExpandScheduledStatusesFail() {
-      set((state) => {
-        if (!state["scheduled_statuses"]) {
-          state["scheduled_statuses"] = {
-            ...StatusListRecord,
-            items: new Set(),
-          };
-        }
-        state["scheduled_statuses"].isLoading = false;
-      });
-    },
-
-    fetchScheduledStatusesSuccess(statuses, next) {
-      set((state) => {
-        if (!state["scheduled_statuses"]) {
-          state["scheduled_statuses"] = {
-            ...StatusListRecord,
-            items: new Set(),
-          };
-        }
-        const list = state["scheduled_statuses"];
-        (Array.isArray(statuses) ? statuses : []).forEach((status) =>
-          list.items.add(getStatusId(status)),
-        );
-        list.next = next;
-        list.loaded = true;
-        list.isLoading = false;
-      });
-    },
-
-    expandScheduledStatusesSuccess(statuses, next) {
-      set((state) => {
-        if (!state["scheduled_statuses"]) {
-          state["scheduled_statuses"] = {
-            ...StatusListRecord,
-            items: new Set(),
-          };
-        }
-        const newIds = getStatusIds(statuses);
-        const list = state["scheduled_statuses"];
-        // merge newIds into existing Set
-        for (const id of newIds) list.items.add(id);
-        list.next = next;
-        list.isLoading = false;
-      });
-    },
-
+    fetchOrExpandScheduledStatusesRequest: () => handleRequest("scheduled_statuses"),
+    fetchOrExpandScheduledStatusesFail: () => handleFail("scheduled_statuses"),
+    fetchScheduledStatusesSuccess: (statuses, next) => handleSuccess("scheduled_statuses", statuses, next),
+    expandScheduledStatusesSuccess: (statuses, next) => handleSuccess("scheduled_statuses", statuses, next, true),
+    
     cancelScheduledStatusesRequestOrSuccess(id, status) {
-      const statusId = getStatusId(status);
-      set((state) => {
-        if (!state["scheduled_statuses"]) {
-          state["scheduled_statuses"] = {
-            ...StatusListRecord,
-            items: new Set(),
-          };
-        }
-        state["scheduled_statuses"].items.delete(statusId);
+      setScoped((s) => {
+        const list = ensureList(s, "scheduled_statuses");
+        list.items.delete(getStatusId(status) || id);
       });
     },
 
-    fetchOrExpandStatusQuotesRequest(statusId) {
-      const key = `quotes:${statusId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        state[key].isLoading = true;
+    // --- Quotes (Dynamic Key) ---
+    fetchOrExpandStatusQuotesRequest: (statusId) => handleRequest(`quotes:${statusId}`),
+    fetchOrExpandStatusQuotesFail: (statusId) => handleFail(`quotes:${statusId}`),
+    fetchStatusQuotesSuccess: (statusId, statuses, next) => handleSuccess(`quotes:${statusId}`, statuses, next),
+    expandStatusQuotesSuccess: (statusId, statuses, next) => handleSuccess(`quotes:${statusId}`, statuses, next, true),
+
+    fetchRecentEventsRequest: () => handleRequest("recent_events"),
+    fetchRecentEventsFail: () => handleFail("recent_events"),
+    fetchRecentEventsSuccess: (statuses, next) => handleSuccess("recent_events", statuses, next),
+
+    fetchJoinedEventsRequest: () => handleRequest("joined_events"),
+    fetchJoinedEventsFail: () => handleFail("joined_events"),
+    fetchJoinedEventsSuccess: (statuses, next) => handleSuccess("joined_events", statuses, next),
+
+    /**
+     * Optional: Add logic to move events between lists when join_state changes
+     */
+    joinEventSuccess(status) {
+      setScoped((s) => {
+        const id = getStatusId(status);
+        const joinedList = ensureList(s, "joined_events");
+        
+        // Add to joined list and ensure iteration order (newest joined first)
+        joinedList.items = new Set([id, ...Array.from(joinedList.items)]);
       });
     },
-
-    fetchOrExpandStatusQuotesFail(statusId) {
-      const key = `quotes:${statusId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        state[key].isLoading = false;
-      });
-    },
-
-    fetchStatusQuotesSuccess(statusId, statuses, next) {
-      const key = `quotes:${statusId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        const list = state[key];
-        (Array.isArray(statuses) ? statuses : []).forEach((status) =>
-          list.items.add(getStatusId(status)),
-        );
-        list.next = next;
-        list.loaded = true;
-        list.isLoading = false;
-      });
-    },
-
-    expandStatusQuotesSuccess(statusId, statuses, next) {
-      const key = `quotes:${statusId}`;
-      set((state) => {
-        if (!state[key]) {
-          state[key] = { ...StatusListRecord, items: new Set() };
-        }
-        const newIds = getStatusIds(statuses);
-        const list = state[key];
-        // merge newIds into existing Set
-        for (const id of newIds) list.items.add(id);
-        list.next = next;
-        list.isLoading = false;
-      });
-    },
-
-    fetchRecentEventsRequest() {
-      set((state) => {
-        if (!state["recent_events"]) {
-          state["recent_events"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["recent_events"].isLoading = true;
-      });
-    },
-
-    fetchRecentEventsFail() {
-      set((state) => {
-        if (!state["recent_events"]) {
-          state["recent_events"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["recent_events"].isLoading = false;
-      });
-    },
-
-    fetchRecentEventsSuccess(statuses, next) {
-      set((state) => {
-        if (!state["recent_events"]) {
-          state["recent_events"] = { ...StatusListRecord, items: new Set() };
-        }
-        const list = state["recent_events"];
-        (Array.isArray(statuses) ? statuses : []).forEach((status) =>
-          list.items.add(getStatusId(status)),
-        );
-        list.next = next;
-        list.loaded = true;
-        list.isLoading = false;
-      });
-    },
-
-    fetchJoinedEventsRequest() {
-      set((state) => {
-        if (!state["joined_events"]) {
-          state["joined_events"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["joined_events"].isLoading = true;
-      });
-    },
-
-    fetchJoinedEventsFail() {
-      set((state) => {
-        if (!state["joined_events"]) {
-          state["joined_events"] = { ...StatusListRecord, items: new Set() };
-        }
-        state["joined_events"].isLoading = false;
-      });
-    },
-
-    fetchJoinedEventsSuccess(statuses, next) {
-      set((state) => {
-        if (!state["joined_events"]) {
-          state["joined_events"] = { ...StatusListRecord, items: new Set() };
-        }
-        const list = state["joined_events"];
-        (Array.isArray(statuses) ? statuses : []).forEach((status) =>
-          list.items.add(getStatusId(status)),
-        );
-        list.next = next;
-        list.loaded = true;
-        list.isLoading = false;
-      });
-    },
-
+    
     createStatusListStatusSuccess(status) {
+      // 1. Validation: Only handle if it's actually a scheduled status
+      if (!status?.scheduled_at) return;
+
       const statusId = getStatusId(status);
-      set((state) => {
-        if (!status.scheduled_at) {
-          return state;
-        }
-        if (!state["scheduled_statuses"]) {
-          state["scheduled_statuses"] = {
-            ...StatusListRecord,
-            items: new Set(),
-          };
-        }
-        // Prepend the new scheduled status id so it appears first in iteration order
-        const existing = state["scheduled_statuses"].items || new Set();
-        state["scheduled_statuses"].items = new Set([
-          statusId,
-          ...Array.from(existing),
-        ]);
+
+      setScoped((state) => {
+        // 2. Use helper to ensure the list exists
+        const list = ensureList(state, "scheduled_statuses");
+
+        // 3. Prepend the ID: Convert Set to Array, unshift, and re-create Set
+        // This preserves the "newest first" iteration order
+        list.items = new Set([statusId, ...Array.from(list.items)]);
       });
     },
   };

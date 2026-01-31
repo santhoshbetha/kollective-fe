@@ -21,7 +21,7 @@ const useSuggestions = (opts) => {
     const accountIds = accounts.map((account) => account.id);
 
     try {
-      useBoundStore.getState().importer.importFetchedAccounts(accounts);
+      useBoundStore.getState().importFetchedAccounts(accounts);
     } catch (e) {
       console.debug('importFetchedAccounts failed', e);
     }
