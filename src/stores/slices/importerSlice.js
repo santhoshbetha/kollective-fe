@@ -97,7 +97,6 @@ export function createImporterSlice(setScoped, getScoped, rootSet, rootGet) {
       actions.importAccounts(normalAccounts);
     },
 
-    
     importFetchedGroup(group) {
       if (!group) return;
       // Wrap single entity in an array for the bulk handler

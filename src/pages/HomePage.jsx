@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { ContentTabs } from '../components/ContentTabs';
 import { VoiceSpinner } from '../components/ui/VoiceSpinner';
 import { PostCard } from "../components/cards/PostCard";
+import { Timeline } from '../features/statuses/components/Timeline';
 
 const mockPosts = [
   {
@@ -205,6 +206,10 @@ const HomePage = () => {
     <>
     <Layout.Main>
       <ContentTabs tabs={tabs} defaultValue="follows" variant="underline" size="lg" />
+      <Timeline hiddenWhenEmpty
+        type="home" 
+        endpoint="/api/v1/timelines/home" 
+      />
     </Layout.Main>
     </>
   );

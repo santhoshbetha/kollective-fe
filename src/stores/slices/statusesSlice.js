@@ -38,7 +38,7 @@ export const createStatusesSlice = (setScoped, getScoped, rootSet, rootGet) => {
       setScoped((state) => mergeStatus(state, status, expandSpoilers));
     },
 
-   StatusesImport(statuses, expandSpoilers = false) {
+    StatusesImport(statuses, expandSpoilers = false) {
       if (!Array.isArray(statuses)) return;
       setScoped((state) => {
         statuses.forEach((s) => mergeStatus(state, s, expandSpoilers));

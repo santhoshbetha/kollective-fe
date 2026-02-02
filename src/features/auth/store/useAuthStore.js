@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { authStateSchema } from '../schemas/authSchema';
 
 /*
 interface AuthState {
@@ -30,6 +31,38 @@ export const useAuthStore = create()(
     }
   )
 );
+
+
+export const useAuthStore2 = create()(
+  persist(
+    (set) => ({
+      token: null,
+      currentUser: null,
+      // Actions
+      setAuth: (token, user) => set({ token, user }),
+      logout: () => {
+        set({ token: null, currentUser: null });
+        localStorage.removeItem('auth-storage');
+      }
+    }),
+    {
+      name: 'auth-storage',
+      // This is the "Safety Valve" for your store
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+
+        const result = authStateSchema.safeParse(state);
+        
+        if (!result.success) {
+          console.error("Auth validation failed. Logging out for safety.", result.error);
+          // If the data is corrupt, wipe the store
+          useAuthStore.getState().logout();
+        }
+      },
+    }
+  )
+);
+
 
 // Helper selectors for better performance
 export const useToken = () => useAuthStore((s) => s.token);

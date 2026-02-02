@@ -1,83 +1,120 @@
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useStatusImporter = () => {
-  const queryClient = useQueryClient();
+    const queryClient = useQueryClient();
 
-  const isBroken = (status) => {
-    if (!status?.account?.id) return true;
-    if (status.reblog && !status.reblog.account?.id) return true;
-    return false;
-  };
+    const isBroken = (status) => {
+      if (!status?.account?.id) return true;
+      if (status.reblog && !status.reblog.account?.id) return true;
+      return false;
+    };
 
-  const importFetchedStatus = (status) => {
-    if (isBroken(status)) return;
+    //In TanStack Query, "Importing" means seeding the cache so that subsequent 
+    //queries (like opening a user profile) are instant. This replaces your mergeStatus logic.
+    const importStatus = (status, expandSpoilers = false) => {
+      // 1. Seed the individual status cache
+      queryClient.setQueryData(['statuses', 'detail', status.id], {
+        ...status,
+        expanded: expandSpoilers // Replaces mergeStatus expandSpoilers logic
+      });
 
-    // 1. Recursive handling for Reblogs and Quotes
-    // Instead of dispatching, we recursively call the same logic
-    const subEntities = [
-      status.reblog,
-      status.quote,
-      status.pleroma?.quote,
-      status.reblog?.quote,
-      status.reblog?.pleroma?.quote
-    ];
+      // 2. Seed related entities (like we discussed earlier)
+      if (status.account) queryClient.setQueryData(['accounts', status.account.id], status.account);
+    };
 
-    subEntities.forEach(entity => {
-      if (entity?.id) importFetchedStatus(entity);
-    });
+    const importStatuses = (statuses, expandSpoilers) => {
+      statuses.forEach(s => importStatus(s, expandSpoilers));
+    };
 
-    // 2. Seed the cache for related entities
-    // This replaces dispatch(importFetchedAccount)
-    if (status.account) {
-      queryClient.setQueryData(['account', status.account.id], status.account);
-    }
-
-    if (status.poll) {
-      queryClient.setQueryData(['poll', status.poll.id], status.poll);
-    }
-
-    if (status.group) {
-      queryClient.setQueryData(['group', status.group.id], status.group);
-    }
-
-    // 3. Finally, seed the status itself
-    // This replaces dispatch(importStatus)
-    queryClient.setQueryData(['status', status.id], status);
-  };
-
-  const importFetchedStatuses = (statuses) => {
-    statuses.forEach((status) => {
+    const importFetchedStatus = (status) => {
       if (isBroken(status)) return;
 
-      // 1. Seed the Account
+      // 1. Recursive handling for Reblogs and Quotes
+      // Instead of dispatching, we recursively call the same logic
+      const subEntities = [
+        status.reblog,
+        status.quote,
+        status.pleroma?.quote,
+        status.reblog?.quote,
+        status.reblog?.pleroma?.quote
+      ];
+
+      subEntities.forEach(entity => {
+        if (entity?.id) importFetchedStatus(entity);
+      });
+
+      // 2. Seed the cache for related entities
+      // This replaces dispatch(importFetchedAccount)
       if (status.account) {
         queryClient.setQueryData(['account', status.account.id], status.account);
       }
 
-      // 2. Seed the Poll
       if (status.poll) {
         queryClient.setQueryData(['poll', status.poll.id], status.poll);
       }
 
-      // 3. Seed Groups (if applicable)
       if (status.group) {
         queryClient.setQueryData(['group', status.group.id], status.group);
       }
 
-      // 4. Seed the Status itself (The main entry)
+      // 3. Finally, seed the status itself
+      // This replaces dispatch(importStatus)
       queryClient.setQueryData(['status', status.id], status);
+    };
 
-      // 5. Recursively handle nested content (Reblogs/Quotes)
-      const nested = [status.reblog, status.quote, status.pleroma?.quote];
-      const validNested = nested.filter(n => n && n.id);
-      
-      if (validNested.length > 0) {
-        importFetchedStatuses(validNested);
-      }
-    });
-  };
+    const importFetchedStatuses = (statuses) => {
+      statuses.forEach((status) => {
+        if (isBroken(status)) return;
 
-  return { importFetchedStatus, importFetchedStatuses };
+        // 1. Seed the Account
+        if (status.account) {
+          queryClient.setQueryData(['account', status.account.id], status.account);
+        }
+
+        // 2. Seed the Poll
+        if (status.poll) {
+          queryClient.setQueryData(['poll', status.poll.id], status.poll);
+        }
+
+        // 3. Seed Groups (if applicable)
+        if (status.group) {
+          queryClient.setQueryData(['group', status.group.id], status.group);
+        }
+
+        // 4. Seed the Status itself (The main entry)
+        queryClient.setQueryData(['status', status.id], status);
+
+        // 5. Recursively handle nested content (Reblogs/Quotes)
+        const nested = [status.reblog, status.quote, status.pleroma?.quote];
+        const validNested = nested.filter(n => n && n.id);
+        
+        if (validNested.length > 0) {
+          importFetchedStatuses(validNested);
+        }
+      });
+    };
+
+    /*
+    Why this is a "Redux-Killer":
+
+    1. Automatic Deduplication: If five different components request relationships 
+    for "Account A" at the same time, TanStack Query will only perform one network request.
+    2. No chunkArray in Reducers: You don't need to manage the complexity of partial successes or 
+    failures in your Redux state.
+    3. Simplified State: You can delete the fetchRelationshipsRequest, Success, and Fail actions. 
+    The hook provides isLoading and error out of the box.
+    */
+
+    const fetchRelatedRelationships = (accounts) => {
+      const ids = accounts.map(a => a.id);
+      // We don't call a hook here, we trigger a fetch via queryClient
+      queryClient.prefetchQuery({
+        queryKey: ['relationships', ids.sort()],
+        queryFn: () => fetchRelationships(ids)
+      });
+    };
+
+    return { importStatus, importStatuses, importFetchedStatus, importFetchedStatuses, fetchRelatedRelationships };
 };
 
 /* usage example:
