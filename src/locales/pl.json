@@ -1086,11 +1086,11 @@
   "notification.mentioned": "{name} wspomniał(a) o tobie",
   "notification.move": "{name} przeniósł(-osła) się na {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} wysłał(a) Ci wiadomośść",
-  "notification.pleroma:emoji_reaction": "{name} zareagował(a) na Twój wpis",
-  "notification.pleroma:event_reminder": "Wydarzenie w którym bierzesz udział wkrótce się zaczyna",
-  "notification.pleroma:participation_accepted": "Twoje zgłoszenie udziału do wydarzenia zostało przyjęte",
-  "notification.pleroma:participation_request": "{name} cce wziąć udział w Twoim wydarzeniu",
+  "notification.kollective:chat_mention": "{name} wysłał(a) Ci wiadomośść",
+  "notification.kollective:emoji_reaction": "{name} zareagował(a) na Twój wpis",
+  "notification.kollective:event_reminder": "Wydarzenie w którym bierzesz udział wkrótce się zaczyna",
+  "notification.kollective:participation_accepted": "Twoje zgłoszenie udziału do wydarzenia zostało przyjęte",
+  "notification.kollective:participation_request": "{name} cce wziąć udział w Twoim wydarzeniu",
   "notification.poll": "Głosowanie w którym brałeś(-aś) udział zakończyła się",
   "notification.reblog": "{name} podbił(a) Twój wpis",
   "notification.status": "{name} właśnie opublikował(a) wpis",
@@ -1516,3 +1516,4 @@
   "video.unmute": "Cofnij wyciszenie",
   "who_to_follow.title": "Kogo obserwować"
 }
+

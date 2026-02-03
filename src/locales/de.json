@@ -882,11 +882,11 @@
   "notification.mentioned": "{name} hat dich erwähnt",
   "notification.move": "{name} ist nach {targetName} umgezogen",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} hat dir eine Nachricht gesendet",
-  "notification.pleroma:emoji_reaction": "{name} hat auf deinen Beitrag reagiert",
-  "notification.pleroma:event_reminder": "Eine Veranstaltung, an der du teilnimmst, beginnt bald",
-  "notification.pleroma:participation_accepted": "Du wurdest zur Teilnahme an der Veranstaltung zugelassen",
-  "notification.pleroma:participation_request": "{name} möchte an deiner Veranstaltung teilnehmen",
+  "notification.kollective:chat_mention": "{name} hat dir eine Nachricht gesendet",
+  "notification.kollective:emoji_reaction": "{name} hat auf deinen Beitrag reagiert",
+  "notification.kollective:event_reminder": "Eine Veranstaltung, an der du teilnimmst, beginnt bald",
+  "notification.kollective:participation_accepted": "Du wurdest zur Teilnahme an der Veranstaltung zugelassen",
+  "notification.kollective:participation_request": "{name} möchte an deiner Veranstaltung teilnehmen",
   "notification.poll": "Eine Umfrage, in der du abgestimmt hast, ist vorbei",
   "notification.reblog": "{name} hat deinen Beitrag geteilt",
   "notification.status": "{name} einen neuen Beitrag erstellt",
@@ -1292,3 +1292,4 @@
   "video.unmute": "Ton einschalten",
   "who_to_follow.title": "Vorschläge"
 }
+

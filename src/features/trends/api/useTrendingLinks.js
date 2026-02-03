@@ -42,7 +42,7 @@ const TrendingLinks = () => {
 */
 //================================================================================
 
-export const useTrendingLinks = (limit = 10) => {
+export const useTrendingLinks2 = (limit = 10) => {
   return useQuery({
     queryKey: ['trends', 'links', { limit }],
     queryFn: async () => {
@@ -96,3 +96,4 @@ Posts	useTrendingStatuses	Uses importStatusEntities for cache sync
 Links	useTrendingLinks	Background revalidation via staleTime
 */
 //================================================================================
+

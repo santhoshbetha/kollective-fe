@@ -40,7 +40,7 @@ const filterBadges = (tags) => {
 
 /** Get badges from an account. */
 const getBadges = (account) => {
-  const tags = account?.pleroma?.tags ?? [];
+  const tags = account?.kollective?.tags ?? [];
   return filterBadges(tags);
 };
 

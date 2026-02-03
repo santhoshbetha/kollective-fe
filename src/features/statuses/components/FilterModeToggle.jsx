@@ -1,4 +1,6 @@
 //Filter Toggle
+import { useFilterPrefsStore } from "../../filters/store/useFilterPrefsStore";
+
 const FilterModeToggle = () => {
   const { filterMode, setFilterMode } = useFilterPrefsStore();
 
@@ -22,3 +24,6 @@ const FilterModeToggle = () => {
     </div>
   );
 };
+
+export default FilterModeToggle;
+

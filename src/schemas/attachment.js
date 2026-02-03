@@ -7,7 +7,6 @@ const isBlurhashValid = (value) => {
 };
 
 import { z } from "zod";
-
 import { mimeSchema } from "./utils.js";
 
 const blurhashSchema = z.string().superRefine((value, ctx) => {
@@ -25,7 +24,7 @@ const baseAttachmentSchema = z.object({
   blurhash: blurhashSchema.nullable().catch(null),
   description: z.string().catch(""),
   id: z.string(),
-  pleroma: z
+  kollective: z
     .object({
       mime_type: mimeSchema,
     })
@@ -108,12 +107,17 @@ const attachmentSchema = z
     audioAttachmentSchema,
     unknownAttachmentSchema,
   ])
-  .transform((attachment) => {
-    if (!attachment.preview_url) {
-      attachment.preview_url = attachment.url;
-    }
+  .transform((attachment) => ({
+    ...attachment,
+    // Pure transform: return a new object
+    preview_url: attachment.preview_url || attachment.url,
+  }));
 
-    return attachment;
-  });
+// Optional: Wrap in a nullable or catch if the API might send types not defined above
+const safeAttachmentSchema = attachmentSchema.catch((err) => {
+  console.warn("Invalid attachment format", err);
+  return null; 
+});
 
-export { attachmentSchema };
+export { attachmentSchema, safeAttachmentSchema };
+

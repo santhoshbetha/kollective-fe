@@ -9,7 +9,7 @@ export const usePinnedAccounts = (accountId) => {
     // Cache is unique to the profile being viewed
     queryKey: ['accounts', accountId, 'pinned'],
     queryFn: async () => {
-      const response = await api.get(`/api/v1/pleroma/accounts/${accountId}/endorsements`);
+      const response = await api.get(`/api/v1/kollective/accounts/${accountId}/endorsements`);
       const data = response.data;
 
       // SIDE-LOADING: Seed the global account cache

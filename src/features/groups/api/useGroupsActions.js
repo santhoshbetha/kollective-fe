@@ -111,7 +111,7 @@ export const useInviteToGroup = (groupId) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // 1. API Call (Pleroma specific)
+    // 1. API Call (Kollective specific)
     mutationFn: (accountId) =>
       api.post(`/api/v1/groups/${groupId}/invite`, { account_ids: [accountId] }),
 

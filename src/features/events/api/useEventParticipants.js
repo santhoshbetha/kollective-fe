@@ -10,7 +10,7 @@ export const useEventParticipants = (eventId) => {
     // Unique key for participants of a specific event
     queryKey: ['events', eventId, 'participants'],
     queryFn: async ({ pageParam }) => {
-      const response = await api.get(`/api/v1/pleroma/events/${eventId}/participations`, {
+      const response = await api.get(`/api/v1/kollective/events/${eventId}/participations`, {
         params: { max_id: pageParam, limit: 40 }
       });
 

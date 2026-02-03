@@ -687,8 +687,8 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} moved to {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} sent you a message",
-  "notification.pleroma:emoji_reaction": "{name} reacted to your post",
+  "notification.kollective:chat_mention": "{name} sent you a message",
+  "notification.kollective:emoji_reaction": "{name} reacted to your post",
   "notification.poll": "نظرسنجی‌ای که در آن رأی دادید به پایان رسیده است",
   "notification.reblog": "‫{name}‬ نوشتهٔ شما را بازبوقید",
   "notification.status": "{name} just posted",
@@ -1067,3 +1067,4 @@
   "video.unmute": "پخش صدا",
   "who_to_follow.title": "Who To Follow"
 }
+

@@ -667,8 +667,8 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} 𐑥𐑵𐑝𐑛 𐑑 {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} 𐑕𐑧𐑯𐑑 𐑿 𐑩 𐑥𐑧𐑕𐑦𐑡",
-  "notification.pleroma:emoji_reaction": "{name} 𐑮𐑦𐑨𐑒𐑑𐑩𐑛 𐑑 𐑘𐑹 𐑐𐑴𐑕𐑑",
+  "notification.kollective:chat_mention": "{name} 𐑕𐑧𐑯𐑑 𐑿 𐑩 𐑥𐑧𐑕𐑦𐑡",
+  "notification.kollective:emoji_reaction": "{name} 𐑮𐑦𐑨𐑒𐑑𐑩𐑛 𐑑 𐑘𐑹 𐑐𐑴𐑕𐑑",
   "notification.poll": "A 𐑐𐑴𐑤 𐑿 𐑣𐑨𐑝 𐑝𐑴𐑑𐑩𐑛 𐑦𐑯 𐑣𐑨𐑟 𐑧𐑯𐑛𐑩𐑛",
   "notification.reblog": "{name} 𐑮𐑰𐑐𐑴𐑕𐑑𐑩𐑛 𐑘𐑹 𐑐𐑴𐑕𐑑",
   "notification.status": "{name} just posted",
@@ -1047,3 +1047,4 @@
   "video.unmute": "𐑳𐑯𐑥𐑿𐑑 𐑕𐑬𐑯𐑛",
   "who_to_follow.title": "𐑣𐑵 𐑑 𐑓𐑪𐑤𐑴"
 }
+

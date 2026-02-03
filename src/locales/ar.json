@@ -1078,11 +1078,11 @@
   "notification.mentioned": "{name} أشار إليك",
   "notification.move": "{name} تغير إلى {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} أرسل لك رسالة",
-  "notification.pleroma:emoji_reaction": "تفاعل {name} مع منشورك",
-  "notification.pleroma:event_reminder": "يبدأ الحدث الذي تشارك فيه قريبًا",
-  "notification.pleroma:participation_accepted": "تمت الموافقة على طلب انضمامك للحدث",
-  "notification.pleroma:participation_request": "{name} يريد الانضمام إلى الحدث الخاص بك",
+  "notification.kollective:chat_mention": "{name} أرسل لك رسالة",
+  "notification.kollective:emoji_reaction": "تفاعل {name} مع منشورك",
+  "notification.kollective:event_reminder": "يبدأ الحدث الذي تشارك فيه قريبًا",
+  "notification.kollective:participation_accepted": "تمت الموافقة على طلب انضمامك للحدث",
+  "notification.kollective:participation_request": "{name} يريد الانضمام إلى الحدث الخاص بك",
   "notification.poll": "لقد انتهى استفتاء شاركت فيه",
   "notification.reblog": "قام {name} بمشاركة منشورك",
   "notification.status": "{name} نشر للتو",
@@ -1524,3 +1524,4 @@
   "zap.open_wallet": "فتح المحفظة",
   "zap.send_to": "أرسل zaps إلى {target}"
 }
+

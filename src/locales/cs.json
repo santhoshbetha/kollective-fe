@@ -448,8 +448,8 @@
   "notification.follow": "{name} vás začal/a sledovat",
   "notification.mention": "{name} vás zmínil/a",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} vám poslal/a zprávu",
-  "notification.pleroma:emoji_reaction": "{name} reagoval/a na váš příspěvek",
+  "notification.kollective:chat_mention": "{name} vám poslal/a zprávu",
+  "notification.kollective:emoji_reaction": "{name} reagoval/a na váš příspěvek",
   "notification.poll": "Anketa, ve které jste hlasoval/a, skončila",
   "notification.reblog": "{name} boostnul/a váš příspěvek",
   "notifications.filter.all": "Vše",
@@ -724,3 +724,4 @@
   "video.unmute": "Zapnout zvuk",
   "who_to_follow.title": "Koho sledovat"
 }
+

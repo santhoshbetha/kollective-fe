@@ -9,7 +9,7 @@ const escapeRegExp = (string) =>
 
 /**
  * Creates a single optimized RegExp from an array of filter objects
- * @param {Array} filters - Array of Mastodon/Pleroma filter objects
+ * @param {Array} filters - Array of Mastodon/Kollective filter objects
  */
 export const createFilterRegex = (filters) => {
   if (!filters || filters.length === 0) return null;

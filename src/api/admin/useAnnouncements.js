@@ -10,7 +10,7 @@ const useAnnouncements = () => {
   const userAnnouncements = useUserAnnouncements();
 
   const getAnnouncements = async () => {
-    const response = await api.get('/api/v1/pleroma/admin/announcements');
+    const response = await api.get('/api/v1/kollective/admin/announcements');
     const data = await response.json();
 
     const normalizedData = data.map((announcement) => adminAnnouncementSchema.parse(announcement));
@@ -27,7 +27,7 @@ const useAnnouncements = () => {
     mutate: createAnnouncement,
     isPending: isCreating,
   } = useMutation({
-    mutationFn: (params) => api.post('/api/v1/pleroma/admin/announcements', params),
+    mutationFn: (params) => api.post('/api/v1/kollective/admin/announcements', params),
     retry: false,
     onSuccess: async (response) => {
       const data = await response.json();
@@ -42,7 +42,7 @@ const useAnnouncements = () => {
     mutate: updateAnnouncement,
     isPending: isUpdating,
   } = useMutation({
-    mutationFn: ({ id, ...params }) => api.patch(`/api/v1/pleroma/admin/announcements/${id}`, params),
+    mutationFn: ({ id, ...params }) => api.patch(`/api/v1/kollective/admin/announcements/${id}`, params),
     retry: false,
     onSuccess: async (response) => {
       const data = await response.json();
@@ -57,7 +57,7 @@ const useAnnouncements = () => {
     mutate: deleteAnnouncement,
     isPending: isDeleting,
   } = useMutation({
-    mutationFn: (id) => api.delete(`/api/v1/pleroma/admin/announcements/${id}`),
+    mutationFn: (id) => api.delete(`/api/v1/kollective/admin/announcements/${id}`),
     retry: false,
     onSuccess: (_, id) =>
       queryClient.setQueryData(['admin', 'announcements'], (prevResult) =>

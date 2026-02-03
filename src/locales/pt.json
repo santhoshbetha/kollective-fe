@@ -1154,11 +1154,11 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} moved to {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} enviou-te uma mensagem",
-  "notification.pleroma:emoji_reaction": "{name} reagiu à tua publicação",
-  "notification.pleroma:event_reminder": "Um evento em que participa começará em breve",
-  "notification.pleroma:participation_accepted": "A sua participação no evento foi aceita",
-  "notification.pleroma:participation_request": "{name} quer participar do seu evento",
+  "notification.kollective:chat_mention": "{name} enviou-te uma mensagem",
+  "notification.kollective:emoji_reaction": "{name} reagiu à tua publicação",
+  "notification.kollective:event_reminder": "Um evento em que participa começará em breve",
+  "notification.kollective:participation_accepted": "A sua participação no evento foi aceita",
+  "notification.kollective:participation_request": "{name} quer participar do seu evento",
   "notification.poll": "Uma sondagem em que participaste chegou ao fim",
   "notification.reblog": "{name} partilhou o teu estado",
   "notification.set_name": "Definir nome como {name}",
@@ -1620,3 +1620,4 @@
   "zap.open_wallet": "Abrir Carteira",
   "zap.send_to": "Enviar zaps para {target}"
 }
+

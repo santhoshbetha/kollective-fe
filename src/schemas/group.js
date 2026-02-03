@@ -13,12 +13,13 @@ const groupSchema = z
   .object({
     avatar: z.string().catch(avatarMissing),
     avatar_static: z.string().catch(""),
-    created_at: z.string().datetime().catch(new Date().toUTCString()),
-    deleted_at: z.string().datetime().or(z.null()).catch(null),
+    // Evaluates the current date every time parsing fails
+    created_at: z.string().datetime().catch(() => new Date().toISOString()),
+    deleted_at: z.string().datetime().nullable().catch(null),
     display_name: z.string().catch(""),
     domain: z.string().catch(""),
     emojis: filteredArray(customEmojiSchema),
-    group_visibility: z.string().catch(""),
+    group_visibility: z.enum(["public", "members_only", "private"]).catch("public"),
     header: z.string().catch(headerMissing),
     header_static: z.string().catch(""),
     id: z.coerce.string(),
@@ -33,20 +34,21 @@ const groupSchema = z
     relationship: groupRelationshipSchema.nullable().catch(null),
     slug: z.string().catch(""),
     source: z.object({ note: z.string() }).optional(),
-    statuses_visibility: z.string().catch("public"),
+    statuses_visibility: z.enum(["public", "private"]).catch("public"),
     tags: z.array(groupTagSchema).catch([]),
     uri: z.string().catch(""),
     url: z.string().catch(""),
   })
   .transform((group) => {
-    group.avatar_static = group.avatar_static || group.avatar;
-    group.header_static = group.header_static || group.header;
-    group.locked = group.locked || group.group_visibility === "members_only";
-
+    // Return a fresh object to avoid mutating the internal Zod state
     return {
       ...group,
+      avatar_static: group.avatar_static || group.avatar,
+      header_static: group.header_static || group.header,
+      locked: group.locked || group.group_visibility === "members_only",
       note: DOMPurify.sanitize(group.note, { USE_PROFILES: { html: true } }),
     };
   });
 
 export { groupSchema };
+

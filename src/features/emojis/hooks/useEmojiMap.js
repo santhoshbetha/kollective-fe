@@ -12,7 +12,7 @@ export const useEmojiMap = () => {
   return useMemo(() => {
     if (!emojis) return {};
 
-    // Handles the Pleroma/Mastodon array structure
+    // Handles the Kollective/Mastodon array structure
     return emojis.reduce((acc, emoji) => {
       acc[`:${emoji.shortcode}:`] = emoji.url;
       return acc;

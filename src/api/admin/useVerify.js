@@ -11,15 +11,15 @@ function useVerify() {
 
   function verifyEffect(accountIds, verified) {
     const updater = (account) => {
-      const existingPleroma = account?.pleroma || {};
-      const oldTags = Array.isArray(existingPleroma.tags) ? existingPleroma.tags : [];
+      const existingKollective = account?.kollective || {};
+      const oldTags = Array.isArray(existingKollective.tags) ? existingKollective.tags : [];
       const tags = oldTags.filter((tag) => tag !== 'verified');
       if (verified) tags.push('verified');
 
       return {
         ...account,
-        pleroma: {
-          ...existingPleroma,
+        kollective: {
+          ...existingKollective,
           tags,
         },
         verified,
@@ -38,7 +38,7 @@ function useVerify() {
     const accts = accountIdsToAccts(getState(), accountIds);
     verifyEffect(accountIds, true);
     try {
-      await api.put('/api/v1/pleroma/admin/users/tag', { nicknames: accts, tags: ['verified'] });
+      await api.put('/api/v1/kollective/admin/users/tag', { nicknames: accts, tags: ['verified'] });
       callbacks?.onSuccess?.();
     } catch (err) {
       void err;
@@ -51,7 +51,7 @@ function useVerify() {
     const accts = accountIdsToAccts(getState(), accountIds);
     verifyEffect(accountIds, false);
     try {
-      await api.request('DELETE', '/api/v1/pleroma/admin/users/tag', { nicknames: accts, tags: ['verified'] });
+      await api.request('DELETE', '/api/v1/kollective/admin/users/tag', { nicknames: accts, tags: ['verified'] });
       callbacks?.onSuccess?.();
     } catch (err) {
       void err;

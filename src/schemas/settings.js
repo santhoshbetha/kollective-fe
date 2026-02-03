@@ -32,6 +32,9 @@ export const settingsSchema = z.object({
     .catch("text/plain"),
   themeMode: z.enum(["system", "light", "dark", "black"]).catch("system"),
   locale: z.string().catch("en"),
+  // Logical Duplication Check: 
+  // 'showExplanationBox' and 'explanationBox' seem to control the same thing. 
+  // Consider unifying these if they aren't for different UI locations.
   showExplanationBox: z.boolean().catch(true),
   explanationBox: z.boolean().catch(true),
   autoloadTimelines: z.boolean().catch(true),
@@ -82,8 +85,9 @@ export const settingsSchema = z.object({
   }),
   dismissedSettingsNotifications: z.array(z.string()).catch([]),
   frequentlyUsedEmojis: z
-    .record(z.string(), z.number().int().nonnegative())
+    .record(z.string(), z.number().int().nonnegative().catch(0))
     .catch({}),
 });
 
 export default settingsSchema;
+

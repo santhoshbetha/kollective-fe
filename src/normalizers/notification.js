@@ -1,10 +1,10 @@
 // https://docs.joinmastodon.org/entities/notification/
 export const NotificationRecord = {
   account: null,
-  chat_message: null, // pleroma:chat_mention
+  chat_message: null, // kollective:chat_mention
   created_at: new Date(),
-  emoji: null, // pleroma:emoji_reaction
-  emoji_url: null, // pleroma:emoji_reaction
+  emoji: null, // kollective:emoji_reaction
+  emoji_url: null, // kollective:emoji_reaction
   id: "",
   name: "", // ditto:name_grant
   amount: 0, // ditto:zap
@@ -51,3 +51,4 @@ export const normalizeNotification = (notification) => {
 };
 
 export default normalizeNotification;
+

@@ -18,7 +18,7 @@ export const useTrendingTags = (limit = 10) => {
 
 //======================================================================
 // src/features/trends/api/useTrendingTags.js
-export const useTrendingTags = () => {
+export const useTrendingTags2 = () => {
   return useQuery({
     queryKey: ['trends', 'tags'],
     queryFn: () => api.get('/api/v1/trends/tags').then(res => res.data),
@@ -32,3 +32,4 @@ export const useTrendingTags = () => {
 /*
 
 */
+

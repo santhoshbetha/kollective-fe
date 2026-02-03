@@ -13,6 +13,7 @@ const mrfSimpleSchema = coerceObject({
   reject: z.string().array().catch([]),
   reject_deletes: z.string().array().catch([]),
   report_removal: z.string().array().catch([]),
-});
+}).catch({}); // Ensures the whole block defaults to an empty object if missing
 
 export { mrfSimpleSchema };
+

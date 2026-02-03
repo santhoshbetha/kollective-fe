@@ -2,11 +2,11 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useStatusImporter } from '../hooks/useStatusImporter';
 import { api } from '@/api/client'; 
-import { statusSchema } from '../schemas/statusSchema';// Your axios/fetch instance
+import { statusSchema } from '../../../schemas';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { authStateSchema } from '../../auth/schemas/authSchema';
 import { useFilters } from '@/features/filters/api/useFilters';
-
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useHomeTimeline = () => {
   const { importFetchedStatuses } = useStatusImporter();
@@ -129,12 +129,20 @@ Why this is the "Ultimate" Migration Step:
 */
 
 
-export const useTimeline3 = () => {
+export const useTimeline = () => {
   const token = useAuthStore(s => s.token);
 
   return useInfiniteQuery({
     queryKey: ['statuses', 'home'],
-    queryFn: fetchTimeline,
+    //queryFn: fetchTimeline,
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.get('/api/v1/timelines/home', { 
+        params: { max_id: pageParam } 
+      });
+
+      // Validate and Enrich every status in the array
+      return data.map(rawStatus => statusSchema.parse(rawStatus));
+    },
     // Only fetch if Zod says the token is valid
     enabled: !!token && authStateSchema.pick({ token: true }).safeParse({ token }).success
   });
@@ -159,7 +167,7 @@ Zustand (Client State).
 
 // src/features/statuses/api/useTimeline.js
 
-export const useTimeline = (type = 'home') => {
+export const useTimeline2 = (type = 'home') => {
   return useInfiniteQuery({
     queryKey: ['statuses', 'timeline', type],
     queryFn: fetchTimeline,
@@ -181,7 +189,7 @@ export const useTimeline = (type = 'home') => {
     Going Down: As the user scrolls down, memory stays flat because old pages are evicted.
     Going Up: If the user scrolls back to the top, TanStack Query will see that Page 1 is missing and automatically refetch it using the getPreviousPageParam logic.
 
-3. Why this is critical for Kollective-FE
+3. Why this is critical for kollective:-FE
 
     Mobile Performance: Lower-end phones have very limited RAM. Without maxPages, your app will eventually feel "heavy" and slow to respond to clicks.
     DOM Stability: By pruning the data, you can ensure your virtualized list (or standard list) doesn't have to manage 5,000 status items at once.
@@ -196,8 +204,7 @@ Update your useTimeline hook. The select function runs after the data is fetched
 it is returned to your component. 
 This ensures the filtering logic is centralized and efficient.
 */
-
-export const useTimeline = (type = 'home') => {
+export const useTimeline3 = (type = 'home') => {
   const { data: filters } = useFilters();
 
   return useInfiniteQuery({
@@ -227,7 +234,7 @@ export const useTimeline = (type = 'home') => {
 };
 //=========================================================================
 // src/features/statuses/api/useTimeline.js
-export const useTimeline = (type = 'home') => {
+export const useTimeline4 = (type = 'home') => {
   const { data: prefs } = usePreferences(); // Global setting: "Expand all CWs"
   
   return useInfiniteQuery({
@@ -279,7 +286,7 @@ Relationship Sync	Complex multi-slice selectors	    Subscribing to ['relationshi
 //=====================================================================================
 // /1. The Cache Enrichment (The "Mute Mask")
 // src/features/statuses/api/useTimeline.js
-export const useTimeline = (type = 'home') => {
+export const useTimeline5 = (type = 'home') => {
   return useInfiniteQuery({
     queryKey: ['statuses', 'timeline', type],
     queryFn: fetchTimeline,
@@ -322,9 +329,8 @@ const StatusCard = ({ status }) => {
 //=====================================================================================
 // Apply the validation inside your queryFn. If the server sends bad data,
 // Zod will catch it before it ever reaches your UI components.
-import { statusSchema } from '../schemas/accountSchemas';
 
-export const useTimeline = (type = 'home') => {
+export const useTimeline6 = (type = 'home') => {
   return useInfiniteQuery({
     queryKey: ['statuses', 'timeline', type],
     queryFn: async ({ pageParam }) => {
@@ -357,11 +363,9 @@ Defaulting: Notice .default(0) in the schema—this ensures that even if the API
 
 // This one hook replaces all expandTimeline variations (Home, Community, Hashtag, etc.).
 
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { useStatusImporter } from '../hooks/useStatusImporter';
 
-export const useTimeline = (timelineId, endpoint, params = {}) => {
+
+export const useTimeline7 = (timelineId, endpoint, params = {}) => {
   const { importStatusEntities } = useStatusImporter();
   const queryClient = useQueryClient();
 
@@ -384,7 +388,7 @@ export const useTimeline = (timelineId, endpoint, params = {}) => {
       if (groupIds.length > 0) {
         queryClient.prefetchQuery({
           queryKey: ['groups', 'relationships', groupIds.sort()],
-          queryFn: () => api.get('/api/v1/pleroma/groups/relationships', { params: { id: groupIds } })
+          queryFn: () => api.get('/api/v1/kollective/groups/relationships', { params: { id: groupIds } })
         });
       }
 
@@ -414,7 +418,7 @@ expandHashtagTimeline	useTimeline('hashtag', '/api/v1/timelines/tag/' + tag)
 // /Add a helper to distinguish between "hide" (collapse) and "irreversible" (delete) filters.
 import { isIrreversible } from '@/features/filters/utils/filterHelpers';
 
-export const useTimeline = (type) => {
+export const useTimeline8 = (type) => {
   const queryClient = useQueryClient();
 
   return useInfiniteQuery({
@@ -441,6 +445,7 @@ export const useTimeline = (type) => {
     }
   });
 };
+
 
 
 

@@ -3,11 +3,14 @@ import z from "zod";
 const groupTagSchema = z.object({
   id: z.string(),
   name: z.string(),
-  groups: z.number().optional(),
-  url: z.string().optional(),
-  uses: z.number().optional(),
-  pinned: z.boolean().optional().catch(false),
-  visible: z.boolean().optional().default(true),
+  // Ensure numeric fields always return 0 on failure/missing
+  groups: z.number().catch(0),
+  uses: z.number().catch(0),
+  url: z.string().url().optional().catch(undefined),
+  pinned: z.boolean().catch(false),
+  // Handle both null and undefined, defaulting to true
+  visible: z.boolean().nullish().transform(v => v ?? true),
 });
 
 export { groupTagSchema };
+

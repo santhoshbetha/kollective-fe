@@ -39,7 +39,7 @@ export const useNotificationOrchestrator = () => {
 
   const handleIncomingNotification = async (notification) => {
     // 1. Validation & Early Returns
-    if (!notification.type || ['chat', 'pleroma:chat_mention'].includes(notification.type)) return;
+    if (!notification.type || ['chat', 'kollective:chat_mention'].includes(notification.type)) return;
 
     // 2. Filtering Logic
     let isFiltered = false;
@@ -90,3 +90,4 @@ const triggerDesktopNotification = (n) => {
     });
   });
 };
+

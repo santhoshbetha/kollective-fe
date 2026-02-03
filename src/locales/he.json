@@ -916,8 +916,8 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} הועבר אל {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} שלח לך הודעה",
-  "notification.pleroma:emoji_reaction": "{name} הגיב לפוסט שלך",
+  "notification.kollective:chat_mention": "{name} שלח לך הודעה",
+  "notification.kollective:emoji_reaction": "{name} הגיב לפוסט שלך",
   "notification.poll": "סקר שהצבעת בו הסתיים",
   "notification.reblog": "הפוסט שלך הודהד על ידי {name}",
   "notification.status": "{name} just posted",
@@ -1297,3 +1297,4 @@
   "video.unmute": "החזרת צליל",
   "who_to_follow.title": "מי לעקוב"
 }
+

@@ -101,4 +101,49 @@ const StatusCard = ({ status }) => {
 };
 */
 
+//================================================================================
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+export const useStatus = (statusId, conversationId) => {
+  const queryClient = useQueryClient();
+
+  return useQuery({
+    queryKey: ['status', statusId],
+    queryFn: () => fetchStatus(statusId), // Fallback fetcher
+    // Pull from the conversation cache if available
+    initialData: () => {
+      const context = queryClient.getQueryData(['statusContext', conversationId]);
+      // Search in ancestors or descendants stored in the Map
+      return context?.allStatuses.get(statusId);
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+/*
+interface StatusItemProps {
+  id: string;
+  conversationId: string;
+  isHighlighted?: boolean;
+}
+//This component remains lean because the hook handles
+export const StatusItem = ({ id, conversationId, isHighlighted }: StatusItemProps) => {
+  const { data: status, isLoading } = useStatus(id, conversationId);
+
+  if (isLoading) return <div className="skeleton">...</div>;
+  if (!status) return null;
+
+  return (
+    <article className={`status ${isHighlighted ? 'active' : ''}`}>
+      <header>
+        <strong>{status.account.display_name}</strong>
+        <span>@{status.account.acct}</span>
+      </header>
+      <div dangerouslySetInnerHTML={{ __html: status.content }} />
+    </article>
+  );
+};
+*/
+
+
+
 

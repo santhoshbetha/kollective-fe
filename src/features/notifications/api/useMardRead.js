@@ -12,13 +12,13 @@ export const useMarkRead = () => {
         notifications: { last_read_id: topNotificationId },
       });
 
-      // 2. Specialized Pleroma Read API (Conditional)
+      // 2. Specialized Kollective Read API (Conditional)
       // Note: You can get 'software' from your Instance Query or Zustand Store
       const software = queryClient.getQueryData(['instance'])?.software;
       
       const promises = [markerPromise];
-      if (software === 'pleroma') {
-        promises.push(api.post('/api/v1/pleroma/notifications/read', { max_id: topNotificationId }));
+      if (software === 'kollective') {
+        promises.push(api.post('/api/v1/kollective/notifications/read', { max_id: topNotificationId }));
       }
 
       return Promise.all(promises);
@@ -52,7 +52,7 @@ const NotificationList = () => {
 */
 /*
 1. Version Detection: By using queryClient.getQueryData(['instance']), 
-you get the software type (Pleroma/Mastodon) directly from your global instance cache 
+you get the software type (Kollective/Mastodon) directly from your global instance cache 
 instead of passing it through thunk arguments.
 2. Elimination of -1 Logic: You can use standard JavaScript falsy checks (!lastReadId) rather 
 than managing magic numbers like -1 in your Redux state.

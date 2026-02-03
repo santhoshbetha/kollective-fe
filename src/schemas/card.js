@@ -18,7 +18,7 @@ const cardSchema = z
     height: z.number().catch(0),
     html: z.string().catch(""),
     image: z.string().nullable().catch(null),
-    pleroma: z
+    kollective: z
       .object({
         opengraph: z
           .object({
@@ -39,64 +39,66 @@ const cardSchema = z
     url: z.string().url(),
     width: z.number().catch(0),
   })
-  .transform(({ pleroma, ...card }) => {
-    if (!card.provider_name) {
-      card.provider_name = decodeIDNA(new URL(card.url).hostname);
-    }
+ .transform((data) => {
+    // 1. Shallow copy to avoid mutation
+    const { kollective, ...card } = data;
+    const result = { ...card };
 
-    if (pleroma?.opengraph) {
-      if (!card.width && !card.height) {
-        card.width = pleroma.opengraph.width;
-        card.height = pleroma.opengraph.height;
-      }
-
-      if (!card.html) {
-        card.html = pleroma.opengraph.html;
-      }
-
-      if (!card.image) {
-        card.image = pleroma.opengraph.thumbnail_url;
-      }
-    }
-
-    const html = DOMPurify.sanitize(card.html, {
-      ALLOWED_TAGS: ["iframe"],
-      ALLOWED_ATTR: [
-        "src",
-        "width",
-        "height",
-        "frameborder",
-        "allowfullscreen",
-      ],
-      RETURN_DOM: true,
-    });
-
-    html.querySelectorAll("iframe").forEach((frame) => {
+    // 2. Logic Fallbacks
+    if (!result.provider_name) {
       try {
-        const src = new URL(frame.src);
-        if (src.protocol !== "https:") {
-          throw new Error("iframe must be https");
-        }
-        if (src.origin === location.origin) {
-          throw new Error("iframe must not be same origin");
-        }
-        frame.setAttribute(
-          "sandbox",
-          "allow-scripts allow-same-origin allow-presentation",
-        );
+        result.provider_name = decodeIDNA(new URL(result.url).hostname);
       } catch {
-        frame.remove();
+        result.provider_name = "";
       }
-    });
-
-    card.html = html.innerHTML;
-
-    if (!card.html) {
-      card.type = "link";
     }
 
-    return card;
-  });
+    if (kollective?.opengraph) {
+      result.width = result.width || kollective.opengraph.width;
+      result.height = result.height || kollective.opengraph.height;
+      result.html = result.html || kollective.opengraph.html;
+      result.image = result.image || kollective.opengraph.thumbnail_url;
+    }
+
+    // 3. Sanitization logic
+    // Using a simpler approach: sanitize the string, then modify if needed
+    const cleanHtmlStr = DOMPurify.sanitize(result.html, {
+      ALLOWED_TAGS: ["iframe"],
+      ALLOWED_ATTR: ["src", "width", "height", "frameborder", "allowfullscreen"],
+    });
+
+    // Check if we are in a browser environment before using DOMParser
+    if (typeof window !== "undefined" && cleanHtmlStr) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(cleanHtmlStr, "text/html");
+      const iframes = doc.querySelectorAll("iframe");
+
+      iframes.forEach((frame) => {
+        try {
+          const src = new URL(frame.src);
+          const isUnsafe = src.protocol !== "https:" || (typeof location !== 'undefined' && src.origin === location.origin);
+          
+          if (isUnsafe) {
+            frame.remove();
+          } else {
+            frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
+          }
+        } catch {
+          frame.remove();
+        }
+      });
+      result.html = doc.body.innerHTML;
+    } else {
+      result.html = cleanHtmlStr;
+    }
+
+    // 4. Final Type Check
+    if (!result.html && result.type !== "photo") {
+      result.type = "link";
+    }
+
+    return result;
+  })
 
 const decodeIDNA = (domain) => {
   return domain
@@ -110,3 +112,4 @@ const decodeIDNA = (domain) => {
 };
 
 export { cardSchema };
+

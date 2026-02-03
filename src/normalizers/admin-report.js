@@ -14,7 +14,7 @@ export const AdminReportRecord = {
 };
 import { asPlain } from "../utils/immutableSafe";
 
-const normalizePleromaReport = (src) => {
+const normalizeKollectiveReport = (src) => {
   if (!src) return src;
   if (src.actor) {
     return {
@@ -31,7 +31,7 @@ const normalizePleromaReport = (src) => {
 
 export const normalizeAdminReport = (report) => {
   const src = asPlain(report) || {};
-  const p = normalizePleromaReport(src);
+  const p = normalizeKollectiveReport(src);
 
   const out = {
     ...AdminReportRecord,

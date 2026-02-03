@@ -1,4 +1,7 @@
 // src/features/conversations/api/useConversationActions.js
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../../api/client";
+
 export const useMarkConversationRead = () => {
   const queryClient = useQueryClient();
 
@@ -53,4 +56,5 @@ Automatic since_id: Instead of manually passing since_id, TanStack Query's Refet
 Memory Efficiency: The .flatMap and .map logic for accounts and statuses is now performed once during the fetch phase and saved directly into their respective TanStack caches.
 No Boilerplate: You can delete expandConversationsRequest, Success, and Fail constants.
 */
+
 

@@ -27,7 +27,7 @@ export const useMoveAccount = () => {
 
 /*
 const AccountMoveWizard = ({ targetAcct }) => {
-  const myApId = useAuthStore(s => s.me?.pleroma?.ap_id);
+  const myApId = useAuthStore(s => s.me?.kollective?.ap_id);
   
   // 1. Watch for verification
   const { data: verification, isLoading } = useAliasVerification(targetAcct, myApId);
@@ -56,3 +56,22 @@ const AccountMoveWizard = ({ targetAcct }) => {
 };
 
 */
+//=============================================================================
+// /Success Confetti
+// src/features/accounts/api/useMoveAccount.js
+import { fireConfetti } from '@/utils/confetti';
+
+export const useMoveAccount = () => {
+  return useMutation({
+    mutationFn: (targetId) => api.patch('/api/v1/accounts/update_credentials', { 
+      move_to_account_id: targetId 
+    }),
+    onSuccess: () => {
+      // Celebrate the successful migration!
+      fireConfetti();
+      toast.success("Account move successful!");
+    }
+  });
+};
+
+

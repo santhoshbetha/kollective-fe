@@ -667,8 +667,8 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} moved to {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} sent you a message",
-  "notification.pleroma:emoji_reaction": "{name} reacted to your post",
+  "notification.kollective:chat_mention": "{name} sent you a message",
+  "notification.kollective:emoji_reaction": "{name} reacted to your post",
   "notification.poll": "A poll you have voted in has ended",
   "notification.reblog": "{name} reposted your post",
   "notification.status": "{name} just posted",
@@ -1048,3 +1048,4 @@
   "video.unmute": "Kveikja á hljóði",
   "who_to_follow.title": "Hverjum á að fylgja"
 }
+

@@ -3,12 +3,12 @@ export const Entities = {
   RELATIONSHIPS: "relationships",
 };
 
-export const PLEROMA = "pleroma";
+export const KOLLECTIVE = "kollective";
 
 export function parseVersion(versionString) {
   if (!versionString) return { software: "unknown" };
   const s = String(versionString).toLowerCase();
-  if (s.includes("pleroma")) return { software: PLEROMA };
+  if (s.includes("kollective")) return { software: KOLLECTIVE };
   return { software: "mastodon" };
 }
 
@@ -50,5 +50,5 @@ export default {
   api,
   Entities,
   parseVersion,
-  PLEROMA,
+  KOLLECTIVE,
 };

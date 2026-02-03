@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../../api/client";
+
 //editEvent (Fetching Source for Modal)
 //In TanStack, "Editing" is a two-step process:
 
@@ -9,6 +12,7 @@ export const useStatusSource = (id) => useQuery({
   enabled: !!id, // Only fetch when we have an ID
 });
 
+/*
 // Usage in a component:
 const handleEdit = async (id) => {
   // Use queryClient.fetchQuery to get data on-demand
@@ -24,4 +28,5 @@ const handleEdit = async (id) => {
     location: source.location 
   });
   openModal('COMPOSE_EVENT');
-};
+};*/
+

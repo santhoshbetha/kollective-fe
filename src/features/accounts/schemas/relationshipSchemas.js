@@ -12,8 +12,8 @@ export const relationshipSchema = z.object({
   domain_blocking: z.boolean().default(false),
   showing_reblogs: z.boolean().default(true),
   endorsed: z.boolean().default(false),
-  // Pleroma-specific: relationship expiration
-  pleroma: z.object({
+  // Kollective-specific: relationship expiration
+  kollective: z.object({
     relationship_until: z.string().nullable().optional(),
   }).passthrough().optional(),
 }).passthrough().transform((rel) => {
@@ -22,10 +22,11 @@ export const relationshipSchema = z.object({
   // Logic Port: Computed state for "Pending"
   out.is_pending = out.requested || false;
 
-  // Logic Port: Handle Pleroma-specific expiration dates
-  if (out.pleroma?.relationship_until) {
-    out.expires_at = out.pleroma.relationship_until;
+  // Logic Port: Handle Kollective-specific expiration dates
+  if (out.kollective?.relationship_until) {
+    out.expires_at = out.kollective.relationship_until;
   }
 
   return Object.freeze(out);
 });
+

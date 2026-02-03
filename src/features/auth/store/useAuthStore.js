@@ -32,8 +32,7 @@ export const useAuthStore = create()(
   )
 );
 
-
-export const useAuthStore2 = create()(
+/*export const useAuthStore2 = create()(
   persist(
     (set) => ({
       token: null,
@@ -54,14 +53,14 @@ export const useAuthStore2 = create()(
         const result = authStateSchema.safeParse(state);
         
         if (!result.success) {
-          console.error("Auth validation failed. Logging out for safety.", result.error);
+          console.error("Auth validation failed 33. Logging out for safety.", result.error);
           // If the data is corrupt, wipe the store
           useAuthStore.getState().logout();
         }
       },
     }
   )
-);
+);*/
 
 
 // Helper selectors for better performance

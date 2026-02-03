@@ -15,24 +15,7 @@ export function createAccountsMetaSlice(setScoped, getScoped, rootSet, rootGet) 
             const account = result.data;
             const existing = state[account.id];
             state[account.id] = {
-                pleroma: account.kollective ?? existing?.kollective,
-                source: account.source ?? existing?.source,
-            }
-            return state;
-       });
-    },
-
-    patchMeSuccess(me) {
-       setScoped((state) => { 
-            const result = accountSchema.safeParse(me);
-            if (!result.success) {
-                return state;
-            }
-
-            const account = result.data;
-            const existing = state[account.id];
-            state[account.id] = {
-                pleroma: account.kollective ?? existing?.kollective,
+                kollective: account.kollective ?? existing?.kollective,
                 source: account.source ?? existing?.source,
             }
             return state;
@@ -49,7 +32,7 @@ export function createAccountsMetaSlice(setScoped, getScoped, rootSet, rootGet) 
             const acct = result.data;
             const existing = state[acct.id];
             state[acct.id] = {
-                pleroma: acct.kollective ?? existing?.kollective,
+                kollective: acct.kollective ?? existing?.kollective,
                 source: acct.source ?? existing?.source,
             }
             return state;
@@ -65,7 +48,7 @@ export function createAccountsMetaSlice(setScoped, getScoped, rootSet, rootGet) 
             const acct = result.data;
             const existing = state[acct.id];
             state[acct.id] = {
-                pleroma: acct.kollective ?? existing?.kollective,
+                kollective: acct.kollective ?? existing?.kollective,
                 source: acct.source ?? existing?.source,
             }
             return state;
@@ -75,3 +58,4 @@ export function createAccountsMetaSlice(setScoped, getScoped, rootSet, rootGet) 
 }
 
 export default createAccountsMetaSlice;
+

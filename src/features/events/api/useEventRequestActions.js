@@ -4,7 +4,7 @@ export const useEventRequestAction = (eventId) => {
 
   return useMutation({
     mutationFn: ({ requestId, action }) => // action = 'approve' or 'reject'
-      api.post(`/api/v1/pleroma/events/${eventId}/participation_requests/${requestId}/${action}`),
+      api.post(`/api/v1/kollective/events/${eventId}/participation_requests/${requestId}/${action}`),
     
     onMutate: async ({ requestId }) => {
       await queryClient.cancelQueries({ queryKey: ['events', eventId, 'participation-requests'] });
@@ -49,7 +49,7 @@ export const useAuthorizeEventRequest = (eventId) => {
   return useMutation({
     // REPLACES: The .post() call in your thunk
     mutationFn: (accountId) =>
-      api.post(`/api/v1/pleroma/events/${eventId}/participation_requests/${accountId}/authorize`),
+      api.post(`/api/v1/kollective/events/${eventId}/participation_requests/${accountId}/authorize`),
 
     // REPLACES: authorizeEventParticipationRequestRequest
     onMutate: async (accountId) => {
@@ -117,7 +117,7 @@ export const useRejectEventRequest = (eventId) => {
   return useMutation({
     // REPLACES: The .post() call in your thunk
     mutationFn: (accountId) =>
-      api.post(`/api/v1/pleroma/events/${eventId}/participation_requests/${accountId}/reject`),
+      api.post(`/api/v1/kollective/events/${eventId}/participation_requests/${accountId}/reject`),
 
     // REPLACES: rejectEventParticipationRequestRequest
     onMutate: async (accountId) => {

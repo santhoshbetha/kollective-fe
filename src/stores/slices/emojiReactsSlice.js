@@ -22,7 +22,7 @@ export function createEmojiReactsSlice(setScoped, getScoped, rootSet, rootGet) {
       if (undo) return actions.unEmojiReact(status, emoji);
 
       try {
-        // 3. Clear existing reacts from 'me' (Pleroma allows only one emoji react at a time)
+        // 3. Clear existing reacts from 'me' (Kollective allows only one emoji react at a time)
         const myReacts = emojiReacts.filter((e) => e.me === true).map((e) => e.name);
         
         for (const name of myReacts) {
@@ -58,8 +58,8 @@ export function createEmojiReactsSlice(setScoped, getScoped, rootSet, rootGet) {
       if (!isLoggedIn(state)) return;
 
       const url = emoji
-        ? `/api/v1/pleroma/statuses/${id}/reactions/${encodeURIComponent(emoji)}`
-        : `/api/v1/pleroma/statuses/${id}/reactions`;
+        ? `/api/v1/kollective/statuses/${id}/reactions/${encodeURIComponent(emoji)}`
+        : `/api/v1/kollective/statuses/${id}/reactions`;
 
       try {
         const res = await fetch(url);

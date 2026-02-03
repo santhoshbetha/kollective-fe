@@ -19,9 +19,9 @@ export const AdminAccountRecord = {
 };
 import { asPlain } from "../utils/immutableSafe";
 
-const normalizePleromaAccount = (acct) => {
+const normalizeKollectiveAccount = (acct) => {
   const a = asPlain(acct) || {};
-  // If this payload is wrapped (has top-level 'account'), skip pleroma mapping
+  // If this payload is wrapped (has top-level 'account'), skip kollective mapping
   if (a.account) return a;
 
   const isAdmin = !!(a.roles && a.roles.admin);
@@ -40,7 +40,7 @@ const normalizePleromaAccount = (acct) => {
 
 export const normalizeAdminAccount = (account) => {
   const src = asPlain(account) || {};
-  const p = normalizePleromaAccount(src);
+  const p = normalizeKollectiveAccount(src);
 
   const out = {
     ...AdminAccountRecord,

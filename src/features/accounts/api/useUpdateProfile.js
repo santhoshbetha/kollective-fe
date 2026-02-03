@@ -7,7 +7,7 @@ export const useUpdateProfile = () => {
   return useMutation({
     // 1. The API Call
     mutationFn: (formData) => {
-      // Mastodon/Pleroma use PATCH for credentials
+      // Mastodon/Kollective use PATCH for credentials
       return api.patch('/api/v1/accounts/update_credentials', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }).then(res => res.data);

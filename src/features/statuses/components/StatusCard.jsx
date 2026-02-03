@@ -8,7 +8,7 @@ const StatusCard = ({ status }) => {
 
 // ================================================================
 // Filter Highlights
-const StatusCard = ({ status }) => {
+const StatusCard2 = ({ status }) => {
   return (
     <div className={`status-card border-l-4 ${status.highlightClass || 'border-transparent'}`}>
       <div className="status-content">
@@ -23,3 +23,5 @@ const StatusCard = ({ status }) => {
   );
 };
 
+export default StatusCard2;
+export { StatusCard };

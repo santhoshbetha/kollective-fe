@@ -1207,11 +1207,11 @@
   "notification.mentioned": "{name} a luaigh tú",
   "notification.move": "Bhog {name} go {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "Chuir {name} teachtaireacht chugat",
-  "notification.pleroma:emoji_reaction": "D'fhreagair {name} do phost",
-  "notification.pleroma:event_reminder": "Cuirfear tús le hócáid a bhfuil tú páirteach ann go luath",
-  "notification.pleroma:participation_accepted": "Glacadh leat páirt a ghlacadh san imeacht",
-  "notification.pleroma:participation_request": "Ba mhaith le {name} a bheith páirteach i d'imeacht",
+  "notification.kollective:chat_mention": "Chuir {name} teachtaireacht chugat",
+  "notification.kollective:emoji_reaction": "D'fhreagair {name} do phost",
+  "notification.kollective:event_reminder": "Cuirfear tús le hócáid a bhfuil tú páirteach ann go luath",
+  "notification.kollective:participation_accepted": "Glacadh leat páirt a ghlacadh san imeacht",
+  "notification.kollective:participation_request": "Ba mhaith le {name} a bheith páirteach i d'imeacht",
   "notification.poll": "Tá deireadh le vótaíocht inar vótáil tú",
   "notification.reblog": "{name} reposted do phost",
   "notification.set_name": "Socraigh ainm go {name}",
@@ -1692,3 +1692,4 @@
   "zap_split.text": "Beidh do thacaíocht cabhrú linn a thógáil Impireacht unstoppable agus riail an réaltra!",
   "zap_split.title": "Scoilt Zap"
 }
+

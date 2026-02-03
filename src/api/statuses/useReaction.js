@@ -63,7 +63,7 @@ export function useReaction() {
     emojiReactEffect(status.id, emoji);
 
     try {
-      const response = await api.put(`/api/v1/pleroma/statuses/${status.id}/reactions/${emoji}`);
+      const response = await api.put(`/api/v1/kollective/statuses/${status.id}/reactions/${emoji}`);
       const result = statusSchema.parse(await response.json());
       if (result) {
         useBoundStore.getState().entities.importEntities('Statuses', [result]);
@@ -79,7 +79,7 @@ export function useReaction() {
     unemojiReactEffect(status.id, emoji);
 
     try {
-      const response = await api.delete(`/api/v1/pleroma/statuses/${status.id}/reactions/${emoji}`);
+      const response = await api.delete(`/api/v1/kollective/statuses/${status.id}/reactions/${emoji}`);
       const result = statusSchema.parse(await response.json());
       if (result) {
         useBoundStore.getState().entities.importEntities('Statuses', [result]);

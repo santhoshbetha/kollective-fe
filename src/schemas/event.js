@@ -12,7 +12,9 @@ const eventSchema = z.object({
   location: locationSchema.nullable().catch(null),
   join_state: z.enum(["pending", "reject", "accept"]).nullable().catch(null),
   banner: attachmentSchema.nullable().catch(null),
-  links: z.array(attachmentSchema).nullable().catch(null),
+  // Suggestion: if links should always be iterable, use .catch([]) instead
+  links: z.array(attachmentSchema).catch([]), 
 });
 
 export { eventSchema };
+

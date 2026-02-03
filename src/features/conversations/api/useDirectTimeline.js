@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useStatusImporter } from '@/features/statuses/hooks/useStatusImporter';
+import { extractMaxIdFromLink } from '@/utils/apiUtils';
 
 export const useDirectTimeline = (accountId) => {
   const { importStatusEntities } = useStatusImporter();

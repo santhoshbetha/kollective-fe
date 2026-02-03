@@ -1,16 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { toast } from '@/components/Toast';
+import { useQuery } from '@tanstack/react-query';
+import { api } from "../../../api/client";
 
-//This thunk is not required. The aliasesSlice handles Pleroma-specific account migration 
-// features (AKA "Also Known As"). You can replace this entire logic with a Mutation that handles the server's feature-parity check (V1 vs Pleroma API) internally.
+//This thunk is not required. The aliasesSlice handles Kollective-specific account migration 
+// features (AKA "Also Known As"). You can replace this entire logic with a Mutation that handles the server's feature-parity check (V1 vs Kollective API) internally.
 
 // REPLACES: fetchAliases
 export const useAliases = () => {
   return useQuery({
     queryKey: ['accounts', 'aliases'],
-    queryFn: () => api.get('/api/pleroma/aliases').then(res => res.data.aliases),
-    // Only fetch if Pleroma features are supported
+    queryFn: () => api.get('/api/kollective/aliases').then(res => res.data.aliases),
+    // Only fetch if Kollective features are supported
     staleTime: 1000 * 60 * 60, 
   });
 };
@@ -23,3 +22,4 @@ export const useAliasSuggestions = (q) => {
     enabled: q.length > 2,
   });
 };
+

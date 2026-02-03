@@ -29,7 +29,7 @@ const baseAccountSchema = z.object({
   avatar: z.string().catch(avatarMissing),
   avatar_static: z.string().url().optional().catch(undefined),
   bot: z.boolean().catch(false),
-  created_at: z.string().datetime().catch(new Date().toUTCString()),
+  created_at: z.string().datetime().catch(() => new Date().toISOString()),
   discoverable: z.boolean().catch(false),
   display_name: z.string().catch(""),
   domain: z.string().optional().catch(undefined),
@@ -85,8 +85,7 @@ const baseAccountSchema = z.object({
       chats_onboarded: z.boolean().catch(true),
       fields: filteredArray(fieldSchema),
       note: z.string().catch(""),
-      pleroma: z
-        .object({
+      kollective: z.object({
           discoverable: z.boolean().catch(true),
         })
         .optional()
@@ -119,42 +118,44 @@ const filterBadges = (tags) =>
       roleSchema.parse({ id: tag, name: tag.replace(/^badge:/, "") }),
     );
 
-const transformAccount = ({ pleroma, other_settings, ...account }) => {
-  const displayName =
-    account.display_name.trim().length === 0
+// 2. Fix the Transform Function
+const transformAccount = (data) => {
+  // Destructure 'kollective' (the actual key) and others
+  const { kollective, other_settings, ...account } = data;
+
+  const displayName = account.display_name.trim().length === 0
       ? account.username
       : account.display_name;
+      
   const domain = account.domain ?? getDomain(account.url || account.uri);
 
-  if (pleroma) {
-    pleroma.birthday = pleroma.birthday || other_settings?.birthday;
-  }
+  // 3. Create a safe version of kollective without mutating the original
+  const safeKollective = kollective ? {
+    ...kollective,
+    birthday: kollective.birthday || other_settings?.birthday
+  } : undefined;
 
   return {
     ...account,
-    admin: pleroma?.is_admin || false,
+    kollective: safeKollective, // Use the updated object
+    admin: safeKollective?.is_admin || false,
     avatar_static: account.avatar_static || account.avatar,
-    discoverable:
-      account.discoverable || account.source?.pleroma?.discoverable || false,
+    // Fix: Reference 'safeKollective' instead of 'kollective:'
+    discoverable: account.discoverable || account.source?.kollective?.discoverable || false,
     display_name: displayName,
     domain,
-    fqn:
-      account.fqn ||
-      (account.acct.includes("@") ? account.acct : `${account.acct}@${domain}`),
+    fqn: account.fqn || (account.acct.includes("@") ? account.acct : `${account.acct}@${domain}`),
     header_static: account.header_static || account.header,
-    moderator: pleroma?.is_moderator || false,
-    local:
-      pleroma?.is_local !== undefined
-        ? pleroma.is_local
-        : account.acct.split("@")[1] === undefined,
-    location:
-      account.location || pleroma?.location || other_settings?.location || "",
+    moderator: safeKollective?.is_moderator || false,
+    local: safeKollective?.is_local !== undefined 
+        ? safeKollective.is_local 
+        : !account.acct.includes("@"),
+    location: account.location || safeKollective?.location || other_settings?.location || "",
     note: DOMPurify.sanitize(account.note, { USE_PROFILES: { html: true } }),
-    pleroma,
-    roles: account.roles.length ? account.roles : filterBadges(pleroma?.tags),
-    staff: pleroma?.is_admin || pleroma?.is_moderator || false,
-    suspended: account.suspended || pleroma?.deactivated || false,
-    verified: account.verified || pleroma?.tags.includes("verified") || false,
+    roles: account.roles.length ? account.roles : filterBadges(safeKollective?.tags),
+    staff: safeKollective?.is_admin || safeKollective?.is_moderator || false,
+    suspended: account.suspended || safeKollective?.deactivated || false,
+    verified: account.verified || safeKollective?.tags?.includes("verified") || false,
   };
 };
 
@@ -165,3 +166,4 @@ const accountSchema = baseAccountSchema
   .transform(transformAccount);
 
 export { accountSchema };
+

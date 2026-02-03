@@ -7,7 +7,7 @@ export const useEventActions = () => {
   const queryClient = useQueryClient();
 
   const joinEvent = useMutation({
-    mutationFn: (eventId) => api.post(`/api/v1/pleroma/events/${eventId}/join`),
+    mutationFn: (eventId) => api.post(`/api/v1/kollective/events/${eventId}/join`),
     onSuccess: (updatedEvent) => {
       // Optimistically update the event in the list cache
       queryClient.setQueriesData({ queryKey: ['events'] }, (old) => {
@@ -36,7 +36,7 @@ export const useJoinEvent = () => {
   return useMutation({
     // 1. The API Call
     mutationFn: ({ id, participationMessage }) =>
-      api.post(`/api/v1/pleroma/events/${id}/join`, {
+      api.post(`/api/v1/kollective/events/${id}/join`, {
         participation_message: participationMessage,
       }).then(res => res.data),
 
@@ -57,14 +57,14 @@ export const useJoinEvent = () => {
 
     // 3. Success Logic (Replaces joinEventSuccess)
     onSuccess: (data) => {
-      const event = data.pleroma?.event;
+      const event = data.kollective?.event;
       
       // Sync the specific status/event in all caches
       queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) =>
         updatePostInPages(old, data.id, data)
       );
 
-      // Handle Pleroma-specific join states for the toast
+      // Handle Kollective-specific join states for the toast
       const isPending = event?.join_state === 'pending';
       toast.success(isPending ? "Join request sent!" : "Joined event!", {
         action: {
@@ -115,9 +115,9 @@ export const useLeaveEvent = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // 1. API Call (Pleroma unjoin endpoint)
+    // 1. API Call (Kollective unjoin endpoint)
     mutationFn: (id) =>
-      api.post(`/api/v1/pleroma/events/${id}/unjoin`).then(res => res.data),
+      api.post(`/api/v1/kollective/events/${id}/unjoin`).then(res => res.data),
 
     // 2. Optimistic Update
     onMutate: async (id) => {
@@ -179,7 +179,7 @@ const EventActionButton = ({ status }) => {
 };
 Unified State: Whether a user is "Joining," "Pending," or "Leaving," the state is derived from the server's join_state inside the status object in the cache. No separate joinedEvents array in Redux.
 Automatic Cleanup: When a user leaves an event, invalidating ['events', 'mine'] ensures their personal event calendar is updated without you writing a single .filter() in a reducer.
-Error Resiliency: If the Pleroma server is slow or down, the heart of the UI (the "Leave" button) won't stay stuck in a loading state; the onError rollback handles the recovery.
+Error Resiliency: If the Kollective server is slow or down, the heart of the UI (the "Leave" button) won't stay stuck in a loading state; the onError rollback handles the recovery.
 
 */
 //===============================================================================
@@ -192,7 +192,7 @@ export const useJoinEvent = () => {
 
   return useMutation({
     mutationFn: ({ id, message }) =>
-      api.post(`/api/v1/pleroma/events/${id}/join`, {
+      api.post(`/api/v1/kollective/events/${id}/join`, {
         participation_message: message,
       }).then(res => res.data),
     
@@ -262,7 +262,7 @@ export const useJoinEvent = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id }) => api.post(`/api/v1/pleroma/events/${id}/join`),
+    mutationFn: ({ id }) => api.post(`/api/v1/kollective/events/${id}/join`),
 
     // REPLACES: joinEventRequest
     onMutate: async ({ id }) => {
@@ -276,9 +276,9 @@ export const useJoinEvent = () => {
       // 3. Update the join_state across all timelines (Home, Recent, Joined)
       queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => 
         updatePostInPages(old, id, {
-          pleroma: { 
-            ...old?.pleroma, 
-            event: { ...old?.pleroma?.event, join_state: 'accepted' } 
+          kollective: { 
+            ...old?.kollective, 
+            event: { ...old?.kollective?.event, join_state: 'accepted' } 
           }
         })
       );
@@ -303,7 +303,7 @@ export const useJoinEvent = () => {
 /*
 const JoinButton = ({ status }) => {
   const { mutate: join, isPending } = useJoinEvent();
-  const joinState = status.pleroma?.event?.join_state;
+  const joinState = status.kollective?.event?.join_state;
 
   return (
     <button 
@@ -318,6 +318,7 @@ const JoinButton = ({ status }) => {
 
 */
 //===============================================================================
+
 
 
 

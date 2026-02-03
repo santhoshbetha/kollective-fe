@@ -9,7 +9,7 @@ const initialStateX = {
     token_type: null,
     scope: null,
     created_at: null, 
-    id: null, // Pleroma (primary key)
+    id: null, // Kollective (primary key)
     me: null, // leroma (ActivityPub ID of user)
   },
   users: {

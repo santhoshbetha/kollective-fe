@@ -9,14 +9,14 @@ export const useMessageStreaming = (accessToken) => {
   useEffect(() => {
     if (!accessToken) return;
 
-    // Connect to Pleroma User Stream
+    // Connect to Kollective User Stream
     const ws = new WebSocket(`${process.env.VITE_WS_URL}/api/v1/streaming?access_token=${accessToken}&stream=user`);
 
     ws.onmessage = (e) => {
       const { event, payload } = JSON.parse(e.data);
       
-      // Pleroma-specific typing event
-      if (event === 'pleroma:typing') {
+      // Kollective-specific typing event
+      if (event === 'kollective:typing') {
         const data = JSON.parse(payload); // { conversation_id, account_id, typing }
         setTyping(data.conversation_id, data.account_id, data.typing);
       }

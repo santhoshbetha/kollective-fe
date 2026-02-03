@@ -7,7 +7,8 @@ import { emojiSchema } from "./utils.js";
 
 const baseNotificationSchema = z.object({
   account: accountSchema,
-  created_at: z.string().datetime().catch(new Date().toUTCString()),
+  // FIXED: Dynamic date fallback
+  created_at: z.string().datetime().catch(() => new Date().toISOString()),
   id: z.string(),
   type: z.string(),
 });
@@ -61,23 +62,23 @@ const chatMessageNotificationSchema = baseNotificationSchema.extend({
 });
 
 const emojiReactionNotificationSchema = baseNotificationSchema.extend({
-  type: z.literal("pleroma:emoji_reaction"),
+  type: z.literal("kollective:emoji_reaction"),
   emoji: emojiSchema,
   emoji_url: z.string().url().optional().catch(undefined),
 });
 
 const eventReminderNotificationSchema = baseNotificationSchema.extend({
-  type: z.literal("pleroma:event_reminder"),
+  type: z.literal("kollective:event_reminder"),
   status: statusSchema,
 });
 
 const participationRequestNotificationSchema = baseNotificationSchema.extend({
-  type: z.literal("pleroma:participation_request"),
+  type: z.literal("kollective:participation_request"),
   status: statusSchema,
 });
 
 const participationAcceptedNotificationSchema = baseNotificationSchema.extend({
-  type: z.literal("pleroma:participation_accepted"),
+  type: z.literal("kollective:participation_accepted"),
   status: statusSchema,
 });
 
@@ -86,6 +87,7 @@ const nameGrantNotificationSchema = baseNotificationSchema.extend({
   name: z.string(),
 });
 
+// Final combined schema
 const notificationSchema = z.discriminatedUnion("type", [
   mentionNotificationSchema,
   statusNotificationSchema,
@@ -104,4 +106,14 @@ const notificationSchema = z.discriminatedUnion("type", [
   nameGrantNotificationSchema,
 ]);
 
-export { notificationSchema };
+// Recommendation: Create a "Safe" wrapper for lists
+const notificationListSchema = z.array(
+  z.preprocess((val) => {
+    // If the type is not recognized, safeParse will fail later
+    // Pre-checking here or catching the error prevents the whole list from failing
+    return val;
+  }, notificationSchema.catch(null)) 
+).transform(list => list.filter(Boolean)); // Filter out the nulls (unknown types)
+
+export { notificationSchema, notificationListSchema };
+

@@ -20,7 +20,7 @@ const pollSchema = z
     votes_count: z.number().catch(0),
     own_votes: z.array(z.number()).nonempty().nullable().catch(null),
     voted: z.boolean().catch(false),
-    pleroma: z
+    kollective: z
       .object({
         non_anonymous: z.boolean().catch(false),
       })

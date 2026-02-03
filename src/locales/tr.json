@@ -1053,11 +1053,11 @@
   "notification.mentioned": "{name} senden bahsetti",
   "notification.move": "{name}, {targetName} konumuna taşındı",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} sana bir mesaj gönderdi",
-  "notification.pleroma:emoji_reaction": "{name} gönderinize tepki verdi",
-  "notification.pleroma:event_reminder": "Katıldığınız bir etkinlik yakında başlıyor",
-  "notification.pleroma:participation_accepted": "Etkinliğe katılmak için kabul edildiniz",
-  "notification.pleroma:participation_request": "{name} etkinliğinize katılmak istiyor",
+  "notification.kollective:chat_mention": "{name} sana bir mesaj gönderdi",
+  "notification.kollective:emoji_reaction": "{name} gönderinize tepki verdi",
+  "notification.kollective:event_reminder": "Katıldığınız bir etkinlik yakında başlıyor",
+  "notification.kollective:participation_accepted": "Etkinliğe katılmak için kabul edildiniz",
+  "notification.kollective:participation_request": "{name} etkinliğinize katılmak istiyor",
   "notification.poll": "Oy verdiğiniz bir anket bitti",
   "notification.reblog": "{name} senin durumunu yeniden gönderdi",
   "notification.status": "{name} az önce gönderdi",
@@ -1481,3 +1481,4 @@
   "video.unmute": "Sesi aç",
   "who_to_follow.title": "Kimi takip etmeli"
 }
+

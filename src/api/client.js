@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { queryClient } from './queryClient'; // The client we built earlier
-import { useAuthStore } from '@/features/auth/store/useAuthStore';
+import { queryClient } from '../lib/queryClient'; // The client we built earlier
+import { useAuthStore } from '../features/auth/store/useAuthStore';
 
 export const api = axios.create({
-  baseURL: process.env.VITE_API_BASE_URL,
+  baseURL: import.meta.env.VITE_BACKEND_URL,
 });
 
 // Request Interceptor: Attach the token
@@ -32,3 +32,4 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+

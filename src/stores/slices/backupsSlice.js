@@ -47,7 +47,7 @@ export function createBackupsSlice(setScoped, getScoped, rootSet, rootGet) {
       });
 
       try {
-        const response = await fetch("/api/v1/pleroma/backups");
+        const response = await fetch("/api/v1/kollective/backups");
 
         if (!response.ok) {
           throw new Error(`Network response was not ok (${response.status})`);
@@ -95,7 +95,7 @@ export function createBackupsSlice(setScoped, getScoped, rootSet, rootGet) {
       });
 
       try {
-        const response = await fetch("/api/v1/pleroma/backups", {
+        const response = await fetch("/api/v1/kollective/backups", {
           method: "POST",
         });
 

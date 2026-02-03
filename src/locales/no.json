@@ -1000,11 +1000,11 @@
   "notification.mentioned": "{name} nevnte deg",
   "notification.move": "{name} flyttet til {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} sendte deg en melding",
-  "notification.pleroma:emoji_reaction": "{name} reagerte på innlegget ditt",
-  "notification.pleroma:event_reminder": "Et arrangement du deltar på starter snart",
-  "notification.pleroma:participation_accepted": "Du ble akseptert til å bli med på arrangementet",
-  "notification.pleroma:participation_request": "{name} ønsker å bli med på arrangementet ditt",
+  "notification.kollective:chat_mention": "{name} sendte deg en melding",
+  "notification.kollective:emoji_reaction": "{name} reagerte på innlegget ditt",
+  "notification.kollective:event_reminder": "Et arrangement du deltar på starter snart",
+  "notification.kollective:participation_accepted": "Du ble akseptert til å bli med på arrangementet",
+  "notification.kollective:participation_request": "{name} ønsker å bli med på arrangementet ditt",
   "notification.poll": "En avstemning du har stemt i er avsluttet",
   "notification.reblog": "{name} fremhevde din status",
   "notification.status": "{name} har nettopp lagt ut",
@@ -1419,3 +1419,4 @@
   "video.unmute": "Skru på lyd",
   "who_to_follow.title": "Who To Follow"
 }
+

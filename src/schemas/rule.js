@@ -7,15 +7,22 @@ const baseRuleSchema = z.object({
   rule_type: z.enum(["account", "content", "group"]).nullable().catch(null),
 });
 
-const ruleSchema = z.preprocess((data) => {
-  return {
-    ...data,
-    hint: data.hint || data.subtext,
-  };
-}, baseRuleSchema);
+const ruleSchema = z
+  .preprocess((data) => {
+    // Safety check to prevent crashing on non-object inputs
+    if (!data || typeof data !== "object") return {};
+    
+    return {
+      ...data,
+      // Map 'subtext' to 'hint' if 'hint' is missing or empty
+      hint: data.hint || data.subtext || "",
+    };
+  }, baseRuleSchema);
 
 const adminRuleSchema = baseRuleSchema.extend({
-  priority: z.number().nullable().catch(null),
+  // priority is vital for the Admin UI to sort rules correctly
+  priority: z.number().int().catch(0),
 });
 
 export { ruleSchema, adminRuleSchema };
+

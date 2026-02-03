@@ -176,6 +176,40 @@ export const reduceEmoji = (
     allowedEmoji,
   );
 
+/**
+ * Merges raw emoji reactions with standard favorites into a unified interaction list.
+ * 
+ * @param {Array} reactions - Raw emoji reactions from the API (kollective.emoji_reactions)
+ * @param {number} favouritesCount - The standard Mastodon favorite count
+ * @param {boolean} favourited - Whether the current user has favorited the post
+ * @returns {Array} - A sorted, unified list of emoji objects
+ */
+export const reduceEmoji2 = (reactions = [], favouritesCount = 0, favourited = false) => {
+  const result = [...reactions];
+
+  // 1. Find or Create the 'Like' reaction (usually ❤️ or ⭐)
+  // Mastodon traditionally uses "favourite", while Kollective might use ❤️
+  const favoriteEmoji = "❤️"; // You can customize this based on your instance
+  const existingFavorite = result.find((r) => r.name === favoriteEmoji);
+
+  if (existingFavorite) {
+    // If it exists in reactions, ensure it reflects the Mastodon favorite count
+    // This handles instances where the reaction list and favorite_count are slightly out of sync
+    existingFavorite.count = Math.max(existingFavorite.count, favouritesCount);
+    existingFavorite.me = existingFavorite.me || favourited;
+  } else if (favouritesCount > 0) {
+    // If it doesn't exist in reactions but there are favorites, add it as a pseudo-reaction
+    result.push({
+      name: favoriteEmoji,
+      count: favouritesCount,
+      me: favourited,
+    });
+  }
+
+  // 2. Sort by count (highest first) so popular reactions appear first in the UI
+  return result.sort((a, b) => b.count - a.count);
+};
+
 
 // Refined to handle undefined cases safely so your UI doesn't crash during loading states.
 export const getReactForStatus = (status, allowedEmoji = ALLOWED_EMOJI) => {
@@ -272,3 +306,4 @@ Why these changes matter for TanStack Query:
     to the 👍 reaction, you make the UI consistent between the "Like" button and the "Emoji" bar.
 
 */
+

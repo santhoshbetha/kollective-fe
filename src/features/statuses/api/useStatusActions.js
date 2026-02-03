@@ -2,13 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { deletePostInPages, updatePostInPages } from '../utils/cacheHelpers';
 import { adjustReplyCount } from '../utils/cacheHelpers';
-
-
 import { deleteByStatusInPages } from '@/features/notifications/utils/notificationCacheHelpers';
 
 
-
-// Why this works for Kollective-FE
+// Why this works for kollective:-FE
 
 //1. Atomic Updates: Only the component rendering the parent status will re-render.
 //2. State Protection: The Math.max(0, ...) check ensures you never end up with -1 replies 
@@ -149,7 +146,7 @@ export const useDeleteStatus2 = () => {
 };
 
 /*
-Why this is a win for Kollective-FE:
+Why this is a win for kollective:-FE:
 
     1. Encapsulation: The logic for "if I delete X, update parent Y" lives entirely within the 
       useDeleteStatus hook. In Redux, this was scattered across different action types and reducers.
@@ -507,7 +504,7 @@ export const useDeleteStatus = () => {
 
 //==================================================================================
 //"Optimistic Likes"
-//To implement Optimistic Likes (Favoriting) in a Mastodon/Pleroma app, you use the same pattern as following, but you must also increment the Like Count so the number changes instantly alongside the heart icon.
+//To implement Optimistic Likes (Favoriting) in a Mastodon/Kollective app, you use the same pattern as following, but you must also increment the Like Count so the number changes instantly alongside the heart icon.
 //This replaces the manual logic in your statusesSlice.js where you previously searched through arrays to toggle favourited.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -553,6 +550,7 @@ export const useLikeStatus = () => {
   });
 };
 /*
+//"Optimistic Likes"
 const LikeButton = ({ status }) => {
   const { mutate: toggleLike, isPending } = useLikeStatus();
 
@@ -573,7 +571,7 @@ const LikeButton = ({ status }) => {
 
 // /"Optimistic Reblogs"
 // /Implementing Optimistic Reblogs (Boosts) is the most complex interaction because you have to toggle the reblogged boolean while also incrementing the reblogs_count.
-//Additionally, in Mastodon/Pleroma, when you reblog a post, it often triggers a "New Status" event for your own profile. TanStack Query simplifies this by allowing you to update the existing cache and invalidate your profile timeline simultaneously.
+//Additionally, in Mastodon/Kollective, when you reblog a post, it often triggers a "New Status" event for your own profile. TanStack Query simplifies this by allowing you to update the existing cache and invalidate your profile timeline simultaneously.
 
 export const useReblogStatus = () => {
   const queryClient = useQueryClient();
@@ -617,6 +615,7 @@ export const useReblogStatus = () => {
 };
 
 /*
+"Optimistic Reblogs"
 const ReblogButton = ({ status }) => {
   const { mutate: toggleReblog, isPending } = useReblogStatus();
 
@@ -669,6 +668,7 @@ export const useLikeStatus = () => {
 };
 
 /*
+//"Retry" Logic for Search Actions
 const LikeButton = ({ status }) => {
   const { mutate, isPending, isPaused } = useLikeStatus();
 
@@ -736,10 +736,10 @@ export const useEmojiReaction = (statusId) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // 1. API Call (Pleroma-specific endpoint)
+    // 1. API Call (Kollective-specific endpoint)
     mutationFn: ({ emoji, active }) => {
       const endpoint = active ? 'unreact' : 'react';
-      return api.put(`/api/v1/pleroma/statuses/${statusId}/${endpoint}/${emoji}`);
+      return api.put(`/api/v1/kollective/statuses/${statusId}/${endpoint}/${emoji}`);
     },
 
     // 2. Optimistic Update
@@ -747,10 +747,10 @@ export const useEmojiReaction = (statusId) => {
       await queryClient.cancelQueries({ queryKey: ['statuses'] });
       const previous = queryClient.getQueriesData({ queryKey: ['statuses'] });
 
-      // Update the 'pleroma.emoji_reactions' array in the cache instantly
+      // Update the 'kollective.emoji_reactions' array in the cache instantly
       queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => 
         updatePostInPages(old, statusId, (status) => {
-          const reactions = status.pleroma?.emoji_reactions || [];
+          const reactions = status.kollective?.emoji_reactions || [];
           let nextReactions;
 
           if (active) {
@@ -768,7 +768,7 @@ export const useEmojiReaction = (statusId) => {
 
           return { 
             ...status, 
-            pleroma: { ...status.pleroma, emoji_reactions: nextReactions } 
+            kollective: { ...status.kollective, emoji_reactions: nextReactions } 
           };
         })
       );
@@ -800,6 +800,8 @@ const ReactionButton = ({ status, emojiName, url, count, me }) => {
     </button>
   );
 };*/
+
+
 //==================================================================================
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
@@ -810,10 +812,10 @@ export const useEmojiReaction2 = (statusId) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // 1. API Call (Pleroma-specific PUT endpoint)
+    // 1. API Call (Kollective-specific PUT endpoint)
     mutationFn: ({ emoji, active }) => {
       const endpoint = active ? 'unreact' : 'react';
-      return api.put(`/api/v1/pleroma/statuses/${statusId}/${endpoint}/${emoji}`);
+      return api.put(`/api/v1/kollective/statuses/${statusId}/${endpoint}/${emoji}`);
     },
 
     // 2. Optimistic Update
@@ -824,7 +826,7 @@ export const useEmojiReaction2 = (statusId) => {
       // Update the specific status in all timeline caches
       queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => 
         updatePostInPages(old, statusId, (status) => {
-          const reactions = status.pleroma?.emoji_reactions || [];
+          const reactions = status.kollective?.emoji_reactions || [];
           let nextReactions;
 
           if (active) {
@@ -842,7 +844,7 @@ export const useEmojiReaction2 = (statusId) => {
 
           return { 
             ...status, 
-            pleroma: { ...status.pleroma, emoji_reactions: nextReactions } 
+            kollective: { ...status.kollective, emoji_reactions: nextReactions } 
           };
         })
       );
@@ -948,7 +950,7 @@ const FavouritesTimeline = ({ accountId }) => {
 };
 Targeted Cache Updates: In Redux, you would typically wait for a SUCCESS action to filter your array. With TanStack Query Optimistic Updates, the UI remains ahead of the network.
 Automatic Synchronization: Since you use the same cacheKey as the fetching hook, the data and the UI are always in sync.
-Error Handling: If the Pleroma server fails to process the "unfavourite" (e.g., timeout), the post will "pop back" into the list automatically, keeping the UI honest TanStack Query Mutation Docs.
+Error Handling: If the Kollective server fails to process the "unfavourite" (e.g., timeout), the post will "pop back" into the list automatically, keeping the UI honest TanStack Query Mutation Docs.
 */
 
 //===========================================================================
@@ -1025,12 +1027,12 @@ export const useExclusiveReaction = (status: Status) => {
   return useMutation({
     mutationFn: async ({ emoji }: { emoji: string }) => {
       // 1. Identify current "me" reactions
-      const currentMeReactions = status.pleroma?.emoji_reactions?.filter(r => r.me) || [];
+      const currentMeReactions = status.kollective?.emoji_reactions?.filter(r => r.me) || [];
       
-      // 2. Clear all existing reactions (Pleroma usually allows only one 'me' reaction)
+      // 2. Clear all existing reactions (Kollective usually allows only one 'me' reaction)
       const cleanup = currentMeReactions.map(r => unreact({ emoji: r.name, active: true }));
       
-      // 3. Special case: If '👍', Pleroma often maps this to a standard 'Favourite'
+      // 3. Special case: If '👍', Kollective often maps this to a standard 'Favourite'
       if (emoji === '👍') {
         await Promise.all([...cleanup]);
         return fav({ id: status.id, isLiked: status.favourited });
@@ -1101,3 +1103,4 @@ Tab-to-Tab Sync: If you have Tab Synchronization enabled, this patch will even b
 
 Every piece of logic from your timelinesSlice, statusesSlice, and reselect selectors has been replaced.
 */
+

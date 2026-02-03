@@ -1,5 +1,5 @@
 // src/features/statuses/components/MediaOverlay.jsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 ///Content Warning Overlays
 const MediaOverlay = ({ status, children }) => {
@@ -31,3 +31,6 @@ const MediaOverlay = ({ status, children }) => {
     </div>
   );
 };
+
+export default MediaOverlay;
+

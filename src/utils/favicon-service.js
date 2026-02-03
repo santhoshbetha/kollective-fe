@@ -1,5 +1,5 @@
-// Adapted from Pleroma FE
-// https://git.pleroma.social/pleroma/pleroma-fe/-/blob/ef5bbc4e5f84bb9e8da76a0440eea5d656d36977/src/services/favicon_service/favicon_service.js
+// Adapted from Kollective FE
+// https://git.kollective.social/kollective/kollective-fe/-/blob/ef5bbc4e5f84bb9e8da76a0440eea5d656d36977/src/services/favicon_service/favicon_service.js
 
 /** Service to draw and update a notifications dot on the favicon */
 const createFaviconService = () => {

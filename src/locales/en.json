@@ -1235,11 +1235,11 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} moved to {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} sent you a message",
-  "notification.pleroma:emoji_reaction": "{name} reacted to your post",
-  "notification.pleroma:event_reminder": "An event you are participating in starts soon",
-  "notification.pleroma:participation_accepted": "You were accepted to join the event",
-  "notification.pleroma:participation_request": "{name} wants to join your event",
+  "notification.kollective:chat_mention": "{name} sent you a message",
+  "notification.kollective:emoji_reaction": "{name} reacted to your post",
+  "notification.kollective:event_reminder": "An event you are participating in starts soon",
+  "notification.kollective:participation_accepted": "You were accepted to join the event",
+  "notification.kollective:participation_request": "{name} wants to join your event",
   "notification.poll": "A poll you have voted in has ended",
   "notification.reblog": "{name} reposted your post",
   "notification.set_name": "Set name to {name}",
@@ -1720,3 +1720,4 @@
   "zap_split.text": "Your support will help us build an unstoppable empire and rule the galaxy!",
   "zap_split.title": "Zap Split"
 }
+

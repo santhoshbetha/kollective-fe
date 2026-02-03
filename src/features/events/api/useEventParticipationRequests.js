@@ -4,15 +4,13 @@ import { extractMaxIdFromLink } from '@/utils/apiUtils';
 import { useStatusImporter } from '@/features/statuses/hooks/useStatusImporter';
 
 //fetchEventParticipationRequests
-
-
 export const useEventParticipationRequests = (eventId) => {
   const { importAccounts } = useStatusImporter();
 
   return useInfiniteQuery({
     queryKey: ['events', eventId, 'participation-requests'],
     queryFn: async ({ pageParam }) => {
-      const response = await api.get(`/api/v1/pleroma/events/${eventId}/participation_requests`, {
+      const response = await api.get(`/api/v1/kollective/events/${eventId}/participation_requests`, {
         params: { max_id: pageParam, limit: 40 }
       });
 
@@ -33,3 +31,4 @@ export const useEventParticipationRequests = (eventId) => {
     enabled: !!eventId,
   });
 };
+

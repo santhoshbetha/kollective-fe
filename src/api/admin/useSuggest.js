@@ -11,8 +11,8 @@ function useSuggest() {
   function suggestEffect(accountIds, suggested) {
     const updater = (account) => ({
       ...account,
-      pleroma: {
-        ...(account?.pleroma || {}),
+      kollective: {
+        ...(account?.kollective || {}),
         is_suggested: suggested,
       },
     });
@@ -29,7 +29,7 @@ function useSuggest() {
     const accts = accountIdsToAccts(getState(), accountIds);
     suggestEffect(accountIds, true);
     try {
-      await api.patch('/api/v1/pleroma/admin/users/suggest', { nicknames: accts });
+      await api.patch('/api/v1/kollective/admin/users/suggest', { nicknames: accts });
       callbacks?.onSuccess?.();
     } catch (err) {
       void err;
@@ -42,7 +42,7 @@ function useSuggest() {
     const accts = accountIdsToAccts(getState(), accountIds);
     suggestEffect(accountIds, false);
     try {
-      await api.patch('/api/v1/pleroma/admin/users/unsuggest', { nicknames: accts });
+      await api.patch('/api/v1/kollective/admin/users/unsuggest', { nicknames: accts });
       callbacks?.onSuccess?.();
     } catch (err) {
       void err;

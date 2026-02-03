@@ -46,7 +46,7 @@ const useChatMessages = (chat) => {
 
   const getChatMessages = async (chatId, pageParam) => {
     const nextPageLink = pageParam?.link;
-    const uri = nextPageLink || `/api/v1/pleroma/chats/${chatId}/messages`;
+    const uri = nextPageLink || `/api/v1/kollective/chats/${chatId}/messages`;
     const response = await api.get(uri);
     const data = await response.json();
 
@@ -153,7 +153,7 @@ const useChat = (chatId) => {
 
   const getChat = async () => {
     if (chatId) {
-      const response = await api.get(`/api/v1/pleroma/chats/${chatId}`);
+      const response = await api.get(`/api/v1/kollective/chats/${chatId}`);
       const data = await response.json();
 
       fetchRelationships.mutate({ accountIds: [data.account.id] });
@@ -180,7 +180,7 @@ const useChatActions = (chatId) => {
   const { chat, changeScreen } = useChatContext();
 
   const markChatAsRead = async (lastReadId) => {
-    return api.post(`/api/v1/pleroma/chats/${chatId}/read`, { last_read_id: lastReadId })
+    return api.post(`/api/v1/kollective/chats/${chatId}/read`, { last_read_id: lastReadId })
       .then(async (response) => {
         const data = await response.json();
         updatePageItem(ChatKeys.chatSearch(), data, (o, n) => o.id === n.id);
@@ -206,7 +206,7 @@ const useChatActions = (chatId) => {
     mutationFn: async ({ chatId, content, mediaIds }) => {
       const response = await api.post(`/api/v1/chats/${chatId}/messages`, {
         content,
-        media_id: (mediaIds && mediaIds.length === 1) ? mediaIds[0] : undefined, // Pleroma backwards-compat
+        media_id: (mediaIds && mediaIds.length === 1) ? mediaIds[0] : undefined, // Kollective backwards-compat
         media_ids: mediaIds,
       });
       return response.json();
@@ -269,7 +269,7 @@ const useChatActions = (chatId) => {
   });
 
   const updateChat = useMutation({
-    mutationFn: (data) => api.patch(`/api/v1/pleroma/chats/${chatId}`, data),
+    mutationFn: (data) => api.patch(`/api/v1/kollective/chats/${chatId}`, data),
     onMutate: async (data) => {
       // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries({
@@ -313,7 +313,7 @@ const useChatActions = (chatId) => {
   });
 
   const deleteChat = useMutation({
-    mutationFn: () => api.delete(`/api/v1/pleroma/chats/${chatId}`),
+    mutationFn: () => api.delete(`/api/v1/kollective/chats/${chatId}`),
     onSuccess() {
       changeScreen('INBOX');
       queryClient.invalidateQueries({ queryKey: ChatKeys.chatMessages(chatId) });
@@ -322,7 +322,7 @@ const useChatActions = (chatId) => {
   });
 
   const createReaction = useMutation({
-    mutationFn: (data) => api.post(`/api/v1/pleroma/chats/${chatId}/messages/${data.messageId}/reactions`, {
+    mutationFn: (data) => api.post(`/api/v1/kollective/chats/${chatId}/messages/${data.messageId}/reactions`, {
       json: {
         emoji: data.emoji,
       },
@@ -334,7 +334,7 @@ const useChatActions = (chatId) => {
   });
 
   const deleteReaction = useMutation({
-    mutationFn: (data) => api.delete(`/api/v1/pleroma/chats/${chatId}/messages/${data.messageId}/reactions/${data.emoji}`),
+    mutationFn: (data) => api.delete(`/api/v1/kollective/chats/${chatId}/messages/${data.messageId}/reactions/${data.emoji}`),
     onSuccess() {
       queryClient.invalidateQueries({ queryKey: ChatKeys.chatMessages(chatId) });
     },

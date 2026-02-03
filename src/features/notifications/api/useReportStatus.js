@@ -6,7 +6,7 @@ export const useReportStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // 1. API Call (Standard Mastodon/Pleroma Report endpoint)
+    // 1. API Call (Standard Mastodon/Kollective Report endpoint)
     mutationFn: ({ statusId, accountId, comment, category }) => 
       api.post('/api/v1/reports', {
         status_ids: [statusId],

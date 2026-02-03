@@ -1,4 +1,100 @@
 import { z } from 'zod';
+import { emojiReactionSchema } from './emojiSchemas';
+import { reduceEmoji } from '../utils/statusUtils';
+import { formatDistanceToNow } from 'date-fns';
+
+//Reaction Enrichment  //DONE
+export const statusSchema = z.object({
+  id: z.string(),
+  created_at: z.string(), // Keep this raw
+  content: z.string(),
+  favourites_count: z.number().default(0),
+  favourited: z.boolean().default(false),
+  reactions: z.array(emojiReactionSchema).catch([]), // Fallback to empty array if corrupt
+  // Add other standard fields...
+}).transform((status) => {
+  // Enrichment: Automatically calculate sorted reactions for every status
+  return {
+    ...status,
+    // Pre-calculate the combined Like + Emoji list
+    enrichedReactions: reduceEmoji(
+      status.reactions,
+      status.favourites_count,
+      status.favourited
+    ),
+    // Pre-calculate if I have reacted to this
+    myReaction: reduceEmoji(
+      status.reactions,
+      status.favourites_count,
+      status.favourited
+    ).find(e => e.me === true),
+    // NEW: Transform the ISO string into a human-readable "Time Ago" string
+    timeAgo: formatDistanceToNow(new Date(status.created_at), { addSuffix: true }),
+    // OPTIONAL: Transform content to remove empty paragraphs or normalize HTML
+    cleanContent: status.content.trim(),
+  };
+});
+
+/*
+Now, your StatusCard doesn't need to import date libraries or perform calculations 
+on every render. It simply consumes the pre-calculated timeAgo property.
+
+const StatusCard = ({ status }) => {
+  return (
+    <div className="status">
+      <header>
+        <strong>{status.account.display_name}</strong>
+        {/* Replaces: formatDistanceToNow(new Date(status.created_at)) *//*}
+        <span className="timestamp">{status.timeAgo}</span>
+      </header>
+      <div dangerouslySetInnerHTML={{ __html: status.cleanContent }} />
+    </div>
+  );
+};
+*/
+/*
+const StatusCard = ({ status }) => {
+  return (
+    <div className="status-card">
+      <header>
+        <TimeAgo date={status.created_at} />
+      </header>
+      <div dangerouslySetInnerHTML={{ __html: status.content }} />
+    </div>
+  );
+};
+*/
+//==================================================================================
+//Quote normalization  //DONE
+import { z } from 'zod';
+import { pollSchema } from './poll';
+import { cardSchema } from './card';
+import { accountSchema } from '@/features/accounts/schemas/accountSchemas';
+
+export const statusSchema = z.object({
+  id: z.string(),
+  account: accountSchema,
+  poll: pollSchema, // Automatically normalizes polls
+  card: cardSchema, // Automatically normalizes cards
+  content: z.string().default(''),
+  // ... other fields
+}).passthrough().transform((status) => {
+  const out = { ...status };
+
+  // Ported logic for Quotes (fixQuote)
+  if (out.kollective?.quote_id) {
+    out.quoteId = out.kollective.quote_id;
+  }
+
+  // Final cleanup of the complex Kollective metadata
+  out.reactions = out.kollective?.emoji_reactions || out.emojis || [];
+
+  return Object.freeze(out);
+});
+
+
+//==================================================================DONE
+import { z } from 'zod';
 import { accountSchema } from '@/features/accounts/schemas/accountSchemas';
 
 //check this later
@@ -15,7 +111,7 @@ export const statusSchema = z.object({
   tags: z.array(z.any()).default([]),
   emojis: z.array(z.any()).default([]),
   account: accountSchema,
-  pleroma: z.object({}).passthrough().optional(),
+  kollective: z.object({}).passthrough().optional(),
 }).passthrough().transform((status) => {
   // --- LOGIC PORTED FROM normalizeStatus ---
   
@@ -30,8 +126,8 @@ export const statusSchema = z.object({
   // 2. Normalize Mentions (Ported from fixMentionsOrder/addSelfMention)
   out.mentions = Array.isArray(out.mentions) ? out.mentions : [];
   
-  // 3. Normalize Pleroma Specifics (Ported from fixQuote/normalizeEmojis)
-  const reactions = out.pleroma?.emoji_reactions || [];
+  // 3. Normalize Kollective Specifics (Ported from fixQuote/normalizeEmojis)
+  const reactions = out.kollective?.emoji_reactions || [];
   out.reactions = reactions.length ? reactions : (out.emojis || []);
 
   // 4. Polls & Cards (Ported from normPoll/normCard)
@@ -65,7 +161,7 @@ export const useTimeline = (type) => {
 //To implement this, you'll integrate the checkFiltered utility directly into your Zod Schema 
 // using the .transform() function. This ensures every status is "pre-scrubbed" as 
 // it enters the TanStack Query Cache, so your UI components don't have to calculate
-// filtering on every render.
+// filtering on every render.                               // NOT DONE
 import { z } from 'zod';
 import { queryClient } from '@/api/queryClient';
 import { checkFiltered, isFilterActive } from '@/features/filters/utils/filterHelpers';
@@ -106,7 +202,7 @@ Performance: Transforming data once at the "Edge" (API entry) is significantly m
 */
 //================================================================
 //Filter Toggle
-// src/features/statuses/schemas/statusSchemas.js
+// src/features/statuses/schemas/statusSchemas.js  //DONE
 import { useFilterPrefsStore } from '@/features/filters/store/useFilterPrefsStore';
 
 export const statusSchema = z.object({
@@ -133,7 +229,7 @@ export const statusSchema = z.object({
 });
 //========================================================
 // /Content Warning Overlays
-// src/features/statuses/schemas/statusSchemas.js
+// src/features/statuses/schemas/statusSchemas.js  //DONE
 
 export const statusSchema = z.object({
   sensitive: z.boolean().default(false),
@@ -151,4 +247,28 @@ export const statusSchema = z.object({
 
   return Object.freeze(out);
 });
+
+//========================================================
+//================================================================
+//Filter Highlights
+// src/features/statuses/schemas/statusSchemas.js  //DONE
+import { getHighlightStyle } from '@/features/filters/utils/filterHelpers';
+
+export const statusSchema = z.object({
+  // ... existing fields
+}).passthrough().transform((status) => {
+  const out = { ...status };
+  
+  // Logic from previous step: Get matching filters
+  const matchingFilters = out.filter_titles || [];
+  
+  // NEW: Assign a specific CSS class based on the filter match
+  out.highlightClass = getHighlightStyle(matchingFilters);
+  
+  return Object.freeze(out);
+});
+
+
+
+
 

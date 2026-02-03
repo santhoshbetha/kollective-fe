@@ -32,3 +32,6 @@ const TrendingItem = ({ tag }) => {
     </div>
   );
 };
+
+export default TrendingSidebar;
+export { TrendingItem };

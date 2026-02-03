@@ -6,7 +6,7 @@ import { toast } from '@/components/Toast';
 export const useBackups = () => {
   return useQuery({
     queryKey: ['backups', 'list'],
-    queryFn: () => api.get('/api/v1/pleroma/backups').then(res => res.data),
+    queryFn: () => api.get('/api/v1/kollective/backups').then(res => res.data),
     // If a backup is being processed, poll every 10s to check status
     refetchInterval: (query) => 
       query.state.data?.some(b => b.status === 'processing') ? 10000 : false,
@@ -18,7 +18,7 @@ export const useCreateBackup = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => api.post('/api/v1/pleroma/backups').then(res => res.data),
+    mutationFn: () => api.post('/api/v1/kollective/backups').then(res => res.data),
     onSuccess: () => {
       // Refresh the list immediately
       queryClient.invalidateQueries({ queryKey: ['backups', 'list'] });

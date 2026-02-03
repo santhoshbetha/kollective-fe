@@ -9,8 +9,8 @@ export const useReactionParticipants = (statusId, emoji) => {
     queryKey: ['statuses', 'reactions', statusId, emoji || 'all'],
     queryFn: async () => {
       const url = emoji 
-        ? `/api/v1/pleroma/statuses/${statusId}/reactions/${emoji}`
-        : `/api/v1/pleroma/statuses/${statusId}/reactions`;
+        ? `/api/v1/kollective/statuses/${statusId}/reactions/${emoji}`
+        : `/api/v1/kollective/statuses/${statusId}/reactions`;
       
       const { data } = await api.get(url);
       // Data is typically an array of { name: string, count: number, accounts: Account[], me: boolean }

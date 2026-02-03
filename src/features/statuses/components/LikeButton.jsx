@@ -1,6 +1,10 @@
 // src/features/statuses/components/LikeButton.jsx
 // Quick Reactions
 //This component replaces the standard Like button logic. It uses a setTimeout to detect the long-press.
+import { useRef } from "react";
+import { useQuickReactionStore } from "../store/useQuickReactionStore";
+import { useToggleFavourite } from "../api/useStatusActions";
+
 const LikeButton = ({ status }) => {
   const { show, hide, activeStatusId, isVisible } = useQuickReactionStore();
   const { mutate: toggleLike } = useToggleFavourite();
@@ -43,6 +47,8 @@ const LikeButton = ({ status }) => {
     </div>
   );
 };
+
+export default LikeButton;
 /*
 The Quick-Reaction Bar
 This renders the top 5 emojis. Selecting one triggers the Exclusive Reaction mutation (removing the "Like" and adding the emoji).
@@ -70,3 +76,4 @@ const QuickReactionLoader = ({ status, onSelect }) => {
 };
 
 */
+

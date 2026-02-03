@@ -422,7 +422,7 @@ export const useNotifications = (filter = 'all') => {
 //"Notification Grouping"
 //To implement Notification Grouping (e.g., "5 people liked your post" instead of 5 separate rows),
 //  you use the TanStack Query select option. This allows you to transform the flat array from
-//  the Pleroma/Mastodon API into a grouped structure before it reaches your UI.
+//  the Kollective/Mastodon API into a grouped structure before it reaches your UI.
 // src/features/notifications/api/useNotifications.js
 
 export const useNotifications = (filter = 'all') => {

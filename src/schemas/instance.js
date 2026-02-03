@@ -3,7 +3,7 @@ import z from "zod";
 
 import { accountSchema } from "./account.js";
 import { screenshotsSchema } from "./manifest.js";
-import { mrfSimpleSchema } from "./pleroma.js";
+import { mrfSimpleSchema } from "./kollective.js";
 import { ruleSchema } from "./rule.js";
 import { coerceObject, filteredArray, mimeSchema } from "./utils.js";
 
@@ -11,12 +11,14 @@ const versionSchema = z
   .string()
   .catch("0.0.0")
   .transform((version) => {
-    if (new RegExp(/[0-9.]+rc[0-9]+/g).test(version)) {
+    // FIXED: Removed 'g' flag to prevent stateful regex bugs
+    if (/[0-9.]+rc[0-9]+/.test(version)) {
       version = version.split("rc").join("-rc");
     }
 
     if (version.includes("Akkoma")) {
-      version = "2.7.2 (compatible; Pleroma 2.4.50+akkoma)";
+      // Akkoma 2.7.2 identifies as Kollective 2.4.50+ for compatibility
+      version = "2.7.2 (compatible; Kollective 2.4.50+akkoma)";
     }
 
     if (version.startsWith("takahe/")) {
@@ -55,6 +57,7 @@ const configurationSchema = coerceObject({
     min_expiration: z.number().catch(Infinity),
   }),
   reactions: coerceObject({
+    // Use a high number or 0 instead of Infinity if JSON serialization is needed
     max_reactions: z.number().catch(0),
   }),
   statuses: coerceObject({
@@ -78,7 +81,7 @@ const contactSchema = coerceObject({
   email: z.string().email().optional().catch(undefined),
 });
 
-const pleromaSchema = coerceObject({
+const kollectiveSchema = coerceObject({
   metadata: coerceObject({
     account_activation_required: z.boolean().catch(false),
     birthday_min_age: z.number().catch(0),
@@ -180,7 +183,7 @@ const instanceV1Schema = coerceObject({
   languages: filteredArray(z.string()),
   max_media_attachments: z.number().optional().catch(undefined),
   max_toot_chars: z.number().optional().catch(undefined),
-  pleroma: pleromaSchema,
+  kollective: kollectiveSchema,
   registrations: z.boolean().catch(false),
   rules: filteredArray(ruleSchema),
   short_description: z.string().catch(""),
@@ -202,7 +205,7 @@ const instanceV2Schema = coerceObject({
   domain: z.string().catch(""),
   icon: filteredArray(instanceIconSchema),
   languages: filteredArray(z.string()),
-  pleroma: pleromaSchema,
+  kollective: kollectiveSchema,
   registrations: registrationsSchema,
   rules: filteredArray(ruleSchema),
   screenshots: screenshotsSchema.catch([]),
@@ -226,7 +229,7 @@ function upgradeInstance(v1) {
     domain: v1.uri,
     icon: [],
     languages: v1.languages,
-    pleroma: v1.pleroma,
+    kollective: v1.kollective,
     registrations: {
       approval_required: v1.approval_required,
       enabled: v1.registrations,
@@ -249,3 +252,4 @@ function upgradeInstance(v1) {
 }
 
 export { instanceV1Schema, instanceV2Schema, upgradeInstance, thumbnailSchema };
+

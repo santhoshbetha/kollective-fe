@@ -97,7 +97,7 @@ export function createChatsSlice(setScoped, getScoped, rootSet, rootGet) {
       });
 
       try {
-        const response = await fetch(`/api/${version}/pleroma/chats`);
+        const response = await fetch(`/api/${version}/kollective/chats`);
         if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
 
         const data = await response.json();
@@ -148,7 +148,7 @@ export function createChatsSlice(setScoped, getScoped, rootSet, rootGet) {
       getActions().ReadChatRequest(chatId);
 
       try {
-        const res = await fetch(`/api/v1/pleroma/chats/${chatId}/read`, {
+        const res = await fetch(`/api/v1/kollective/chats/${chatId}/read`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ last_read_id: rid }),
@@ -202,7 +202,7 @@ export function createChatsSlice(setScoped, getScoped, rootSet, rootGet) {
       if (!accountId) return null;
 
       try {
-        const response = await fetch(`/api/v1/pleroma/chats/by-account-id/${accountId}`, {
+        const response = await fetch(`/api/v1/kollective/chats/by-account-id/${accountId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ account_id: accountId }),
@@ -232,7 +232,7 @@ export function createChatsSlice(setScoped, getScoped, rootSet, rootGet) {
 
       try {
         // Note: Corrected 'pi/v1/...' typo to '/api/v1/...'
-        const response = await fetch(`/api/v1/pleroma/chats/${chatId}/messages/${messageId}`, {
+        const response = await fetch(`/api/v1/kollective/chats/${chatId}/messages/${messageId}`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
         });

@@ -831,7 +831,7 @@ export const createComposeSlice = (
 
     fetchMeSuccess(me) {
       // 1. Standard JS access replaces getIn for nested settings
-      const settings = me?.pleroma_settings_store?.['kollective-fe'] || {};
+      const settings = me?.kollective_settings_store?.['kollective-fe'] || {};
       const { defaultPrivacy, defaultContentType } = settings;
 
       setScoped((state) => {

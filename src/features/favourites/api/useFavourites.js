@@ -84,7 +84,7 @@ export const useFavourites = (accountId = null) => {
     queryFn: async ({ pageParam }) => {
       // 2. Conditional URL based on whether we are looking at a profile or our own
       const endpoint = accountId 
-        ? `/api/v1/pleroma/accounts/${accountId}/favourites`
+        ? `/api/v1/kollective/accounts/${accountId}/favourites`
         : '/api/v1/favourites';
 
       const response = await api.get(endpoint, {
@@ -130,7 +130,7 @@ const FavouritesTimeline = ({ accountId }) => {
     </div>
   );
 };
-Version Independence: The logic to handle Pleroma's profile-specific favorites vs Mastodon's standard favorites is hidden inside the hook TanStack Query Infinite Queries.
+Version Independence: The logic to handle Kollective's profile-specific favorites vs Mastodon's standard favorites is hidden inside the hook TanStack Query Infinite Queries.
 Concurrency Control: You can delete the if (isLoading) guards. TanStack Query's internal state machine ensures fetchNextPage won't trigger if a request is already in flight.
 Cache Partitioning: Because of the queryKey, if you view User A's favorites and then User B's, they don't overwrite each other in the state.
 

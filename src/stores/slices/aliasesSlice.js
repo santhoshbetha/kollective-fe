@@ -128,7 +128,7 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
             Authorization: `Bearer ${rootGet().auth.app?.access_token}`,
           },
           body: JSON.stringify({
-            pleroma: {
+            kollective: {
               also_known_as: [...alsoKnownAs, account.kollective?.ap_id],
             },
           }),
@@ -188,7 +188,7 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
             Authorization: `Bearer ${rootGet().auth.app?.access_token}`,
           },
           body: JSON.stringify({
-            pleroma: {
+            kollective: {
               also_known_as: alsoKnownAs.filter((id) => id !== account) 
             },
           }),
@@ -234,3 +234,4 @@ export function createAliasesSlice(setScoped, getScoped, rootSet, rootGet) {
 }
 
 export default createAliasesSlice;
+

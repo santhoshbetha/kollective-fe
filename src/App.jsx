@@ -37,35 +37,15 @@ import ConfirmationNewPage from "./pages/ConfirmationNewPage";
 
 import OfflineBanner from "./components/OfflineBanner";
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
-import { createSyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
+import { queryClient } from "./lib/queryClient";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Data in localStorage is considered "stale" but "available"
-      gcTime: 1000 * 60 * 60 * 24, // Keep in storage for 24 hours
-    //  staleTime: 1000 * 60 * 5,    // Trust offline data for 5 mins
-       // Automatically refetch stale data when the window gets focus "Window Focus Refetching"
-      refetchOnWindowFocus: true, 
-      // If data is less than 30 seconds old, don't bother refetching on focus
-      staleTime: 30000, 
-    },
-    mutations: {
-      // 1. Pause mutations until the user is back online
-      networkMode: 'offlineFirst',
-      // 2. Retry failed mutations 3 times (e.g., if server times out)
-      retry: 3,
-    },
-  },
-});
-
-const persister = createSyncStoragePersister({
+const persister = createAsyncStoragePersister({
   storage: window.localStorage,
   // Key used in localStorage
-  key: 'KOLLECTIVE_OFFLINE_CACHE', 
+  key: 'kollective:_OFFLINE_CACHE', 
   // Ensures we don't block the UI thread during large saves
   serialize: (data) => JSON.stringify(data),
   deserialize: (data) => JSON.parse(data),
@@ -81,13 +61,13 @@ function App() {
   const pathname = location.pathname;
 
   //Trend Prefetching
-  useEffect(() => {
+  /*useEffect(() => {
     // Global prefetch on mount
     queryClient.prefetchQuery({
       queryKey: ['trends', 'tags'],
       queryFn: () => api.get('/api/v1/trends').then(res => res.data),
     });
-  }, []);
+  }, []);*/
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -112,95 +92,94 @@ function App() {
       client={queryClient} 
       persistOptions={{ persister }}
     >
-      <GlobalHotkeys node={node}>
         <div ref={node}>
-          <div className='z-10 flex min-h-screen flex-col'>
-            <div className='sticky top-0 z-50'>
-              {pathname !== '/about' && pathname !== '/background-showcase' && pathname !== '/font-showcase' && pathname !== '/signup' && pathname !== '/login' && pathname !== '/auth/forgot-password' && pathname !== '/auth/confirmation/new'?
-              <Navbar 
-                onMenuClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
-                isMobileNavOpen={isMobileNavOpen}
-              />
-              :
-              <NavbarMain />
-            }
-          </div>
-          {pathname != '/about' && pathname != '/background-showcase' && pathname != '/font-showcase' && pathname != '/signup' && pathname != '/login' && pathname != '/auth/forgot-password' && pathname != '/auth/confirmation/new' && (
-            <div className="px-4 py-4 ">
-              <Layout>
-                <Layout.Sidebar>
-                  <SidebarNavigation 
-                    onItemClick={() => setIsMobileNavOpen(false)}
-                    onCreatePost={() => {
-                      // Handle create post action
-                      console.log('Create post clicked')
-                    }}
-                  />
-                </Layout.Sidebar>
-
-                <aside
-                  className={`fixed inset-y-0 left-0 z-50 w-64 bg-transparent top-12
-                    transform transition-transform duration-300 ease-in-out lg:hidden ${
-                    isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
-                  }`}
-                >
-                  <div className="h-full overflow-y-auto pt-0 px-4">
-                    <SidebarNavigation
+            <div className='z-10 flex min-h-screen flex-col'>
+              <div className='sticky top-0 z-50'>
+                {pathname !== '/about' && pathname !== '/background-showcase' && pathname !== '/font-showcase' && pathname !== '/signup' && pathname !== '/login' && pathname !== '/auth/forgot-password' && pathname !== '/auth/confirmation/new'?
+                <Navbar 
+                  onMenuClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+                  isMobileNavOpen={isMobileNavOpen}
+                />
+                :
+                <NavbarMain />
+              }
+            </div>
+            {pathname != '/about' && pathname != '/background-showcase' && pathname != '/font-showcase' && pathname != '/signup' && pathname != '/login' && pathname != '/auth/forgot-password' && pathname != '/auth/confirmation/new' && (
+              <div className="px-4 py-4 ">
+                <Layout>
+                  <Layout.Sidebar>
+                    <SidebarNavigation 
                       onItemClick={() => setIsMobileNavOpen(false)}
                       onCreatePost={() => {
-                        setIsMobileNavOpen(false)
+                        // Handle create post action
+                        console.log('Create post clicked')
                       }}
                     />
-                  </div>
-                </aside>
-                
-                {isMobileNavOpen && (
-                  <div 
-                    className="fixed inset-0 z-40 lg:hidden" 
-                    onClick={() => setIsMobileNavOpen(false)} 
-                  />
-                )}
+                  </Layout.Sidebar>
 
-                <Routes>
-                  <Route path="/" element={<WrappedRoute page={HomePage} />} />
-                  <Route path="/statuses" element={<WrappedRoute page={StatusPage} />} />
-                  <Route path="/communities" element={<WrappedRoute page={CommunitiesPage} />} />
-                  <Route path="/explore" element={<WrappedRoute page={ExplorePage} />} />
-                  <Route path="/events" element={<EventsPage />} />
-                  <Route path="/events/:id" element={<EventDetailsPage />} />
-                  <Route path="/events/create" element={<CreateEventPage />} />
-                  <Route path="/broadcasting" element={<WrappedRoute page={BroadcastingPage} />} />
-                  <Route path="/videos" element={<WrappedRoute page={VideosPage} />} />
-                  <Route path="/videos/:id" element={<VideoDetailsPage />} />
-                  <Route path="/post/:id" element={<PostDetailsPage />} />
-                  <Route path="/polls" element={<WrappedRoute page={PollsPage} />} />
-                  <Route path="/polls/create" element={<WrappedRoute page={CreatePollPage} />} />
-                  <Route path="/chats" element={<WrappedRoute page={ChatsPage} />} />
-                  <Route path="/businesses" element={<WrappedRoute page={BusinessesPage} />} />
-                  <Route path="/businesses/:id" element={<BusinessDetailsPage />} />
-                  <Route path="/businesses/proposal/:id" element={<BusinessProposalDetailsPage />} />
-                  <Route path="/businesses/post" element={<WrappedRoute page={PostBusinessPage} />} />
-                  <Route path="/profile/edit" element={<WrappedRoute page={EditProfilePage} />} />
-                  <Route path="/settings" element={<WrappedRoute page={SettingsPage} />} />
-                </Routes>
-              </Layout>
-            </div>
-          )}
-          {(pathname === '/about' || pathname === '/background-showcase' || pathname === '/font-showcase' || pathname === '/signup' || pathname === '/login' || pathname === '/auth/forgot-password' || pathname === '/auth/confirmation/new') && (
-            <Routes>
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/background-showcase" element={<BackgroundShowcasePage />} />
-              <Route path="/font-showcase" element={<FontShowcasePage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/auth/confirmation/new" element={<ConfirmationNewPage />} />
-            </Routes>
-          )}
+                  <aside
+                    className={`fixed inset-y-0 left-0 z-50 w-64 bg-transparent top-12
+                      transform transition-transform duration-300 ease-in-out lg:hidden ${
+                      isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
+                    }`}
+                  >
+                    <div className="h-full overflow-y-auto pt-0 px-4">
+                      <SidebarNavigation
+                        onItemClick={() => setIsMobileNavOpen(false)}
+                        onCreatePost={() => {
+                          setIsMobileNavOpen(false)
+                        }}
+                      />
+                    </div>
+                  </aside>
+                  
+                  {isMobileNavOpen && (
+                    <div 
+                      className="fixed inset-0 z-40 lg:hidden" 
+                      onClick={() => setIsMobileNavOpen(false)} 
+                    />
+                  )}
+
+                  <Routes>
+                    <Route path="/" element={<WrappedRoute page={HomePage} />} />
+                    <Route path="/statuses" element={<WrappedRoute page={StatusPage} />} />
+                    <Route path="/communities" element={<WrappedRoute page={CommunitiesPage} />} />
+                    <Route path="/explore" element={<WrappedRoute page={ExplorePage} />} />
+                    <Route path="/events" element={<EventsPage />} />
+                    <Route path="/events/:id" element={<EventDetailsPage />} />
+                    <Route path="/events/create" element={<CreateEventPage />} />
+                    <Route path="/broadcasting" element={<WrappedRoute page={BroadcastingPage} />} />
+                    <Route path="/videos" element={<WrappedRoute page={VideosPage} />} />
+                    <Route path="/videos/:id" element={<VideoDetailsPage />} />
+                    <Route path="/post/:id" element={<PostDetailsPage />} />
+                    <Route path="/polls" element={<WrappedRoute page={PollsPage} />} />
+                    <Route path="/polls/create" element={<WrappedRoute page={CreatePollPage} />} />
+                    <Route path="/chats" element={<WrappedRoute page={ChatsPage} />} />
+                    <Route path="/businesses" element={<WrappedRoute page={BusinessesPage} />} />
+                    <Route path="/businesses/:id" element={<BusinessDetailsPage />} />
+                    <Route path="/businesses/proposal/:id" element={<BusinessProposalDetailsPage />} />
+                    <Route path="/businesses/post" element={<WrappedRoute page={PostBusinessPage} />} />
+                    <Route path="/profile/edit" element={<WrappedRoute page={EditProfilePage} />} />
+                    <Route path="/settings" element={<WrappedRoute page={SettingsPage} />} />
+                  </Routes>
+                </Layout>
+              </div>
+            )}
+            {(pathname === '/about' || pathname === '/background-showcase' || pathname === '/font-showcase' || pathname === '/signup' || pathname === '/login' || pathname === '/auth/forgot-password' || pathname === '/auth/confirmation/new') && (
+              <Routes>
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/background-showcase" element={<BackgroundShowcasePage />} />
+                <Route path="/font-showcase" element={<FontShowcasePage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/auth/confirmation/new" element={<ConfirmationNewPage />} />
+              </Routes>
+            )}
+          </div>
         </div>
-      </div>
        <OfflineBanner />
-    </GlobalHotkeys>
+
     <ReactQueryDevtools initialIsOpen={false} />
     </PersistQueryClientProvider>
   );

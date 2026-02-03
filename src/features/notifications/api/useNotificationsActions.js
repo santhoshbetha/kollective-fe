@@ -82,11 +82,11 @@ export const useNotificationActions = () => {
     onSuccess: () => queryClient.setQueryData(['notifications'], null),
   });
 
-  // Mark Read (Replaces markReadNotifications & markReadPleroma)
+  // Mark Read (Replaces markReadNotifications & markReadKollective)
   const markRead = useMutation({
     mutationFn: (id) => {
-      // Logic handles both standard and Pleroma-specific markers
-      return api.post('/api/v1/pleroma/notifications/read', { max_id: id });
+      // Logic handles both standard and Kollective-specific markers
+      return api.post('/api/v1/kollective/notifications/read', { max_id: id });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });

@@ -358,7 +358,7 @@ export function createEventsSlice(setScoped, getScoped, rootSet, rootGet) {
       }
 
       try {
-        const res = await fetch(`/api/v1/pleroma/events/joined_events`, {
+        const res = await fetch(`/api/v1/kollective/events/joined_events`, {
           method: 'GET',
         });
 

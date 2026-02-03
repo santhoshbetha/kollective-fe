@@ -34,9 +34,9 @@ export const useStatusImporter = () => {
       const subEntities = [
         status.reblog,
         status.quote,
-        status.pleroma?.quote,
+        status.kollective?.quote,
         status.reblog?.quote,
-        status.reblog?.pleroma?.quote
+        status.reblog?.kollective?.quote
       ];
 
       subEntities.forEach(entity => {
@@ -85,7 +85,7 @@ export const useStatusImporter = () => {
         queryClient.setQueryData(['status', status.id], status);
 
         // 5. Recursively handle nested content (Reblogs/Quotes)
-        const nested = [status.reblog, status.quote, status.pleroma?.quote];
+        const nested = [status.reblog, status.quote, status.kollective?.quote];
         const validNested = nested.filter(n => n && n.id);
         
         if (validNested.length > 0) {

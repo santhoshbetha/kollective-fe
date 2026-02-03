@@ -621,8 +621,8 @@
   "notification.mentioned": "{name} 提到了你",
   "notification.move": "{name} 移動到了 {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} 給你發送了訊息",
-  "notification.pleroma:emoji_reaction": "{name} 用表情回應了你的帖文",
+  "notification.kollective:chat_mention": "{name} 給你發送了訊息",
+  "notification.kollective:emoji_reaction": "{name} 用表情回應了你的帖文",
   "notification.poll": "你參與的一項投票已經結束",
   "notification.reblog": "{name} 轉帖了你的帖文",
   "notification.status": "{name} 剛剛發帖",
@@ -965,3 +965,4 @@
   "video.unmute": "解除隱藏",
   "who_to_follow.title": "推薦追蹤"
 }
+

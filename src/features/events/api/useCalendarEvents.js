@@ -10,7 +10,7 @@ export const useCalendarEvents = (year, month) => {
     // Cache key is unique per month
     queryKey: ['events', 'calendar', { year, month }],
     queryFn: async () => {
-      const { data } = await api.get('/api/v1/pleroma/events', {
+      const { data } = await api.get('/api/v1/kollective/events', {
         params: { 
           limit: 100, // Fetch more to fill the month
           // Note: If your backend supports start_time filters, add them here

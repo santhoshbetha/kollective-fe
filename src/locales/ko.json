@@ -667,8 +667,8 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} moved to {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} sent you a message",
-  "notification.pleroma:emoji_reaction": "{name} reacted to your post",
+  "notification.kollective:chat_mention": "{name} sent you a message",
+  "notification.kollective:emoji_reaction": "{name} reacted to your post",
   "notification.poll": "당신이 참여 한 투표가 종료되었습니다",
   "notification.reblog": "{name}님이 부스트 했습니다",
   "notification.status": "{name} just posted",
@@ -1047,3 +1047,4 @@
   "video.unmute": "음소거 해제",
   "who_to_follow.title": "Who To Follow"
 }
+

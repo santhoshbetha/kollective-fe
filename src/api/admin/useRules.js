@@ -8,7 +8,7 @@ const useRules = () => {
   const api = useApi();
 
   const getRules = async () => {
-    const response = await api.get('/api/v1/pleroma/admin/rules');
+    const response = await api.get('/api/v1/kollective/admin/rules');
     const data = await response.json();
 
     const normalizedData = data.map((rule) => adminRuleSchema.parse(rule));
@@ -25,7 +25,7 @@ const useRules = () => {
     mutate: createRule,
     isPending: isCreating,
   } = useMutation({
-    mutationFn: (params) => api.post('/api/v1/pleroma/admin/rules', params),
+    mutationFn: (params) => api.post('/api/v1/kollective/admin/rules', params),
     retry: false,
     onSuccess: async (response) => {
       const data = await response.json();
@@ -39,7 +39,7 @@ const useRules = () => {
     mutate: updateRule,
     isPending: isUpdating,
   } = useMutation({
-    mutationFn: ({ id, ...params }) => api.patch(`/api/v1/pleroma/admin/rules/${id}`, params),
+    mutationFn: ({ id, ...params }) => api.patch(`/api/v1/kollective/admin/rules/${id}`, params),
     retry: false,
     onSuccess: async (response) => {
       const data = await response.json();
@@ -53,7 +53,7 @@ const useRules = () => {
     mutate: deleteRule,
     isPending: isDeleting,
   } = useMutation({
-    mutationFn: (id) => api.delete(`/api/v1/pleroma/admin/rules/${id}`),
+    mutationFn: (id) => api.delete(`/api/v1/kollective/admin/rules/${id}`),
     retry: false,
     onSuccess: (_, id) =>
       queryClient.setQueryData(['admin', 'rules'], (prevResult) =>

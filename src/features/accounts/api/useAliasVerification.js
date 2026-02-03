@@ -14,7 +14,7 @@ export const useAliasVerification = (targetAcct, myApId) => {
       });
 
       // 2. Check for reciprocal "Also Known As" (AP ID link)
-      const aka = data.pleroma?.also_known_as || data.also_known_as || [];
+      const aka = data.kollective?.also_known_as || data.also_known_as || [];
       const isVerified = aka.includes(myApId);
 
       return {

@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 
 export const useEvents = (filters = {}) => {
@@ -6,7 +6,7 @@ export const useEvents = (filters = {}) => {
     queryKey: ['events', filters],
     queryFn: async ({ pageParam }) => {
       // Replaces your manual offset/limit logic in the slice
-      const response = await api.get('/api/v1/pleroma/events', {
+      const response = await api.get('/api/v1/kollective/events', {
         params: {
           offset: pageParam,
           limit: 20,
@@ -29,7 +29,7 @@ export const useUpcomingEvents = (limit = 5) => {
   return useQuery({
     queryKey: ['events', 'upcoming', { limit }],
     queryFn: async () => {
-      const { data } = await api.get('/api/v1/pleroma/events', {
+      const { data } = await api.get('/api/v1/kollective/events', {
         params: { limit }
       });
       
@@ -107,7 +107,7 @@ export const useRecentEvents = () => useInfiniteQuery({
 export const useJoinedEvents = () => useInfiniteQuery({
   queryKey: ['statuses', 'timeline', 'joined-events'],
   queryFn: async ({ pageParam }) => {
-    const { data } = await api.get('/api/v1/pleroma/events/joined_events', {
+    const { data } = await api.get('/api/v1/kollective/events/joined_events', {
       params: { max_id: pageParam }
     });
     return data;
@@ -120,7 +120,7 @@ export const useJoinedEvents = () => useInfiniteQuery({
 export const useEventDetail = (eventId) => {
   return useQuery({
     queryKey: ['events', 'detail', eventId],
-    queryFn: () => api.get(`/api/v1/pleroma/events/${eventId}`).then(res => res.data),
+    queryFn: () => api.get(`/api/v1/kollective/events/${eventId}`).then(res => res.data),
     
     // 1. SMART POLLING: Refetch every 30 seconds
     refetchInterval: 30000, 
@@ -160,4 +160,5 @@ Conflict Resolution: If the user is mid-way through a "Join" mutation, TanStack 
 Global Synchronization: Since this hook uses the ['events', 'detail', eventId] key, any other component on the page (like a sidebar) will also receive the updated participant count simultaneously.
 
 */
+
 

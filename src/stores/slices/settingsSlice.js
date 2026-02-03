@@ -59,7 +59,7 @@ export const defaultSettings = Object.freeze({
       mention: true,
       poll: true,
       move: true,
-      'pleroma:emoji_reaction': true,
+      'kollective:emoji_reaction': true,
     },
 
     quickFilter: {
@@ -76,7 +76,7 @@ export const defaultSettings = Object.freeze({
       mention: true,
       poll: true,
       move: true,
-      'pleroma:emoji_reaction': true,
+      'kollective:emoji_reaction': true,
     },
 
     sounds: {
@@ -87,7 +87,7 @@ export const defaultSettings = Object.freeze({
       mention: false,
       poll: false,
       move: false,
-      'pleroma:emoji_reaction': false,
+      'kollective:emoji_reaction': false,
     },
 
     birthdays: {

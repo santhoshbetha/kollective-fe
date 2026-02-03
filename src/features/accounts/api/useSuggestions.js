@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { accountSchema } from '../schemas/accountSchemas';
+import { accountSchema } from '../../../schemas';
 
 export const useSuggestions = () => {
   return useQuery({
@@ -101,5 +101,6 @@ export const useSuggestions = () => {
     staleTime: 1000 * 60 * 30, // Suggestions are stable
   });
 };
+
 
 

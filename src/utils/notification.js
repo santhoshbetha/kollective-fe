@@ -9,20 +9,20 @@ const NOTIFICATION_TYPES = [
   "poll",
   "status",
   "move",
-  "pleroma:chat_mention",
-  "pleroma:emoji_reaction",
+  "kollective:chat_mention",
+  "kollective:emoji_reaction",
   "user_approved",
   "update",
-  "pleroma:event_reminder",
-  "pleroma:participation_request",
-  "pleroma:participation_accepted",
+  "kollective:event_reminder",
+  "kollective:participation_request",
+  "kollective:participation_accepted",
   "ditto:name_grant",
   "ditto:zap",
 ];
 
 /** Notification types to exclude from the "All" filter by default. */
 const EXCLUDE_TYPES = [
-  "pleroma:chat_mention",
+  "kollective:chat_mention",
   "chat", // TruthSocial
 ];
 

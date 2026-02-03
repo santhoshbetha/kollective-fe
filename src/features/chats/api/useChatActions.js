@@ -4,7 +4,7 @@ export const useChatActions = (chatId) => {
 
   // Send Message
   const sendMessage = useMutation({
-    mutationFn: (content) => api.post(`/api/v1/pleroma/chats/${chatId}/messages`, { content }),
+    mutationFn: (content) => api.post(`/api/v1/kollective/chats/${chatId}/messages`, { content }),
     onSuccess: () => {
       // Invalidate messages so the new one appears immediately
       queryClient.invalidateQueries({ queryKey: ['chats', 'messages', chatId] });
@@ -15,7 +15,7 @@ export const useChatActions = (chatId) => {
 
   // Mark Chat as Read
   const markRead = useMutation({
-    mutationFn: (lastId) => api.post(`/api/v1/pleroma/chats/${chatId}/read`, { last_id: lastId }),
+    mutationFn: (lastId) => api.post(`/api/v1/kollective/chats/${chatId}/read`, { last_id: lastId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chats', 'list'] }),
   });
 
@@ -29,7 +29,7 @@ export const useChatActions = (chatId) => {
 
   // Send Message (Replaces sendChatMessage)
   const send = useMutation({
-    mutationFn: (params) => api.post(`/api/v1/pleroma/chats/${chatId}/messages`, params),
+    mutationFn: (params) => api.post(`/api/v1/kollective/chats/${chatId}/messages`, params),
     onMutate: async (params) => {
       // Optimistic logic using that '末_' UUID if needed for UI tracking
       const tempId = `末_${Date.now()}`;
@@ -41,7 +41,7 @@ export const useChatActions = (chatId) => {
 
   // Mark Read (Replaces markChatRead)
   const markRead = useMutation({
-    mutationFn: (lastReadId) => api.post(`/api/v1/pleroma/chats/${chatId}/read`, { last_read_id: lastReadId }),
+    mutationFn: (lastReadId) => api.post(`/api/v1/kollective/chats/${chatId}/read`, { last_read_id: lastReadId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['chats', 'list'] })
   });
 
@@ -58,7 +58,7 @@ export const useDeleteChatMessage = (chatId) => {
   return useMutation({
     // 1. API Call
     mutationFn: (messageId) => 
-      api.delete(`/api/v1/pleroma/chats/${chatId}/messages/${messageId}`),
+      api.delete(`/api/v1/kollective/chats/${chatId}/messages/${messageId}`),
 
     // 2. Optimistic Update (The "Instant Vanish")
     onMutate: async (messageId) => {
@@ -123,7 +123,7 @@ export const useSendChatMessage = (chatId) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params) => api.post(`/api/v1/pleroma/chats/${chatId}/messages`, params),
+    mutationFn: (params) => api.post(`/api/v1/kollective/chats/${chatId}/messages`, params),
     
     // 1. Optimistic Prepend
     onMutate: async (params) => {

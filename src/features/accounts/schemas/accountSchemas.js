@@ -12,8 +12,8 @@ export const accountSchema = z.object({
   followers_count: z.number().default(0),
   following_count: z.number().default(0),
   statuses_count: z.number().default(0),
-  // Pleroma specific metadata
-  pleroma: z.object({
+  // Kollective specific metadata
+  kollective: z.object({
     is_admin: z.boolean().optional(),
     is_moderator: z.boolean().optional(),
   }).optional(),
@@ -53,7 +53,7 @@ export const accountSchema = z.object({
   followers_count: z.number().default(0),
   following_count: z.number().default(0),
   statuses_count: z.number().default(0),
-  // Pleroma / Mastodon Source Metadata
+  // Kollective / Mastodon Source Metadata
   source: z.object({
     note: z.string().default(''),
     fields: z.array(z.any()).default([]),
@@ -62,7 +62,7 @@ export const accountSchema = z.object({
   }).optional(),
   fields: z.array(z.any()).default([]),
   emojis: z.array(z.any()).default([]),
-  pleroma: z.object({
+  kollective: z.object({
     is_admin: z.boolean().optional(),
     is_moderator: z.boolean().optional(),
     also_known_as: z.array(z.string()).default([]),
@@ -74,11 +74,11 @@ export const accountSchema = z.object({
   // 1. Logic Port: Standardize Handle (acct vs username)
   out.full_handle = out.acct.includes('@') ? out.acct : `${out.acct}@${window.location.host}`;
 
-  // 2. Logic Port: Merge Pleroma Source (Ported from normalizeAccount meta logic)
-  if (out.pleroma) {
-    out.is_admin = out.pleroma.is_admin || false;
-    out.is_moderator = out.pleroma.is_moderator || false;
-    out.also_known_as = out.pleroma.also_known_as || [];
+  // 2. Logic Port: Merge Kollective Source (Ported from normalizeAccount meta logic)
+  if (out.kollective) {
+    out.is_admin = out.kollective.is_admin || false;
+    out.is_moderator = out.kollective.is_moderator || false;
+    out.also_known_as = out.kollective.also_known_as || [];
   }
 
   // 3. Cleanup HTML in Bio (Ported from fixContent)
@@ -98,10 +98,11 @@ export const useAccount = (accountId) => {
     queryKey: ['accounts', accountId],
     queryFn: async () => {
       const { data } = await api.get(`/api/v1/accounts/${accountId}`);
-      // Validates and transforms the raw Pleroma JSON into our clean Record
+      // Validates and transforms the raw Kollective JSON into our clean Record
       return accountSchema.parse(data);
     }
   });
 };
 *?
+
 

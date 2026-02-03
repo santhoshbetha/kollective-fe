@@ -101,7 +101,7 @@ export const useUnmuteDomain = () => {
 //========================================================================================
 //Bulk Unmute
 // /. It performs an Optimistic Scrub of the local cache while firing the 
-// Pleroma/Mastodon DELETE requests in parallel.
+// Kollective/Mastodon DELETE requests in parallel.
 export const useBulkUnmute = () => {
   const queryClient = useQueryClient();
   const clearSelection = useDomainSelectionStore((s) => s.clearSelection);

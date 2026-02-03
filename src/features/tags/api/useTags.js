@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
+import extractMaxIdFromLink from '@/utils/extractMaxIdFromLink';
 
 // REPLACES: fetchHashtag
 export const useTag = (name) => useQuery({
@@ -36,4 +37,5 @@ export const useTrendingTags = (limit = 5) => {
     staleTime: 1000 * 60 * 30, // Trends change slowly
   });
 };
+
 

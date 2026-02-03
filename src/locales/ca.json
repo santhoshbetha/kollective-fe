@@ -375,8 +375,8 @@
   "notification.follow_request": "{name} ha sol·licitat seguir-te",
   "notification.mention": "{name} t'ha esmentat",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} t'ha enviat un missatge",
-  "notification.pleroma:emoji_reaction": "{name} ha reaccionat a la teva publicació",
+  "notification.kollective:chat_mention": "{name} t'ha enviat un missatge",
+  "notification.kollective:emoji_reaction": "{name} ha reaccionat a la teva publicació",
   "notification.poll": "Ha finalitzat una enquesta en la que has votat",
   "notification.reblog": "{name} ha impulsat el teu estat",
   "notifications.filter.all": "Tots",
@@ -590,3 +590,4 @@
   "video.unmute": "Activar so",
   "who_to_follow.title": "Qui seguir"
 }
+

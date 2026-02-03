@@ -1,21 +1,31 @@
 import { z } from "zod";
 
-import { emojiSchema } from "./utils.js";
+const emojiSchema = z.string().refine((v) => 
+  /\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]{2}/u.test(v)
+);
 
+// Define Base Emoji (Native Unicode)
 const baseEmojiReactionSchema = z.object({
   count: z.number().nullable().catch(null),
   me: z.boolean().catch(false),
   name: emojiSchema,
-  url: z.literal(undefined).catch(undefined),
+  url: z.undefined().optional(),
 });
 
-const customEmojiReactionSchema = baseEmojiReactionSchema.extend({
-  name: z.string(),
+// Define Custom Emoji (Remote URL)
+const customEmojiReactionSchema = z.object({
+  count: z.number().nullable().catch(null),
+  me: z.boolean().catch(false),
+  name: z.string(), // Shortcode like :blob_cat:
   url: z.string().url(),
 });
 
-const emojiReactionSchema = baseEmojiReactionSchema.or(
+// Combine using a union
+// We check custom first because it has a more specific requirement (a URL)
+const emojiReactionSchema = z.union([
   customEmojiReactionSchema,
-);
+  baseEmojiReactionSchema,
+]);
 
 export { emojiReactionSchema };
+

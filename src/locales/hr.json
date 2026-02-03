@@ -1086,11 +1086,11 @@
   "notification.mention": "{name} te je spomenuo/la",
   "notification.mentioned": "{name} te je spomenuo/la",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} vam je poslao/la poruku",
-  "notification.pleroma:emoji_reaction": "{name} je reagirao/la na vašu objavu",
-  "notification.pleroma:event_reminder": "Uskoro počinje događaj kojem sudjelujete",
-  "notification.pleroma:participation_accepted": "Prihvaćeni ste da se pridružite događaju",
-  "notification.pleroma:participation_request": "{name} se želi pridružiti vašem događaju",
+  "notification.kollective:chat_mention": "{name} vam je poslao/la poruku",
+  "notification.kollective:emoji_reaction": "{name} je reagirao/la na vašu objavu",
+  "notification.kollective:event_reminder": "Uskoro počinje događaj kojem sudjelujete",
+  "notification.kollective:participation_accepted": "Prihvaćeni ste da se pridružite događaju",
+  "notification.kollective:participation_request": "{name} se želi pridružiti vašem događaju",
   "notification.reblog": "{name} je proslijedio/la objavu",
   "notification.set_name": "Postavi ime na {name}",
   "notification.status": "{name} je upravo poslao/la objavu",
@@ -1486,3 +1486,4 @@
   "who_to_follow.title": "Moglo bi vam se svidjeti",
   "zap.comment_input.placeholder": "Opcionalni komentar"
 }
+

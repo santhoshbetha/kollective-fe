@@ -8,7 +8,7 @@ export const useSubmitStatus = () => {
   const resetCompose = useComposeStore((s) => s.resetCompose);
 
   return useMutation({
-    mutationFn: (data: any) => api.post('/api/v1/statuses', data),
+    mutationFn: (data) => api.post('/api/v1/statuses', data),
     onSuccess: () => {
       // 1. Clear the draft in Zustand
       resetCompose();
@@ -176,5 +176,6 @@ export const useSubmitStatus = () => {
     }
   });
 };
+
 
 

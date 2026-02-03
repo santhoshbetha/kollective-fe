@@ -380,7 +380,7 @@ export function createNotificationsSlice(setScoped, getScoped, rootSet, rootGet)
       const actions = getActions();
       
       // 1. Filter out ignored types
-      if (!notification.type || ['pleroma:chat_mention', 'chat'].includes(notification.type)) return;
+      if (!notification.type || ['kollective:chat_mention', 'chat'].includes(notification.type)) return;
 
       const settings = actions.getSettings()?.notifications || {};
       const showAlert = settings.alerts?.[notification.type];

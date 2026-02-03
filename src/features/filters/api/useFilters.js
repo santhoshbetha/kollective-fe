@@ -18,7 +18,7 @@ export const useFilters = () => {
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 
-export const useFilters = () => {
+export const useFilters2 = () => {
   return useQuery({
     queryKey: ['filters', 'list'],
     queryFn: () => api.get('/api/v1/filters').then(res => res.data),
@@ -26,3 +26,4 @@ export const useFilters = () => {
     staleTime: 1000 * 60 * 60, 
   });
 };
+

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-// /Safety Confirmation Modal
+// Safety Confirmation Modal
 //To implement a Safety Confirmation Modal for critical actions like account moves, use Zustand for the UI state and a controlled input for the "Type to Confirm" logic. This ensures the user is fully aware of the consequences before the TanStack Mutation fires.
 //1. The Confirmation Store
 //Create src/features/ui/store/useConfirmStore.js. This is a generic store you can reuse for deleting accounts, leaving groups, or moving instances.
@@ -78,4 +78,5 @@ const MoveSettings = () => {
 };
 
 */
+
 

@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useStatusImporter } from '../hooks/useStatusImporter';
+import { extractMaxIdFromLink } from '@/utils/api-helpers';
 
 export const useStatusQuotes = (statusId) => {
   const { importStatusEntities } = useStatusImporter();
@@ -9,7 +10,7 @@ export const useStatusQuotes = (statusId) => {
     // Unique key partitions quotes by statusId
     queryKey: ['statuses', 'quotes', statusId],
     queryFn: async ({ pageParam }) => {
-      const response = await api.get(`/api/v1/pleroma/statuses/${statusId}/quotes`, {
+      const response = await api.get(`/api/v1/kollective/statuses/${statusId}/quotes`, {
         params: { max_id: pageParam, limit: 20 }
       });
 

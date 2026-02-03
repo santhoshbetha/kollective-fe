@@ -7,7 +7,7 @@ export const useUpdateNotificationSettings = () => {
   return useMutation({
     // REPLACES: api().put(...)
     mutationFn: (params) => 
-      api.put('/api/pleroma/notification_settings', params).then(res => res.data),
+      api.put('/api/kollective/notification_settings', params).then(res => res.data),
 
     // OPTIONAL: Optimistic Update
     // REPLACES: NOTIFICATION_SETTINGS_REQUEST

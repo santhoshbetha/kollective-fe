@@ -7,12 +7,11 @@ const mentionSchema = z
     url: z.string().url().catch(""),
     username: z.string().catch(""),
   })
-  .transform((mention) => {
-    if (!mention.username) {
-      mention.username = mention.acct.split("@")[0];
-    }
-
-    return mention;
-  });
-
+  .transform((mention) => ({
+    ...mention,
+    // Return a new object to avoid mutating 'mention'
+    username: mention.username || mention.acct.split("@")[0] || "",
+  }));
+  
 export { mentionSchema };
+

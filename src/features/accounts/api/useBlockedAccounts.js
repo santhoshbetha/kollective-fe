@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useStatusImporter } from '../hooks/useStatusImporter';
+import { extractMaxIdFromLink } from '@/utils/apiUtils';
 
 export const useBlockedAccounts = () => {
   const queryClient = useQueryClient();

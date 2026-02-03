@@ -49,7 +49,7 @@ export const StatusRecord = {
   mentions: [],
   muted: false,
   pinned: false,
-  pleroma: null,
+  kollective: null,
   ditto: null,
   poll: null,
   quote: null,
@@ -154,8 +154,8 @@ const addSelfMention = (mentions, account, inReplyToAccountId) => {
   return mentions;
 };
 
-const fixQuote = (status, pleroma) => {
-  const p = asPlain(pleroma) || {};
+const fixQuote = (status, kollective) => {
+  const p = asPlain(kollective) || {};
   const quote = status.quote || p.quote || null;
   const quotes_count = status.quotes_count || p.quotes_count || 0;
   return { ...status, quote, quotes_count };
@@ -167,7 +167,7 @@ const fixSensitivity = (status) => {
 };
 
 const normalizeEvent = (status) => {
-  const p = asPlain(status.pleroma) || {};
+  const p = asPlain(status.kollective) || {};
   if (!p.event) return { status, event: null };
 
   const media = Array.isArray(status.media_attachments)
@@ -186,10 +186,10 @@ const normalizeEvent = (status) => {
   }
 
   const links = media.filter(
-    (att) => att && att.pleroma && att.pleroma.mime_type === "text/html",
+    (att) => att && att.kollective && att.kollective.mime_type === "text/html",
   );
   const mediaAttachments = media.filter(
-    (att) => !(att && att.pleroma && att.pleroma.mime_type === "text/html"),
+    (att) => !(att && att.kollective && att.kollective.mime_type === "text/html"),
   );
 
   const event = { ...EventRecord, ...(asPlain(p.event) || {}), banner, links };
@@ -199,7 +199,7 @@ const normalizeEvent = (status) => {
 
 const normalizeEmojis = (status) => {
   const src =
-    (status && status.pleroma && status.pleroma.emoji_reactions) ||
+    (status && status.kollective && status.kollective.emoji_reactions) ||
     status.reactions ||
     [];
   const arr = Array.isArray(src) ? src : asPlain(src) || [];
@@ -305,7 +305,7 @@ export const normalizeStatus = (input) => {
     emojis: reactions.length ? reactions : src.emojis || base.emojis,
   };
 
-  out = fixQuote(out, src.pleroma || base.pleroma);
+  out = fixQuote(out, src.kollective || base.kollective);
   out = fixSensitivity(out);
   out = fixContent(out);
   out.filtered = normalizeFilterResults(src.filtered || base.filtered);
@@ -328,3 +328,4 @@ export const normalizeStatus = (input) => {
 };
 
 export default normalizeStatus;
+

@@ -249,7 +249,7 @@ export function makeGetOtherAccounts() {
 /*
 const getSimplePolicy = createSelector([
   (state) => state.admin.configs,
-  (state) => state.instance.pleroma.metadata.federation.mrf_simple,
+  (state) => state.instance.kollective.metadata.federation.mrf_simple,
 ], (configs, instancePolicy) => {
   return {
     ...instancePolicy,
@@ -261,7 +261,7 @@ const getSimplePolicy = createSelector([
 const getRemoteInstanceFavicon = (state, host) => {
   const accounts = (state.entities['accounts']?.store ?? {});
   const account = Object.entries(accounts).find(([_, account]) => account && getDomain(account) === host)?.[1];
-  return account?.pleroma?.favicon;
+  return account?.kollective?.favicon;
 };
 
 const getRemoteInstanceFederation = (state, host) => {

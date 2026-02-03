@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useStatusImporter } from '@/features/statuses/hooks/useStatusImporter';
+import { extractMaxIdFromLink } from '@/utils/apiUtils';
 
 export const useBookmarks = () => {
   const { importStatusEntities } = useStatusImporter();
@@ -25,3 +26,4 @@ export const useBookmarks = () => {
     staleTime: 1000 * 60 * 10, // Bookmarks are generally stable
   });
 };
+

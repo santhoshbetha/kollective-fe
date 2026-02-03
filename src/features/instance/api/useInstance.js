@@ -16,8 +16,9 @@ export const useInstance = () => {
 };
 
 //check later if above is enough
-export const useInstance = () => useQuery({
+export const useInstance2 = () => useQuery({
   queryKey: ['instance'],
   queryFn: () => api.get('/api/v1/instance').then(res => res.data),
   staleTime: Infinity, // Never refetch unless the page reloads
 });
+

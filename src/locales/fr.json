@@ -1054,11 +1054,11 @@
   "notification.mentioned": "{name} mentioned you",
   "notification.move": "{name} moved to {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} sent you a message",
-  "notification.pleroma:emoji_reaction": "{name} reacted to your post",
-  "notification.pleroma:event_reminder": "Un évènement auquel vous participez commence bientôt",
-  "notification.pleroma:participation_accepted": "Votre participation à l'évènement a été acceptée",
-  "notification.pleroma:participation_request": "{name} vous invite à rejoindre l'évènement",
+  "notification.kollective:chat_mention": "{name} sent you a message",
+  "notification.kollective:emoji_reaction": "{name} reacted to your post",
+  "notification.kollective:event_reminder": "Un évènement auquel vous participez commence bientôt",
+  "notification.kollective:participation_accepted": "Votre participation à l'évènement a été acceptée",
+  "notification.kollective:participation_request": "{name} vous invite à rejoindre l'évènement",
   "notification.poll": "Un sondage auquel vous avez participé vient de se terminer",
   "notification.reblog": "{name} a partagé votre statut",
   "notification.status": "{name} just posted",
@@ -1458,3 +1458,4 @@
   "video.unmute": "Rétablir le son",
   "who_to_follow.title": "Who To Follow"
 }
+

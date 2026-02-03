@@ -19,7 +19,7 @@ export const useSubmitEvent = () => {
     mutationFn: async (eventData) => {
       const { id, ...params } = eventData;
       const method = id ? 'PUT' : 'POST';
-      const path = id ? `/api/v1/pleroma/events/${id}` : '/api/v1/pleroma/events';
+      const path = id ? `/api/v1/kollective/events/${id}` : '/api/v1/kollective/events';
 
       const response = await api.request(method, path, params);
       return response.data;

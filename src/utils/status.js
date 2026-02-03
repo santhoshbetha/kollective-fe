@@ -20,7 +20,7 @@ export const defaultMediaVisibility = (
 /** Grab the first external link from a status. */
 export const getFirstExternalLink = (status) => {
   try {
-    // Pulled from Pleroma's media parser
+    // Pulled from Kollective's media parser
     const selector = 'a:not(.mention,.hashtag,.attachment,[rel~="tag"])';
     const element = document.createElement('div');
     element.innerHTML = status.content;

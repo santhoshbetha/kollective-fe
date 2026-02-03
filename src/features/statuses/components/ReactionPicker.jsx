@@ -2,6 +2,7 @@
 import { useEmojis } from '@/features/emojis/api/useEmojis';
 import { useRecentEmojiStore } from '@/features/emojis/store/useRecentEmojiStore';
 import { useExclusiveReaction } from '../api/useStatusActions';
+import { useReactionPickerStore } from '../store/useReactionPickerStore';
 
 //Reaction Picker
 // /This component uses your Custom Emojis from TanStack and the Recently Used list from Zustand. It uses the useExclusiveReaction mutation we just built.
@@ -42,6 +43,8 @@ const ReactionPicker = () => {
     </div>
   );
 };
+
+export default ReactionPicker;
 
 /*
 const ReactionTrigger = ({ status }) => {

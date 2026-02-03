@@ -1,6 +1,7 @@
 // src/features/statuses/components/StatusContent.jsx
+import { parse } from "http-link-header";
 // /Trending Tag Hover Cards
-const StatusContent = ({ content, tags }) => {
+export const StatusContent = ({ content, tags }) => {
   // Use the tags array from the status entity for accurate matching
   return (
     <div className="status-body">
@@ -19,3 +20,4 @@ const StatusContent = ({ content, tags }) => {
     </div>
   );
 };
+

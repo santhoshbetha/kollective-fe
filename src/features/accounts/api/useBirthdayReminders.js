@@ -9,7 +9,7 @@ export const useBirthdayReminders = (month, day) => {
     // Cache key includes month and day so switching dates is instant
     queryKey: ['accounts', 'birthdays', { month, day }],
     queryFn: async () => {
-      const response = await api.get('/api/v1/pleroma/birthdays', {
+      const response = await api.get('/api/v1/kollective/birthdays', {
         params: { month, day }
       });
       

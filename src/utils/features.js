@@ -10,7 +10,7 @@ const getKollectiveFeatures = () => {
   return {
     /**
      * Can view and manage ActivityPub aliases through the API.
-     * @see GET /api/pleroma/aliases
+     * @see GET /api/kollective/aliases
      * @see PATCH /api/v1/accounts/update_credentials
      */
     accountAliases: true,
@@ -31,7 +31,7 @@ const getKollectiveFeatures = () => {
      * Ability to pin other accounts on one's profile.
      * @see POST /api/v1/accounts/:id/pin
      * @see POST /api/v1/accounts/:id/unpin
-     * @see GET /api/v1/pleroma/accounts/:id/endorsements
+     * @see GET /api/v1/kollective/accounts/:id/endorsements
      */
     accountEndorsements: true,
 
@@ -49,7 +49,7 @@ const getKollectiveFeatures = () => {
 
     /**
      * Move followers to a different ActivityPub account.
-     * @see POST /api/pleroma/move_account
+     * @see POST /api/kollective/move_account
      */
     accountMoving: true,
 
@@ -60,8 +60,8 @@ const getKollectiveFeatures = () => {
     accountNotifies: true,
     /**
      * Ability to subscribe to notifications every time an account posts.
-     * @see POST /api/v1/pleroma/accounts/:id/subscribe
-     * @see POST /api/v1/pleroma/accounts/:id/unsubscribe
+     * @see POST /api/v1/kollective/accounts/:id/subscribe
+     * @see POST /api/v1/kollective/accounts/:id/unsubscribe
      */
     accountSubscriptions: true,
 
@@ -73,27 +73,27 @@ const getKollectiveFeatures = () => {
 
     /**
      * Ability to manage announcements by admins.
-     * @see GET /api/v1/pleroma/admin/announcements
-     * @see GET /api/v1/pleroma/admin/announcements/:id
-     * @see POST /api/v1/pleroma/admin/announcements
-     * @see PATCH /api/v1/pleroma/admin/announcements/:id
-     * @see DELETE /api/v1/pleroma/admin/announcements/:id
-     * @see {@link https://docs.pleroma.social/backend/development/API/admin_api/#get-apiv1pleromaadminannouncements}
+     * @see GET /api/v1/kollective/admin/announcements
+     * @see GET /api/v1/kollective/admin/announcements/:id
+     * @see POST /api/v1/kollective/admin/announcements
+     * @see PATCH /api/v1/kollective/admin/announcements/:id
+     * @see DELETE /api/v1/kollective/admin/announcements/:id
+     * @see {@link https://docs.kollective.social/backend/development/API/admin_api/#get-apiv1kollectiveadminannouncements}
      */
     adminAnnouncements: true,
 
     /**
      * An additional moderator interface is available on the domain.
-     * @see /pleroma/admin
+     * @see /kollective/admin
      */
     adminFE: true,
 
     /**
      * Ability to manage instance rules by admins.
-     * @see GET /api/v1/pleroma/admin/rules
-     * @see POST /api/v1/pleroma/admin/rules
-     * @see PATCH /api/v1/pleroma/admin/rules/:id
-     * @see DELETE /api/v1/pleroma/admin/rules/:id
+     * @see GET /api/v1/kollective/admin/rules
+     * @see POST /api/v1/kollective/admin/rules
+     * @see PATCH /api/v1/kollective/admin/rules/:id
+     * @see DELETE /api/v1/kollective/admin/rules/:id
      */
     adminRules: true,
 
@@ -114,15 +114,15 @@ const getKollectiveFeatures = () => {
     announcementsReactions: true,
 
     /**
-     * Pleroma backups.
-     * @see GET /api/v1/pleroma/backups
-     * @see POST /api/v1/pleroma/backups
+     * Kollective backups.
+     * @see GET /api/v1/kollective/backups
+     * @see POST /api/v1/kollective/backups
      */
     backups: true,
 
     /**
      * Set your birthday and view upcoming birthdays.
-     * @see GET /api/v1/pleroma/birthdays
+     * @see GET /api/v1/kollective/birthdays
      * @see POST /api/v1/accounts
      * @see PATCH /api/v1/accounts/update_credentials
      */
@@ -155,7 +155,7 @@ const getKollectiveFeatures = () => {
 
     /**
      * Ability to accept a chat.
-     * POST /api/v1/pleroma/chats/:id/accept
+     * POST /api/v1/kollective/chats/:id/accept
      */
     chatAcceptance: false,
 
@@ -165,44 +165,44 @@ const getKollectiveFeatures = () => {
     chatEmojiReactions: false,
 
     /**
-     * Pleroma chats API.
-     * @see {@link https://docs.pleroma.social/backend/development/API/chats/}
+     * Kollective chats API.
+     * @see {@link https://docs.kollective.social/backend/development/API/chats/}
      */
     chats: true,
 
     /**
      * Ability to delete a chat.
-     * @see DELETE /api/v1/pleroma/chats/:id
+     * @see DELETE /api/v1/kollective/chats/:id
      */
     chatsDelete: true,
 
     /**
      * Ability to set disappearing messages on chats.
-     * @see PATCH /api/v1/pleroma/chats/:id
+     * @see PATCH /api/v1/kollective/chats/:id
      */
     chatsExpiration: false,
 
     /**
      * Whether chat messages can accept a `media_id` attachment.
-     * @see POST /api/v1/pleroma/chats/:id/messages
+     * @see POST /api/v1/kollective/chats/:id/messages
      */
     chatsMedia: true,
 
     /**
      * Whether chat messages have read receipts.
-     * @see GET /api/v1/pleroma/chats/:id/messages
+     * @see GET /api/v1/kollective/chats/:id/messages
      */
     chatsReadReceipts: false,
 
     /**
      * Ability to search among chats.
-     * @see GET /api/v1/pleroma/chats
+     * @see GET /api/v1/kollective/chats
      */
     chatsSearch: false,
 
     /**
      * Paginated chats API.
-     * @see GET /api/v2/pleroma/chats
+     * @see GET /api/v2/kollective/chats
      */
     chatsV2: true,
 
@@ -243,10 +243,10 @@ const getKollectiveFeatures = () => {
     domainBlocks: true,
     /**
      * Allow to register on a given domain
-     * @see GET /api/v1/pleroma/admin/domains
-     * @see POST /api/v1/pleroma/admin/domains
-     * @see PATCH /api/v1/pleroma/admin/domains/:id
-     * @see DELETE /api/v1/pleroma/admin/domains/:id
+     * @see GET /api/v1/kollective/admin/domains
+     * @see POST /api/v1/kollective/admin/domains
+     * @see PATCH /api/v1/kollective/admin/domains/:id
+     * @see DELETE /api/v1/kollective/admin/domains/:id
      */
     domains: false, //TODO check later
 
@@ -266,9 +266,9 @@ const getKollectiveFeatures = () => {
      * Soapbox email list.
      * @see POST /api/v1/accounts
      * @see PATCH /api/v1/accounts/update_credentials
-     * @see GET /api/v1/pleroma/admin/email_list/subscribers.csv
-     * @see GET /api/v1/pleroma/admin/email_list/unsubscribers.csv
-     * @see GET /api/v1/pleroma/admin/email_list/combined.csv
+     * @see GET /api/v1/kollective/admin/email_list/subscribers.csv
+     * @see GET /api/v1/kollective/admin/email_list/unsubscribers.csv
+     * @see GET /api/v1/kollective/admin/email_list/combined.csv
      */
     emailList: true,
 
@@ -280,31 +280,31 @@ const getKollectiveFeatures = () => {
 
     /**
      * Ability to add emoji reactions to a status.
-     * @see PUT /api/v1/pleroma/statuses/:id/reactions/:emoji
-     * @see GET /api/v1/pleroma/statuses/:id/reactions/:emoji?
-     * @see DELETE /api/v1/pleroma/statuses/:id/reactions/:emoji
+     * @see PUT /api/v1/kollective/statuses/:id/reactions/:emoji
+     * @see GET /api/v1/kollective/statuses/:id/reactions/:emoji?
+     * @see DELETE /api/v1/kollective/statuses/:id/reactions/:emoji
      */
     emojiReacts:true,
 
     /**
      * The backend allows only non-RGI ("Recommended for General Interchange") emoji reactions.
-     * @see PUT /api/v1/pleroma/statuses/:id/reactions/:emoji
+     * @see PUT /api/v1/kollective/statuses/:id/reactions/:emoji
      */
     emojiReactsNonRGI: true,
 
     /**
      * Ability to create and perform actions on events.
-     * @see POST /api/v1/pleroma/events
-     * @see GET /api/v1/pleroma/events/joined_events
-     * @see PUT /api/v1/pleroma/events/:id
-     * @see GET /api/v1/pleroma/events/:id/participations
-     * @see GET /api/v1/pleroma/events/:id/participation_requests
-     * @see POST /api/v1/pleroma/events/:id/participation_requests/:participant_id/authorize
-     * @see POST /api/v1/pleroma/events/:id/participation_requests/:participant_id/reject
-     * @see POST /api/v1/pleroma/events/:id/join
-     * @see POST /api/v1/pleroma/events/:id/leave
-     * @see GET /api/v1/pleroma/events/:id/ics
-     * @see GET /api/v1/pleroma/search/location
+     * @see POST /api/v1/kollective/events
+     * @see GET /api/v1/kollective/events/joined_events
+     * @see PUT /api/v1/kollective/events/:id
+     * @see GET /api/v1/kollective/events/:id/participations
+     * @see GET /api/v1/kollective/events/:id/participation_requests
+     * @see POST /api/v1/kollective/events/:id/participation_requests/:participant_id/authorize
+     * @see POST /api/v1/kollective/events/:id/participation_requests/:participant_id/reject
+     * @see POST /api/v1/kollective/events/:id/join
+     * @see POST /api/v1/kollective/events/:id/leave
+     * @see GET /api/v1/kollective/events/:id/ics
+     * @see GET /api/v1/kollective/search/location
      */
     events: true,
 
@@ -370,7 +370,7 @@ const getKollectiveFeatures = () => {
 
     /**
      * Whether client settings can be retrieved from the API.
-     * @see GET /api/pleroma/frontend_configurations
+     * @see GET /api/kollective/frontend_configurations
      */
     frontendConfigurations: true,
 
@@ -454,18 +454,18 @@ const getKollectiveFeatures = () => {
     hideNetwork: true,
 
     /**
-     * Pleroma import API.
-     * @see POST /api/pleroma/follow_import
-     * @see POST /api/pleroma/blocks_import
-     * @see POST /api/pleroma/mutes_import
+     * Kollective import API.
+     * @see POST /api/kollective/follow_import
+     * @see POST /api/kollective/blocks_import
+     * @see POST /api/kollective/mutes_import
      */
     import: true,
 
     /**
-     * Pleroma import endpoints.
-     * @see POST /api/pleroma/follow_import
-     * @see POST /api/pleroma/blocks_import
-     * @see POST /api/pleroma/mutes_import
+     * Kollective import endpoints.
+     * @see POST /api/kollective/follow_import
+     * @see POST /api/kollective/blocks_import
+     * @see POST /api/kollective/mutes_import
      */
     importData: true,
 
@@ -481,6 +481,13 @@ const getKollectiveFeatures = () => {
      * @see PATCH /api/v1/accounts/update_credentials
      */
     lightning: false,
+
+    /**
+     * Displays a form to follow a user when logged out.
+     * @see POST /main/ostatus
+     */
+    kollectiveRemoteFollow: true,
+
 
     /**
      * Can create, view, and manage lists.
@@ -519,7 +526,7 @@ const getKollectiveFeatures = () => {
     mediaV2: false,
     /**
      * Ability to hide notifications from people you don't follow.
-     * @see PUT /api/pleroma/notification_settings
+     * @see PUT /api/kollective/notification_settings
      */
     muteStrangers: true,
 
@@ -548,12 +555,6 @@ const getKollectiveFeatures = () => {
      * @see GET /api/v1/statuses/:id/context/descendants
      */
     paginatedContext: false,
-
-    /**
-     * Displays a form to follow a user when logged out.
-     * @see POST /main/ostatus
-     */
-    pleromaRemoteFollow: true,
 
     /**
      * Can add polls to statuses.
@@ -597,7 +598,7 @@ const getKollectiveFeatures = () => {
 
     /**
      * Interact with statuses from another instance while logged-out.
-     * @see POST /api/v1/pleroma/remote_interaction
+     * @see POST /api/v1/kollective/remote_interaction
      */
     remoteInteractions: true,
 
@@ -653,9 +654,9 @@ const getKollectiveFeatures = () => {
 
     /**
      * Ability to manage account security settings.
-     * @see POST /api/pleroma/change_password
-     * @see POST /api/pleroma/change_email
-     * @see POST /api/pleroma/delete_account
+     * @see POST /api/kollective/change_password
+     * @see POST /api/kollective/change_email
+     * @see POST /api/kollective/delete_account
      */
     security: true,
 

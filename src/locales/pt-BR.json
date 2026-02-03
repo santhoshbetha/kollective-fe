@@ -1172,11 +1172,11 @@
   "notification.mentioned": "{name} mencionou você",
   "notification.move": "{name} mudou para {targetName}",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "{name} te enviou uma mensagem",
-  "notification.pleroma:emoji_reaction": "{name} reagiu à sua postagem",
-  "notification.pleroma:event_reminder": "Um evento em que você está participando começará em breve",
-  "notification.pleroma:participation_accepted": "Sua participação no evento foi aceita",
-  "notification.pleroma:participation_request": "{name} quer participar do seu evento",
+  "notification.kollective:chat_mention": "{name} te enviou uma mensagem",
+  "notification.kollective:emoji_reaction": "{name} reagiu à sua postagem",
+  "notification.kollective:event_reminder": "Um evento em que você está participando começará em breve",
+  "notification.kollective:participation_accepted": "Sua participação no evento foi aceita",
+  "notification.kollective:participation_request": "{name} quer participar do seu evento",
   "notification.poll": "Uma enquete em que você votou chegou ao fim",
   "notification.reblog": "{name} compartilhou a sua postagem",
   "notification.set_name": "Definir nome como {name}",
@@ -1645,3 +1645,4 @@
   "zap_split.text": "Seu apoio nos ajudará a construir um império imparável e governar a galáxia!",
   "zap_split.title": "Divisão de Zap"
 }
+

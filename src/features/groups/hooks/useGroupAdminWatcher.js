@@ -4,7 +4,7 @@ import { api } from '@/api/client';
 
 //"Global Admin Notification"
 
-// To implement a Global Admin Notification for group membership requests, you treat the Pleroma API as a 
+// To implement a Global Admin Notification for group membership requests, you treat the Kollective API as a 
 // "background watcher." You don't need a Redux slice; instead, you use a high-level hook that polls
 //  for pending requests and updates a Zustand badge count or shows a toast.
 

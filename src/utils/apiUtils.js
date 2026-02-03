@@ -17,8 +17,27 @@ export const extractMaxIdFromLink = (linkHeader) => {
   return url.searchParams.get('max_id');
 };
 
+/**
+ * Parses the 'Link' header to extract the full next URL.
+ * Header format: <.../api/v1/trends/statuses?limit=10>; rel="next"
+ */
+export const extractNextUrl = (linkHeader) => {
+  if (!linkHeader) return null;
+
+  // Split headers and find the one with rel="next"
+  const nextLink = linkHeader.split(',').find((s) => s.includes('rel="next"'));
+  if (!nextLink) return null;
+
+  // Extract the URL between < >
+  const urlMatch = nextLink.match(/<(.*)>/);
+  if (!urlMatch) return null;
+
+  return urlMatch[1]; // Return the full URL
+};
+
 export const chunkArray = (arr, size) => 
   Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
     arr.slice(i * size, i * size + size)
   );
+
 

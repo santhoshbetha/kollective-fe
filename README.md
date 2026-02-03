@@ -34,7 +34,7 @@ src/
 │   ├── auth/                    # Login, Verification, Token Management
 │   │   ├── store/               # useMeStore.js (Zustand)
 │   │   └── hooks/               # useAuthActions, useMe
-│   ├── chats/                   # Direct Messages & Pleroma Chats
+│   ├── chats/                   # Direct Messages & Kollective Chats
 │   │   ├── api/                 # useConversations, useChatActions
 │   │   ├── store/               # useTypingStore.js (Zustand)
 │   │   └── components/          # ChatWindow, MessageBubble
@@ -118,3 +118,8 @@ export default function App() {
   );
 }
 ========================================================================
+Rule of thumg:
+Does it call useQuery or fetch? Put it in /api.
+Does it use useState/useEffect for UI behavior? Put it in /hooks.
+Is it a pure function with no React hooks at all? Put it in /utils.
+=========================================================================

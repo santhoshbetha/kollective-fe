@@ -2,6 +2,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useStatusImporter } from '@/features/statuses/hooks/useStatusImporter';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInstance } from '@/features/instance/api/useInstance';
+import { extractNextUrl } from '@/utils/apiUtils';
+import { useTrendPreferenceStore } from '../store/useTrendPreferenceStore';
 
 export const useTrendingStatuses = (limit = 10) => {
   const { importStatusEntities } = useStatusImporter();
@@ -46,14 +50,17 @@ const ExplorePage = () => {
 
 //====================================================================================================
 // src/features/trends/api/useTrendingStatuses.js
-export const useTrendingStatuses = () => {
+export const useTrendingStatuses2 = () => {
   const { importStatusEntities } = useStatusImporter();
 
   return useQuery({
     queryKey: ['trends', 'statuses'],
     queryFn: async () => {
       const { data } = await api.get('/api/v1/trends/statuses');
+
+      // Side-load into global status cache
       importStatusEntities(data); // Side-load into global status cache
+
       return data;
     },
     staleTime: 1000 * 60 * 15, // Trends update every 15 mins
@@ -61,16 +68,14 @@ export const useTrendingStatuses = () => {
 };
 
 //========================================================================================================
-//In TanStack Query, you replace these thunks with a single useInfiniteQuery. You can delete the TRENDING_STATUSES_FETCH and EXPAND actions, as the library handles pagination via the next link and the server-supported features check automatically.
+//In TanStack Query, you replace these thunks with a single useInfiniteQuery. 
+// You can delete the TRENDING_STATUSES_FETCH and EXPAND actions, as the library 
+// handles pagination via the next link and the server-supported features check automatically.
+
 //1. The Migration Hook
 //Create src/features/trends/api/useTrendingStatuses.js. 
 // This hook handles the initial fetch and the "Load More" logic using the Link header.
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { useStatusImporter } from '@/features/statuses/hooks/useStatusImporter';
-import { useInstance } from '@/features/instance/api/useInstance';
-
-export const useTrendingStatuses = () => {
+export const useTrendingStatuses3 = () => {
   const { importStatusEntities } = useStatusImporter();
   const { data: instance } = useInstance();
 
@@ -108,7 +113,7 @@ const TrendingTimeline = () => {
     hasNextPage, 
     isFetchingNextPage, 
     isLoading 
-  } = useTrendingStatuses();
+  } = useTrendingStatuses3();
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -139,7 +144,7 @@ const TrendingTimeline = () => {
 export const useCategorizedTrends = (category = 'all') => {
   return useInfiniteQuery({
     queryKey: ['statuses', 'trends'],
-    queryFn: fetchTrendingStatuses, // Your existing API function
+    queryFn: api.get('/api/v1/personaltrends/tags').then(res => res.data),//fetchTrendingStatuses,
     select: (data) => {
       if (category === 'all') return data;
 
@@ -186,14 +191,14 @@ const TrendsDashboard = () => {
 //Trend Personalization
 
 // src/features/trends/api/useTrendingStatuses.js
-import { useTrendPreferenceStore } from '../store/useTrendPreferenceStore';
+
 
 export const usePersonalizedTrends = () => {
   const hiddenCategories = useTrendPreferenceStore((s) => s.hiddenCategories);
 
   return useInfiniteQuery({
     queryKey: ['statuses', 'trends'],
-    queryFn: fetchTrendingStatuses,
+    queryFn: api.get('/api/v1/personaltrends/tags').then(res => res.data),//fetchTrendingStatuses,
     select: (data) => ({
       ...data,
       pages: data.pages.map(page => ({
@@ -208,4 +213,5 @@ export const usePersonalizedTrends = () => {
   });
 };
 //==================================================================================
+
 

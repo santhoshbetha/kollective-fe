@@ -389,9 +389,9 @@
   "notification.follow_request": "Hoffai {name} eich dilyn chi",
   "notification.mention": "Soniodd {name} amdanoch chi",
   "notification.name": "{link}{others}",
-  "notification.pleroma:chat_mention": "Anfonodd {name} neges atoch",
-  "notification.pleroma:participation_accepted": "Derbyniwyd eich cais i ymuno â'r digwyddiad",
-  "notification.pleroma:participation_request": "Hoffai {name} ymuno â'ch digwyddiad",
+  "notification.kollective:chat_mention": "Anfonodd {name} neges atoch",
+  "notification.kollective:participation_accepted": "Derbyniwyd eich cais i ymuno â'r digwyddiad",
+  "notification.kollective:participation_request": "Hoffai {name} ymuno â'ch digwyddiad",
   "notification.poll": "Mae arolwg rydych wedi cymryd rhan ynddo wedi dod i ben",
   "notification.reblog": "Hysbysebodd {name} eich tŵt",
   "notification.user_approved": "Croeso i {instance}!",
@@ -580,3 +580,4 @@
   "video.unmute": "Dad-dawelu sain",
   "who_to_follow.title": "Pwy i'w ddilyn"
 }
+

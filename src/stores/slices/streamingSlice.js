@@ -184,7 +184,7 @@ export function createStreamingSlice(setScoped, getScoped, rootSet, rootGet) {
             case 'filters_changed':
               actions.fetchFilters?.();
               break;
-            case 'pleroma:chat_update':
+            case 'kollective:chat_update':
             case 'chat_message.created': {
               const messageOwned = payload.last_message?.account_id === actions.me;
               if (!messageOwned) {
@@ -212,7 +212,7 @@ export function createStreamingSlice(setScoped, getScoped, rootSet, rootGet) {
             case 'chat_message.reaction':
               updateChatMessage(payload);
               break;
-            case 'pleroma:follow_relationships_update':
+            case 'kollective:follow_relationships_update':
               actions.updateFollowRelationships?.(payload);
               break;
             case 'announcement':

@@ -1,9 +1,8 @@
 // src/features/accounts/api/useRelationships.js
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { relationshipSchema } from '../schemas/accountSchemas';
+import { relationshipSchema } from '../../../schemas/relationship';
 import { chunkArray } from '../../../utils/apiUtils';
-import { relationshipSchema } from '../schemas/relationshipSchemas';
 
 export const useRelationships = (accountIds) => {
   const queryClient = useQueryClient();
@@ -68,3 +67,4 @@ export const useRelationships = (accountIds) => {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
+

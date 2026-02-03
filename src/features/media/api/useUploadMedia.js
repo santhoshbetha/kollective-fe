@@ -10,7 +10,7 @@ export const useUploadMedia = () => {
       if (description) formData.append('description', description);
       if (focus) formData.append('focus', focus);
 
-      // Mastodon/Pleroma endpoint for media uploads
+      // Mastodon/Kollective endpoint for media uploads
       const { data } = await api.post('/api/v1/media', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
