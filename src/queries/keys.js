@@ -13,6 +13,9 @@ export const statusKeys = {
  // 4. Other keys for comparison
   details: () => [...statusKeys.all, 'detail'],
   detail: (id) => [...statusKeys.details(), id],
+
+  lists: () => [...statusKeys.all, 'list'],
+  list: (type, params = {}) => [...statusKeys.lists(), { type, ...params }],
   
   timelines: () => [...statusKeys.all, 'timeline'],
   timeline: (type) => [...statusKeys.timelines(), type],

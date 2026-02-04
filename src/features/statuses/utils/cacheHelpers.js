@@ -1,7 +1,6 @@
 
 
-//Here is the
-//updatePostInPages helper. Just like the delete version, this is designed to traverse the
+//Here is the updatePostInPages helper. Just like the delete version, this is designed to traverse the
 //nested pages of an Infinite Query and update a specific post without forcing a full refetch.
 /**
  * Updates a specific status within the Infinite Query pages structure.
@@ -34,7 +33,6 @@ export const deletePostInPages = (oldData, postId) => {
         })),
     };
 };
-
 
 //Here is theadjustReplyCount helper. Since TanStack Query uses a nested pages structure for infinite scrolling, 
 //you need this specific logic to find the parent post and increment/decrement its count without losing other data.

@@ -62,6 +62,18 @@ src/
 │   └── textHighlight.jsx        # Search result highlighting
 └── App.jsx                      # Root: Providers (Query, Auth) & Watchers
 
+================================================================================
+src/features/statuses/
+├── api/
+│   ├── statuses.js         <-- Raw Axios calls (fetchStatus, deleteStatus)
+│   └── statusQueries.js    <-- queryOptions (Keys + queryFn)
+├── hooks/
+│   ├── useStatus.js        <-- useQuery(statusQueries.detail(id))
+│   └── useEmojiReaction.js <-- useMutation + Optimistic Update Logic
+└── components/
+    └── StatusCard.jsx    <-- Uses the hooks
+
+
 =====================================================================================
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';

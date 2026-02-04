@@ -1,7 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useStatusImporter } from '../hooks/useStatusImporter';
-import { fetchContext } from './statuses';
 
 // --- 1. THE TIMELINE (Infinite Feed) ---
 // REPLACES: fetchStatuses thunk

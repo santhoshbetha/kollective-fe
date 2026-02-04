@@ -1,8 +1,8 @@
 import Layout from "../components/Layout";
 import { TrendingUp, Sparkles, Star, Hash } from "lucide-react"
 import { ContentTabs } from "../components/ContentTabs";
-import { useTrendingStatuses } from "../features/trends/api/useTrendingStatuses";
-import { useTrendingTags } from "../features/trends/api/useTrendingTags";
+import { useTrendingStatuses } from "../features/trends/hooks/useTrendingStatuses";
+import { useTrendingTags } from "../features/trends/hooks/useTrendingTags";
 
 const tabs = [
   {

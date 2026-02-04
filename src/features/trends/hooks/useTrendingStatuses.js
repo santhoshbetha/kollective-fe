@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
 import { useStatusImporter } from '@/features/statuses/hooks/useStatusImporter';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useInstance } from '@/features/instance/api/useInstance';
+import { useInstance } from '@/features/instance/hooks/useInstance';
 import { extractNextUrl } from '@/utils/apiUtils';
 import { useTrendPreferenceStore } from '../store/useTrendPreferenceStore';
 

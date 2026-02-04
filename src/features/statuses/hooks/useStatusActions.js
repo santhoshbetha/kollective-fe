@@ -4,6 +4,7 @@ import { deletePostInPages, updatePostInPages } from '../utils/cacheHelpers';
 import { adjustReplyCount } from '../utils/cacheHelpers';
 import { deleteByStatusInPages } from '@/features/notifications/utils/notificationCacheHelpers';
 import { statusKeys } from '../../../queries/keys';
+import { triggerHaptic } from '@/utils/haptics';
 
 // Why this works for kollective:-FE
 
@@ -970,6 +971,60 @@ const ReactionPill = ({ statusId, reaction, emojiUrl }) => {
 };
 
 */
+
+export const useUnEmojiReaction = (statusId) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    // 1. Direct call to the unreact endpoint
+    mutationFn: ({ emoji }) => {
+      return api.put(`/api/v1/kollective/statuses/${statusId}/unreact/${emoji}`);
+    },
+
+    // 2. Optimistic update to decrease or remove the reaction count
+    onMutate: async ({ emoji }) => {
+      // Cancel outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['statuses'] });
+
+      // Snapshot the previous data for rollback
+      const previous = queryClient.getQueriesData({ queryKey: ['statuses'] });
+
+      queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) =>
+        updatePostInPages(old, statusId, (status) => {
+          const reactions = status.kollective?.emoji_reactions || [];
+          
+          // Logic: Filter out if count becomes 0, or decrement if count > 1
+          const nextReactions = reactions
+            .map((r) =>
+              r.name === emoji ? { ...r, count: r.count - 1, me: false } : r
+            )
+            .filter((r) => r.count > 0);
+
+          return {
+            ...status,
+            kollective: {
+              ...status.kollective,
+              emoji_reactions: nextReactions,
+            },
+          };
+        })
+      );
+
+      return { previous };
+    },
+
+    // 3. Rollback on failure
+    onError: (err, variables, context) => {
+      queryClient.setQueriesData({ queryKey: ['statuses'] }, context.previous);
+    },
+
+    // 4. Invalidate to sync with server
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['statuses', statusId] });
+    },
+  });
+};
+
 //==================================================================================
 export const useToggleFavourite = (accountId = null) => {
   const queryClient = useQueryClient();

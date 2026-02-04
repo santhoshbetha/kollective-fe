@@ -15,3 +15,14 @@ export const fetchContext = async (statusId) => {
 
 export const fetchStatus = (statusId) => 
   api.get(`/api/v1/statuses/${statusId}`).then(res => res.data);
+
+
+export const fetchStatusContext = (id) => 
+  api.get(`/api/v1/statuses/${id}/context`).then(res => res.data);
+
+
+export const reactToStatus = (id, emoji) => 
+  api.put(`/api/v1/statuses/${id}/react/${emoji}`);
+
+export const unreactFromStatus = (id, emoji) => 
+  api.put(`/api/v1/statuses/${id}/unreact/${emoji}`);
