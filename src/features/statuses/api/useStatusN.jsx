@@ -1,11 +1,9 @@
-//status details:
-// src/features/statuses/api/useStatus.js
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchStatus } from '../api/statuses';
 import { useFilters } from '@/features/filters/api/useFilters';
 import { checkFiltered } from '../../filters/utils/filterHelpers';
+import { fetchStatus } from './statuses';
 
-export const useStatus = (statusId, conversationId, expectedUsername) => {
+export const useStatusN = (statusId, conversationId, expectedUsername) => {
   const queryClient = useQueryClient();
   const { data: filters } = useFilters();
   //const me = useAuthStore(s => s.me?.id);
@@ -61,64 +59,3 @@ export const useStatus = (statusId, conversationId, expectedUsername) => {
     staleTime: 1000 * 60 * 5,
   });
 };
-
-/*
-interface StatusItemProps {
-  id: string;
-  conversationId: string;
-  isHighlighted?: boolean;
-}
-//This component remains lean because the hook handles
-export const StatusItem = ({ id, conversationId, isHighlighted }: StatusItemProps) => {
-  const { data: status, isLoading } = useStatus(id, conversationId);
-
-  if (isLoading) return <div className="skeleton">...</div>;
-  if (!status) return null;
-
-  return (
-    <article className={`status ${isHighlighted ? 'active' : ''}`}>
-      <header>
-        <strong>{status.account.display_name}</strong>
-        <span>@{status.account.acct}</span>
-      </header>
-      <div dangerouslySetInnerHTML={{ __html: status.content }} />
-    </article>
-  );
-};
-
-const Conversation = ({ id }) => {
-  // 1. Fetches the whole "Book" (the context)
-  const { data: thread } = useConversation(id); 
-
-  return (
-    <div>
-      {thread.allStatuses.map(status => (
-        <StatusItem 
-          key={status.id} 
-          id={status.id} 
-          conversationId={id} // <-- 2. Parent passes its own ID down to children
-        />
-      ))}
-    </div>
-  );
-};
-*/
-
-/*
-Use useStatus (The Original Query)
-Use this hook when you need to read or display data from the server. 
-
-    Rendering Components: Use it in a list item or detail page (like StatusItem) to 
-    show content to the user.
-    Pre-population: Use it when you want to avoid "loading spinners" by pulling 
-    data from an existing cache (like a parent conversation) via the initialData option.
-    Declarative Logic: It runs automatically when the component mounts or when 
-    its statusId dependency changes. 
-*/
-
-
-
-
-
-
-

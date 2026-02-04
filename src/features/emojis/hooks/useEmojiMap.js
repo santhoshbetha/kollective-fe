@@ -31,4 +31,4 @@ const StatusContent = ({ content }) => {
 
   return <div dangerouslySetInnerHTML={{ __html: parsedContent }} />;
 };
-*?
+*/

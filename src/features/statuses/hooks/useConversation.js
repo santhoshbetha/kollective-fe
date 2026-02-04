@@ -1,27 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchContext } from '../api/fetch-context';
+import { fetchContext } from '../api/statuses';
 import { buildAncestors, buildDescendants } from '../utils/traversal';
+import { statusKeys } from '@/queries/keys';
 
-export const useConversation = (statusId) => {
+export const useConversation = (conversationId) => {
   const query = useQuery({
-    queryKey: ['statusContext', statusId],
-    queryFn: () => fetchContext(statusId),
-    staleTime: 5 * 60 * 1000, // Optional: cache for 5 minutes
+    // Renamed parameter to conversationId for clarity with your useStatus hook
+    queryKey: statusKeys.context(conversationId), //['status', 'context', conversationId],
+    queryFn: () => fetchContext(conversationId),
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Derive Ancestors
-  const ancestors = useQuery({
-    queryKey: ['statusContext', statusId],
-    enabled: false, // Don't fetch; just a "virtual" query for selection
-    select: (data) => buildAncestors(statusId, data.inReplyTos),
-  }).data;
-
-  // Derive Descendants
-  const descendants = useQuery({
-    queryKey: ['statusContext', statusId],
-    enabled: false,
-    select: (data) => buildDescendants(statusId, data.replies),
-  }).data;
+  // Derive data directly from the main query result
+  // This is better than extra useQuery calls because it's cleaner and more performant
+  const ancestors = query.data ? buildAncestors(conversationId, query.data.inReplyTos) : [];
+  const descendants = query.data ? buildDescendants(conversationId, query.data.replies) : [];
 
   return { ...query, ancestors, descendants };
 };

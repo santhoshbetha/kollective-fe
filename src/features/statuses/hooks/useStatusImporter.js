@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { fetchRelationships } from '../../accounts/api/accounts';
 
 export const useStatusImporter = () => {
     const queryClient = useQueryClient();
@@ -11,15 +12,21 @@ export const useStatusImporter = () => {
 
     //In TanStack Query, "Importing" means seeding the cache so that subsequent 
     //queries (like opening a user profile) are instant. This replaces your mergeStatus logic.
+    
+    //Keep this for single-status imports (like after a post or update)
     const importStatus = (status, expandSpoilers = false) => {
+      if (isBroken(status)) return;
+
       // 1. Seed the individual status cache
-      queryClient.setQueryData(['statuses', 'detail', status.id], {
+      queryClient.setQueryData(['status', status.id], {
         ...status,
         expanded: expandSpoilers // Replaces mergeStatus expandSpoilers logic
       });
 
       // 2. Seed related entities (like we discussed earlier)
-      if (status.account) queryClient.setQueryData(['accounts', status.account.id], status.account);
+      if (status.account) {
+        queryClient.setQueryData(['account', status.account.id], status.account);
+      }
     };
 
     const importStatuses = (statuses, expandSpoilers) => {
@@ -63,10 +70,13 @@ export const useStatusImporter = () => {
     };
 
     const importFetchedStatuses = (statuses) => {
+       if (!Array.isArray(statuses)) return;
+
       statuses.forEach((status) => {
         if (isBroken(status)) return;
 
         // 1. Seed the Account
+        // 1. Account
         if (status.account) {
           queryClient.setQueryData(['account', status.account.id], status.account);
         }
@@ -82,14 +92,15 @@ export const useStatusImporter = () => {
         }
 
         // 4. Seed the Status itself (The main entry)
+        // (Matches our useStatus queryKey: ['status', statusId])
         queryClient.setQueryData(['status', status.id], status);
 
-        // 5. Recursively handle nested content (Reblogs/Quotes)
-        const nested = [status.reblog, status.quote, status.kollective?.quote];
-        const validNested = nested.filter(n => n && n.id);
+        // 5. Handle Nesting (Reblogs / Quotes)
+        const nested = [status.reblog, status.quote, status.kollective?.quote]
+          .filter(n => n && n.id && n.id !== status.id); 
         
-        if (validNested.length > 0) {
-          importFetchedStatuses(validNested);
+        if (nested.length > 0) {
+          importFetchedStatuses(nested);
         }
       });
     };
@@ -106,11 +117,12 @@ export const useStatusImporter = () => {
     */
 
     const fetchRelatedRelationships = (accounts) => {
-      const ids = accounts.map(a => a.id);
+      const ids = accounts.map(a => a.id).filter(Boolean);
+      if (ids.length === 0) return;
       // We don't call a hook here, we trigger a fetch via queryClient
       queryClient.prefetchQuery({
-        queryKey: ['relationships', ids.sort()],
-        queryFn: () => fetchRelationships(ids)
+        queryKey: ['relationships', ids.sort().join(',')],
+        queryFn: () => fetchRelationships(ids) // Assume this is your API util
       });
     };
 

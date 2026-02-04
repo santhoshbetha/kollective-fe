@@ -79,6 +79,15 @@ const buildAncestors = (statusId, inReplyTos) => {
   return Array.from(ancestors).reverse();
 };
 
+export const useAncestors = (statusId) => {
+  return useQuery({
+    queryKey: ['contexts', 'inReplyTos'],
+    queryFn: fetchInReplyTos, // Function to fetch your Map data
+    select: (data) => buildAncestors(statusId, data),
+    enabled: !!statusId,
+  });
+};
+
 // Logic for finding all descendant IDs (returns unique Array)
 const buildDescendants = (statusId, contextReplies) => {
   const descendants = new Set();
@@ -104,15 +113,6 @@ const buildDescendants = (statusId, contextReplies) => {
     }
   }
   return Array.from(descendants);
-};
-
-export const useAncestors = (statusId) => {
-  return useQuery({
-    queryKey: ['contexts', 'inReplyTos'],
-    queryFn: fetchInReplyTos, // Function to fetch your Map data
-    select: (data) => buildAncestors(statusId, data),
-    enabled: !!statusId,
-  });
 };
 
 export const useDescendants = (statusId) => {

@@ -128,7 +128,6 @@ Why this is the "Ultimate" Migration Step:
        logic on every single frame during scroll.
 */
 
-
 export const useTimeline = () => {
   const token = useAuthStore(s => s.token);
 

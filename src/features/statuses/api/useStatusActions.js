@@ -3,7 +3,7 @@ import { api } from '@/api/client';
 import { deletePostInPages, updatePostInPages } from '../utils/cacheHelpers';
 import { adjustReplyCount } from '../utils/cacheHelpers';
 import { deleteByStatusInPages } from '@/features/notifications/utils/notificationCacheHelpers';
-
+import { statusKeys } from '../../../queries/keys';
 
 // Why this works for kollective:-FE
 
@@ -90,7 +90,6 @@ export const useCreateStatus2 = () => {
   });
 };
 
-
 export const useDeleteStatus = () => {
   const queryClient = useQueryClient();
 
@@ -159,146 +158,148 @@ Why this is a win for kollective:-FE:
 export const useStatusActions = () => {
     const queryClient = useQueryClient();
 
-    // Create (postStatus)
-    const createMutation = useMutation({
-        mutationFn: (data) => api.post('/api/v1/statuses', data),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['statuses', 'timeline'] }),
-    });
-
-    // Edit / Update (editStatus / updateStatus)
-    const editMutation = useMutation({
-        mutationFn: ({ id, data }) => api.put(`/api/v1/statuses/${id}`, data),
-        onSuccess: (updatedStatus) => {
-        // Update the cache everywhere this status exists
-        queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => 
-            updatePostInPages(old, updatedStatus.id, updatedStatus)
-        );
-        }
-    });
-
-    // Delete
-    const deleteMutationX = useMutation({
-        mutationFn: (id) => api.delete(`/api/v1/statuses/${id}`),
-        onMutate: (id) => {
-        queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => 
-            deletePostInPages(old, id)
-        );
-        }
-    });
-
-
-
-    // Helper to update a status across ALL queries (Home, Profile, Search)
-    const updateCache = (statusId, newFields) => {
-        queryClient.setQueriesData({ queryKey: ['statuses'] }, (oldData) => {
-        if (!oldData) return oldData;
+    // UNIVERSAL HELPER: Updates a status regardless of where it lives (Detail or Timeline)
+    const updateEverywhere = (statusId, updater) => {
+      // 1. Update all Timelines (Home, Profile, etc.)
+      queryClient.setQueriesData({ queryKey: statusKeys.timelines() }, (oldData) => {
+        if (!oldData?.pages) return oldData;
         return {
-            ...oldData,
-            pages: oldData.pages.map(page => 
-            page.map(status => 
-                status.id === statusId ? { ...status, ...newFields } : status
-            )
-            )
+          ...oldData,
+          pages: oldData.pages.map(page => 
+            page.map(s => s.id === statusId ? updater(s) : s)
+          )
         };
-        });
+      });
+
+      // 2. Update Individual Detail Queries
+      // This finds ['status', 'detail', statusId]
+      queryClient.setQueriesData({ queryKey: statusKeys.details() }, (oldData) => {
+        // For details, oldData is the status object itself
+        if (oldData?.id === statusId) return updater(oldData);
+        return oldData;
+      });
     };
 
+    // 1. Create (Post) (postStatus)
+    const createMutation = useMutation({
+      mutationFn: (data) => api.post('/api/v1/statuses', data).then(res => res.data),
+      onSuccess: () => {
+        // Invalidate home timeline so the new post appears at the top
+        queryClient.invalidateQueries({ queryKey: statusKeys.timeline('home') });
+      },
+    });
+
+    // 2. Edit (Update) Edit / Update (editStatus / updateStatus)
+    const editMutation = useMutation({
+      mutationFn: ({ id, data }) => api.put(`/api/v1/statuses/${id}`, data).then(res => res.data),
+      onSuccess: (updatedStatus) => {
+        // Use the helper to swap the old status with the new one everywhere
+        updateEverywhere(updatedStatus.id, () => updatedStatus);
+      }
+    });
+
+    // --- MUTATIONS ---
     const favoriteMutation = useMutation({
-        mutationFn: (id) => api.post(`/api/v1/statuses/${id}/favourite`),
-        onMutate: (id) => {
-            // Optimistic Update: Change heart to red immediately
-            updateCache(id, { favourited: true, favourites_count: (c) => c + 1 });
-        },
-        onError: (err, id) => {
-            // Rollback logic here if needed
-            queryClient.invalidateQueries({ queryKey: ['statuses'] });
-        }
+      mutationFn: (id) => api.post(`/api/v1/statuses/${id}/favourite`).then(res => res.data),
+      onMutate: async (id) => {
+        // Optimistic Update
+        updateEverywhere(id, (s) => ({ 
+          ...s, 
+          favourited: true, 
+          favourites_count: (s.favourites_count || 0) + 1 
+        }));
+      },
+      onError: (err, id) => queryClient.invalidateQueries({ queryKey: statusKeys.all }),
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id) => api.delete(`/api/v1/statuses/${id}`),
-        onSuccess: (data, id) => {
-        // Remove from all lists
-        queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => ({
+      mutationFn: (id) => api.delete(`/api/v1/statuses/${id}`),
+      onSuccess: (_, id) => {
+        // Remove from all timelines
+        queryClient.setQueriesData({ queryKey: statusKeys.timelines() }, (old) => {
+          if (!old?.pages) return old;
+          return {
             ...old,
             pages: old.pages.map(page => page.filter(s => s.id !== id))
-        }));
-        }
+          };
+        });
+        // Remove specific detail cache
+        queryClient.removeQueries({ queryKey: statusKeys.detail(id) });
+      }
     });
 
     // Reblog (Boost) Mutation
     const reblogMutation = useMutation({
-        mutationFn: (id) => api.post(`/api/v1/statuses/${id}/reblog`),
-        onMutate: (id) => {
-        // Optimistic Update
-        updateCache(id, { reblogged: true, reblogs_count: (c) => c + 1 });
-        },
-        onSuccess: () => {
-        // Invalidate the home timeline to show the new reblog at the top
-        queryClient.invalidateQueries({ queryKey: ['statuses', 'home'] });
-        }
+      mutationFn: (id) => api.post(`/api/v1/statuses/${id}/reblog`).then(res => res.data),
+      onMutate: (id) => {
+        updateEverywhere(id, (s) => ({ 
+          ...s, 
+          reblogged: true, 
+          reblogs_count: (s.reblogs_count || 0) + 1 
+        }));
+      },
+      onSuccess: () => {
+        // Invalidate home so the new boost appears at the top
+        queryClient.invalidateQueries({ queryKey: statusKeys.timeline('home') });
+      }
     });
 
     // Mute User Mutation
     const muteMutation = useMutation({
-        mutationFn: (accountId) => api.post(`/api/v1/accounts/${accountId}/mute`),
-        onSuccess: (_, accountId) => {
-        // Remove ALL statuses by this user from the UI immediately
-        queryClient.setQueriesData({ queryKey: ['statuses'] }, (oldData) => {
-            if (!oldData) return oldData;
-            return {
-            ...oldData,
-            pages: oldData.pages.map(page => 
-                page.filter(status => status.account.id !== accountId)
-            )
-            };
+      mutationFn: (accountId) => api.post(`/api/v1/accounts/${accountId}/mute`),
+      onSuccess: (_, accountId) => {
+        // Remove all posts by this user from all timelines
+        queryClient.setQueriesData({ queryKey: statusKeys.timelines() }, (old) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map(page => page.filter(s => s.account.id !== accountId))
+          };
         });
-        }
+      }
     });
 
-    // 1. Unmute User
+    // 3. Unmute User
     const unmuteMutation = useMutation({
-        mutationFn: (accountId) => api.post(`/api/v1/accounts/${accountId}/unmute`),
-        onSuccess: () => {
-        // Since we previously removed muted posts from cache, 
-        // we must refetch to get them back.
-        queryClient.invalidateQueries({ queryKey: ['statuses'] });
-        }
+      mutationFn: (accountId) => api.post(`/api/v1/accounts/${accountId}/unmute`),
+      onSuccess: () => {
+        // Since we filtered muted posts out of the cache, we must refetch to see them again
+        queryClient.invalidateQueries({ queryKey: statusKeys.timelines() });
+      }
     });
 
-    // 3. Translate Status
+    // 4. Translate Status
     const translateMutation = useMutation({
-        mutationFn: (id) => api.post(`/api/v1/statuses/${id}/translate`),
-        onSuccess: (translatedData, id) => {
-        // Merge translation into the specific status in cache
-        queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => {
-            if (!old) return old;
-            return updatePostInPages(old, id, { translation: translatedData });
-        });
-        }
+      mutationFn: (id) => api.post(`/api/v1/statuses/${id}/translate`).then(res => res.data),
+      onSuccess: (translatedData, id) => {
+        updateEverywhere(id, (s) => ({ ...s, translation: translatedData }));
+      }
     });
 
-    const handleLike = (postId) => {
-        // 1. Target all query keys that START with 'posts'
-        // This finds ['posts', 'home'], ['posts', 'profile', 'user123'], etc.
-        queryClient.setQueriesData({ queryKey: ['posts'] }, (oldData) => 
-            updatePostInPages(oldData, postId, { liked: true, likesCount: 50 })
-        );
+    // 5. Handle Like (Universal wrapper for favoriteMutation)
+    const handleLike = (statusId, isLiked) => {
+      // This allows your UI to just call handleLike(id, true/false)
+      if (isLiked) {
+        favoriteMutation.mutate(statusId);
+      } else {
+        // You would need an unfavoriteMutation defined similarly
+        unfavoriteMutation.mutate(statusId); 
+      }
     };
 
-  return { 
-    createMutation, editMutation,
-    favoriteMutation, deleteMutation, 
-    reblogMutation, muteMutation, 
-    unmuteMutation, translateMutation, handleLike 
-  };
+    return { 
+      createMutation, editMutation,
+      favoriteMutation, deleteMutation, 
+      reblogMutation, muteMutation, 
+      unmuteMutation, translateMutation, handleLike 
+    };
 };
 
 export const useTranslateStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // REPLACES: The try/catch and fetch block
+    // 1. The API Call
     mutationFn: async ({ id, lang }) => {
       const res = await fetch(`/api/v1/statuses/${id}/translate`, {
         method: "POST",
@@ -309,21 +310,40 @@ export const useTranslateStatus = () => {
       return res.json();
     },
 
-    // REPLACES: The setScoped / Immer logic
-    onSuccess: (translationData, variables) => {
-      const { id } = variables;
+    // 2. The Cache Update
+    onSuccess: (translationData, { id }) => {
+      // Helper logic similar to your 'updateEverywhere' to sync all views
+      const updater = (oldStatus) => ({
+        ...oldStatus,
+        translation: translationData,
+        isTranslated: true
+      });
 
-      // Update the status in every list (Home, Profile, Thread)
-      queryClient.setQueriesData({ queryKey: ['statuses'] }, (oldData) => 
-        updatePostInPages(oldData, id, { 
-          translation: translationData,
-          isTranslated: true // Helpful for UI toggles
-        })
-      );
+      // Update Timelines (Home, Profile, etc.)
+      queryClient.setQueriesData({ queryKey: statusKeys.timelines() }, (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => page.map(s => s.id === id ? updater(s) : s))
+        };
+      });
+
+      // Update Individual Status Details & Contexts
+      // This targets ['status', 'detail', id] and ['status', 'context', conversationId]
+      queryClient.setQueriesData({ queryKey: statusKeys.all }, (old) => {
+        if (old?.id === id) return updater(old);
+        // If the context is an object with allStatuses Map (from our fetchContext)
+        if (old?.allStatuses?.has(id)) {
+           const status = old.allStatuses.get(id);
+           old.allStatuses.set(id, updater(status));
+           return { ...old };
+        }
+        return old;
+      });
     },
-    
+
     onError: (error) => {
-      console.error("Translation failed", error);
+      console.error("Translation failed:", error.message);
     }
   });
 };
@@ -345,6 +365,25 @@ const StatusTranslation = ({ status }) => {
     </button>
   );
 };
+
+const { mutate: translate, isPending } = useTranslateStatus();
+
+const handleTranslate = () => {
+  translate({ id: status.id, lang: 'en' });
+};
+
+return (
+  <div>
+    {status.isTranslated ? (
+      <p className="italic text-blue-600">{status.translation.content}</p>
+    ) : (
+      <p>{status.content}</p>
+    )}
+    <button onClick={handleTranslate} disabled={isPending}>
+      {isPending ? 'Translating...' : 'Translate'}
+    </button>
+  </div>
+);
 Why this is a "Cleaner" Migration:
 
     Ephemeral State: Loading states like isPending are local to the button. 
@@ -354,7 +393,6 @@ Why this is a "Cleaner" Migration:
     Automatic Synchronization: If the user has the same status open in two different 
     columns (e.g., Home Feed and a Thread view), clicking "Translate" in one will instantly update both because they share the same cache key.
 */
-
 
 /*
 Why this is the "Golden Standard":
@@ -372,30 +410,63 @@ export const useFavoriteStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id) => api.post(`/api/v1/statuses/${id}/favourite`),
+    mutationFn: (id) => api.post(`/api/v1/statuses/${id}/favourite`).then(res => res.data),
     
     onMutate: async (id) => {
-      // 1. Cancel outgoing fetches
-      await queryClient.cancelQueries({ queryKey: ['statuses'] });
+      // 1. Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: statusKeys.all });
 
-      // 2. Snapshot the current state (for rollback)
-      const previousData = queryClient.getQueryData(['statuses', 'home']);
+      // 2. Snapshot the current state of ALL status-related queries for a full rollback
+      const previousQueries = queryClient.getQueriesData({ queryKey: statusKeys.all });
 
-      // 3. Optimistically update EVERY timeline that has this post
-      queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => 
-        updatePostInPages(old, id, { 
-          favourited: true, 
-          favourites_count: (old?.favourites_count || 0) + 1 
-        })
+      // 3. Optimistically update EVERYWHERE (Timelines + Details)
+      // Note: We pass a function to the updater to ensure we use the current count
+      const updater = (s) => ({ 
+        ...s, 
+        favourited: true, 
+        favourites_count: (s.favourites_count || 0) + 1 
+      });
+
+      // Update Timelines
+      queryClient.setQueriesData({ queryKey: statusKeys.timelines() }, (old) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => page.map(s => s.id === id ? updater(s) : s))
+        };
+      });
+
+      // Update Individual Details
+      queryClient.setQueriesData({ queryKey: statusKeys.details() }, (old) => {
+        return old?.id === id ? updater(old) : old;
+      });
+
+      // 4. Return the snapshot context
+      return { previousQueries };
+    },
+
+    // 5. Success: Replace optimistic data with actual server data
+    onSuccess: (updatedStatus) => {
+      queryClient.setQueriesData({ queryKey: statusKeys.details() }, (old) => 
+        old?.id === updatedStatus.id ? updatedStatus : old
       );
-
-      return { previousData };
     },
 
+    // 6. Error: Rollback every query we snapshotted
     onError: (err, id, context) => {
-      // 4. Rollback if the API call fails
-      queryClient.setQueryData(['statuses', 'home'], context.previousData);
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, oldData]) => {
+          queryClient.setQueryData(queryKey, oldData);
+        });
+      }
     },
+    
+    // 7. Always refetch after error or success to stay in sync with server
+    onSettled: (updatedStatus) => {
+      if (updatedStatus) {
+        queryClient.invalidateQueries({ queryKey: statusKeys.detail(updatedStatus.id) });
+      }
+    }
   });
 };
 
@@ -404,40 +475,69 @@ export const useStatusInteractions = () => {
   const queryClient = useQueryClient();
 
   // Reusable helper to handle the "Optimistic" part of your Redux logic
-  const optimisticallyUpdateStatus = async (id, newFields) => {
-    await queryClient.cancelQueries({ queryKey: ['statuses'] });
-    const previousData = queryClient.getQueryData(['statuses']);
+  const optimisticallyUpdateStatus = async (id, updater) => {
+    // 1. Cancel outgoing fetches
+    await queryClient.cancelQueries({ queryKey: statusKeys.all });
 
-    queryClient.setQueriesData({ queryKey: ['statuses'] }, (old) => 
-      updatePostInPages(old, id, newFields)
-    );
+    // 2. Snapshot ALL queries starting with 'status'
+    const previousQueries = queryClient.getQueriesData({ queryKey: statusKeys.all });
 
-    return { previousData };
+    // 3. Update Timelines
+    queryClient.setQueriesData({ queryKey: statusKeys.timelines() }, (old) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map(page => 
+          page.map(s => s.id === id ? { ...s, ...updater(s) } : s)
+        )
+      };
+    });
+
+    // 4. Update Details/Contexts
+    queryClient.setQueriesData({ queryKey: statusKeys.all }, (old) => {
+      if (old?.id === id) return { ...old, ...updater(old) };
+      // Handle the allStatuses Map if in a Context query
+      if (old?.allStatuses?.has(id)) {
+        const s = old.allStatuses.get(id);
+        old.allStatuses.set(id, { ...s, ...updater(s) });
+        return { ...old };
+      }
+      return old;
+    });
+
+    return { previousQueries };
   };
 
   // 1. Favourite / Unfavourite (Replaces favouriteRequest & unFavouriteRequest)
+  // 1. Favourite / Unfavourite
   const favoriteMutation = useMutation({
     mutationFn: ({ id, active }) => 
-      api.post(`/api/v1/statuses/${id}/${active ? 'favourite' : 'unfavourite'}`),
+      api.post(`/api/v1/statuses/${id}/${active ? 'favourite' : 'unfavourite'}`).then(res => res.data),
     onMutate: ({ id, active }) => 
-      optimisticallyUpdateStatus(id, {
+      optimisticallyUpdateStatus(id, (s) => ({
         favourited: active,
-        favourites_count: (c) => Math.max(0, (c || 0) + (active ? 1 : -1))
-      }),
+        favourites_count: Math.max(0, (s.favourites_count || 0) + (active ? 1 : -1))
+      })),
     onError: (err, variables, context) => {
-      queryClient.setQueriesData({ queryKey: ['statuses'] }, context.previousData);
+      // Rollback every snapped query
+      context?.previousQueries?.forEach(([key, value]) => queryClient.setQueryData(key, value));
     }
   });
 
+
   // 2. Dislike / Undislike (Replaces dislikeRequest & undislikeRequest)
+  // 2. Dislike
   const dislikeMutation = useMutation({
     mutationFn: ({ id, active }) => 
       api.post(`/api/v1/statuses/${id}/${active ? 'dislike' : 'undislike'}`),
     onMutate: ({ id, active }) => 
-      optimisticallyUpdateStatus(id, {
+      optimisticallyUpdateStatus(id, (s) => ({
         disliked: active,
-        dislikes_count: (c) => Math.max(0, (c || 0) + (active ? 1 : -1))
-      }),
+        dislikes_count: Math.max(0, (s.dislikes_count || 0) + (active ? 1 : -1))
+      })),
+    onError: (err, variables, context) => {
+      context?.previousQueries?.forEach(([key, value]) => queryClient.setQueryData(key, value));
+    }
   });
 
   // 3. Emoji Reactions (Replaces emojiReactRequest & unEmojiReactRequest)
@@ -445,12 +545,14 @@ export const useStatusInteractions = () => {
     mutationFn: ({ id, emoji, active }) => 
       api.post(`/api/v1/statuses/${id}/emoji_react`, { emoji, active }),
     onMutate: ({ id, emoji, active }) => 
-      optimisticallyUpdateStatus(id, {
-        // Here you use your existing simulateEmojiReact logic
-        emojiReacts: (oldReacts) => active 
-          ? simulateEmojiReact(oldReacts, emoji) 
-          : simulateUnEmojiReact(oldReacts, emoji)
-      }),
+      optimisticallyUpdateStatus(id, (s) => ({
+        emojiReacts: active 
+          ? simulateEmojiReact(s.emojiReacts, emoji) 
+          : simulateUnEmojiReact(s.emojiReacts, emoji)
+      })),
+    onError: (err, variables, context) => {
+      context?.previousQueries?.forEach(([key, value]) => queryClient.setQueryData(key, value));
+    }
   });
 
   return { favoriteMutation, dislikeMutation, emojiMutation };
@@ -470,7 +572,7 @@ export const useStatusInteractions = () => {
 Proactive Follow-up: Since you've successfully moved the Status and Notification deletion logic to TanStack, should we create a similar deleteByAccountInPages helper to handle Blocking or Muting users?
 */
 
-export const useDeleteStatus = () => {
+export const useDeleteStatus3 = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -506,10 +608,6 @@ export const useDeleteStatus = () => {
 //"Optimistic Likes"
 //To implement Optimistic Likes (Favoriting) in a Mastodon/Kollective app, you use the same pattern as following, but you must also increment the Like Count so the number changes instantly alongside the heart icon.
 //This replaces the manual logic in your statusesSlice.js where you previously searched through arrays to toggle favourited.
-
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updatePostInPages } from '../utils/cacheHelpers';
-import { api } from '@/api/client';
 
 export const useLikeStatus = () => {
   const queryClient = useQueryClient();
@@ -641,7 +739,7 @@ const ReblogButton = ({ status }) => {
 // If the network is down, the mutation will stay in a "paused" state and 
 // fire automatically once the connection is restored.
 
-export const useLikeStatus = () => {
+export const useLikeStatus2 = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -728,10 +826,6 @@ it automatically vanishes from this list.
 
 //==================================================================================
 // /useEmojiReaction
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { updatePostInPages } from '../utils/cacheHelpers';
-
 export const useEmojiReaction = (statusId) => {
   const queryClient = useQueryClient();
 
@@ -803,10 +897,6 @@ const ReactionButton = ({ status, emojiName, url, count, me }) => {
 
 
 //==================================================================================
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-import { updatePostInPages } from '../utils/cacheHelpers';
-
 //same as above - check later
 export const useEmojiReaction2 = (statusId) => {
   const queryClient = useQueryClient();
@@ -881,9 +971,6 @@ const ReactionPill = ({ statusId, reaction, emojiUrl }) => {
 
 */
 //==================================================================================
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
-
 export const useToggleFavourite = (accountId = null) => {
   const queryClient = useQueryClient();
   const cacheKey = ['statuses', 'timeline', 'favourites', accountId || 'mine'];
@@ -1001,7 +1088,7 @@ export const useToggleBookmark = () => {
 //==================================================================================
 //"Haptic Feedback"
 // src/features/statuses/api/useStatusActions.js
-export const useLikeStatus = () => {
+export const useLikeStatus3 = () => {
   return useMutation({
     mutationFn: (params) => api.post('/api/v1/statuses/like', params),
     onMutate: () => {
@@ -1018,14 +1105,14 @@ export const useLikeStatus = () => {
 //==================================================================================
 // src/features/statuses/api/useStatusActions.ts
 // /This replaces the complex simpleEmojiReact thunk. It ensures that if a user reacts with "❤️", any existing "👍" or "😮" is removed first.
-export const useExclusiveReaction = (status: Status) => {
+export const useExclusiveReaction = (status) => {
   const queryClient = useQueryClient();
   const { mutateAsync: react } = useEmojiReaction(status.id); // From our previous step
   const { mutateAsync: unreact } = useUnEmojiReaction(status.id);
   const { mutateAsync: fav } = useToggleFavourite(); 
 
   return useMutation({
-    mutationFn: async ({ emoji }: { emoji: string }) => {
+    mutationFn: async ({ emoji }) => {
       // 1. Identify current "me" reactions
       const currentMeReactions = status.kollective?.emoji_reactions?.filter(r => r.me) || [];
       
@@ -1051,7 +1138,7 @@ export const useExclusiveReaction = (status: Status) => {
 //==================================================================================
 // / Handling "Delete from Timelines"
 // src/features/statuses/api/useStatusActions.js
-export const useDeleteStatus = () => {
+export const useDeleteStatus4 = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -1097,9 +1184,13 @@ export const useToggleLike = () => {
   });
 };
 /*
-Referential Integrity: In your old Redux setup, you had to manually track where a status was used to update it. With setQueriesData, you target all instances of that data by key, ensuring no "stale" hearts or boost counts remain on screen.
-Efficiency: You aren't forcing a full refetch of the timeline. You are surgically patching a single object in the TanStack Cache.
-Tab-to-Tab Sync: If you have Tab Synchronization enabled, this patch will even broadcast to other open browser tabs.
+Referential Integrity: In your old Redux setup, you had to manually track where a status was used to update it. 
+With setQueriesData, you target all instances of that data by key, ensuring no "stale" hearts or boost counts 
+remain on screen.
+Efficiency: You aren't forcing a full refetch of the timeline. You are surgically patching a single object 
+in the TanStack Cache.
+Tab-to-Tab Sync: If you have Tab Synchronization enabled, this patch will even broadcast to other 
+open browser tabs.
 
 Every piece of logic from your timelinesSlice, statusesSlice, and reselect selectors has been replaced.
 */

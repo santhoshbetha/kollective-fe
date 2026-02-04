@@ -123,3 +123,61 @@ Does it call useQuery or fetch? Put it in /api.
 Does it use useState/useEffect for UI behavior? Put it in /hooks.
 Is it a pure function with no React hooks at all? Put it in /utils.
 =========================================================================
+
+useStatusImporter => fetchRelationships && useRelationships ==> fetchRelationships
+
+Think of fetchRelationships as the Engine, and the other two as the Gas Pedals.
+
+1. The Relationship Sequence (How they connect)
+
+    fetchRelationships: The raw API logic that chunks IDs and talks to the server.
+    useBatchedEntities: The TanStack Query wrapper. It checks what is missing from the cache and calls fetchRelationships to get it.
+    useRelationships: The UI-driven hook. You use this in components (like a Timeline) to say: "I am looking at these 20 people right now, make sure I have their data."
+    useStatusImporter: The Data-driven utility. You use this inside a queryFn (like when fetching a notification or a single status) to say: "I just got some data from the server, let me proactively seed the cache for these people."
+
+2. The Sequence of Operations (Step-by-Step)
+Here is exactly what happens when a user opens your app and loads the Home Timeline:
+Step A: The Timeline Fetch
+
+    The useTimeline hook fires.
+    The queryFn calls the API and gets 20 statuses.
+    Inside the queryFn, you call importFetchedStatuses(data).
+    This triggers useStatusImporter, which seeds the ['status', id] and ['account', id] cache.
+
+Step B: The Relationship "Pre-fetch"
+
+    The Timeline component renders. It calculates the 20 Account IDs.
+    It calls useRelationships(listKey, ids).
+    useBatchedEntities looks at the cache. It realizes it has the Account info, but not the "Relationship" (following/blocking) info yet.
+    It calls fetchRelationships(ids).
+
+Step C: The Server Call
+
+    fetchRelationships splits the 20 IDs into chunks (if needed) and sends ?id[]=1&id[]=2... to the server.
+    The server returns the array of relationship objects.
+
+Step D: Seeding the Cache
+
+    useBatchedEntities receives that array.
+    It loops through and calls queryClient.setQueryData(['relationship', listKey, id], data).
+    Now the cache is "warm."
+
+Step E: The Component "Pop"
+
+    The 20 FollowButton components mount inside the statuses.
+    They call useRelationship(id).
+    Because of the work done in Step D, they find the data instantly. No spinners are shown.
+
+Comparison of the "Gas Pedals"
+Feature	                     useRelationships (Hook)	                    useStatusImporter (Utility)
+When it runs	              During Component Rendering.	                  During API Data Fetching.
+Triggered by	             The UI needing to display buttons.	            The API returning a response.
+Primary Goal	             Batch fetch missing metadata.	                Side-load/Seed cache from a response.
+Best For	                Timelines, Member Lists, Search.	              useInfiniteQuery, Single Status fetches.
+
+Summary
+
+    useStatusImporter is for when the server gives you data (like a status) and you want to save its pieces.
+    useRelationships is for when the server didn't give you enough data (like follow status) and you need to go ask for it in a batch.
+=========================================================================================
+

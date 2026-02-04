@@ -10,6 +10,7 @@ export const useRelationships = (accountIds) => {
   return useQuery({
     // Stable key based on sorted IDs to ensure consistent caching
     queryKey: ['relationships', [...accountIds].sort()],
+    
     queryFn: async () => {
       // 1. Chunking Logic (Ported from your thunk)
       const results = [];
@@ -67,4 +68,49 @@ export const useRelationships = (accountIds) => {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
+
+//=================================================================================
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+// write a simple useRelationship(accountId) hook (singular) that pulls this data for a single Follow button
+
+//simple useRelationship(accountId) hook (singular) that pulls this data for a single Follow button
+
+//To make your Follow button work, we’ll create a hook that "listens" to the cache.
+//Because useBatchedEntities has already "seeded" the relationships into the cache under the key 
+// ['relationship', listKey, id], this hook will return that data instantly if it's available.
+
+/**
+ * Retrieves relationship status for a single account.
+ * It primarily looks in the cache seeded by useBatchedEntities.
+ */
+export const useRelationship = (accountId, listKey = 'home') => {
+  const queryClient = useQueryClient();
+
+  return useQuery({
+    // Must match the key format used in useBatchedEntities
+    queryKey: ['relationship', listKey, accountId],
+    
+    // Fallback: If not in cache, fetch it individually
+    queryFn: async () => {
+      const response = await api.get('/api/v1/accounts/relationships', { 
+        searchParams: { 'id[]': accountId } 
+      });
+      const json = await response.json();
+      return json[0] || null;
+    },
+
+    // This is the magic: it looks for the data already seeded by the batcher
+    initialData: () => {
+      return queryClient.getQueryData(['relationship', listKey, accountId]);
+    },
+
+    enabled: !!accountId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+
+//===========================================================
+
 
