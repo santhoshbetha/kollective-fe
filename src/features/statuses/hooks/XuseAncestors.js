@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api/client';
-import { useStatusImporter } from '../hooks/useStatusImporter'; // Feature-local import
+import { useStatusImporter } from './useStatusImporter'; // Feature-local import
 
 export const useAncestors = (id) => {
   const { importFetchedStatuses } = useStatusImporter();

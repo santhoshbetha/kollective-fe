@@ -199,7 +199,7 @@ export const makeGetChat = () => {
 export const makeGetReport = () => {
   const getStatus = makeGetStatus();
 
-  return createSelector(
+  return createSelector(  
     [
       (state, id) => state.admin.reports[id],
       (state, id) => selectAccount(state, state.admin.reports[id]?.account || ''),
@@ -324,8 +324,8 @@ export const makeGetStatusIds = () => createCachedSelector([
 usage:
  const statusIds = useStore((state) => selectStatusIds(state, type));
 
- =============================
- The Better Zustand Alternative: useShallow
+=============================
+The Better Zustand Alternative: useShallow
 If your only goal is to prevent re-renders when a selector returns a new array
 or object with the same data, Zustand's built-in useShallow hook is often easier than createSelector
 

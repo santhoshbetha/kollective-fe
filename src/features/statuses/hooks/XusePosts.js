@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchPosts, createPost } from './postApi';
-import { useStatusImporter } from '../hooks/useStatusImporter';
+import { useStatusImporter } from './useStatusImporter';
 
 export const usePosts = () => {
   const queryClient = useQueryClient();

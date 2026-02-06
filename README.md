@@ -73,7 +73,19 @@ src/features/statuses/
 └── components/
     └── StatusCard.jsx    <-- Uses the hooks
 
+1. src/features/{feature}/api/
+The "What" and "How" (Pure Functions)
+This folder should contain no React logic. It shouldn't know about useQuery or useMutation. It only knows about Axios and URLs.
 
+    statuses.js: Export raw async functions (e.g., const getStatus = ...).
+    statusQueries.js: Export queryOptions. This is just a configuration object. It’s technically not a hook yet!
+    
+2. src/features/{feature}/hooks/
+The "When" and "Where" (React Hooks)
+This is where you actually execute the queries and mutations using TanStack Query's hooks.
+
+    useStatus.js: Calls useQuery(statusQueries.detail(id)).
+    useStatusActions.js: Contains your complex mutations like useEmojiReaction.
 =====================================================================================
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
