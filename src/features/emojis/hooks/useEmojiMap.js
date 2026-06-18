@@ -21,7 +21,7 @@ export const useEmojiMap = () => {
 };
 
 /*
-const StatusContent = ({ content }) => {
+const PostContent = ({ content }) => {
   const emojiMap = useEmojiMap();
 
   // Simple regex to find :shortcode: and replace with <img>

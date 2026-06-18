@@ -1,0 +1,114 @@
+{
+  "US": {
+    "district_l1": "Congressional District",
+    "district_l2": "State Senate District",
+    "district_l3": "State Representative District",
+    "state_label": "State"
+  },
+  "IN": {
+    "district_l1": "MP Constituency",
+    "district_l2": "Upper House (MLC)",
+    "district_l3": "MLA Constituency",
+    "state_label": "State/UT"
+  },
+  "GB": {
+    "district_l1": "Parliamentary Constituency",
+    "district_l3": "Local Ward",
+    "state_label": "Region"
+  }
+}
+
+/*
+The React Implementation
+On the "Create Event" page, use the country code from the user's profile to determine which labels to show.
+
+import terms from './locales/electoral_terms.json';
+
+const EventForm = ({ user }) => {
+  const countryTerms = terms[user.country] || terms["US"];
+
+  return (
+    <form>
+      <label>{countryTerms.district_l1}</label>
+      <input name="district_l1" defaultValue={user.district_l1} />
+      
+      <label>{countryTerms.district_l3}</label>
+      <input name="district_l3" defaultValue={user.district_l3} />
+    </form>
+  );
+};
+
+
+*/
+/*
+Why this is the best approach:
+
+    Database Stability: You don't have to run a migration every time you add a new country.
+    Scalability: You can support 100+ democratic countries just by adding entries to your React JSON file.
+    Searchability: You can still run a single query like where: e.district_l1 == ^user.district_l1 to get a user's national-level feed, regardless of whether that's an "MP" or a "Congressman."
+*/
+
+/*
+# lib/kollective/localization/electoral_terms.ex
+defmodule Kollective.Localization.ElectoralTerms do
+  @terms %{
+    "US" => %{
+      district_l1: "Congressional District",
+      district_l2: "State Senate District",
+      district_l3: "State Representative District",
+      state_label: "State"
+    },
+    "IN" => %{
+      district_l1: "MP Constituency",
+      district_l2: "Upper House (MLC)",
+      district_l3: "MLA Constituency",
+      state_label: "State/UT"
+    }
+  }
+
+  def get_all, do: @terms
+  def get_by_country(country_code), do: Map.get(@terms, country_code, @terms["US"])
+end
+
+===========================================
+# lib/kollective_web/controllers/translation_controller.ex
+defmodule KollectiveWeb.TranslationController do
+  use KollectiveWeb, :controller
+  alias Kollective.Localization.ElectoralTerms
+
+  # GET /api/translations/electoral
+  def index(conn, _params) do
+    json(conn, %{data: ElectoralTerms.get_all()})
+  end
+
+  # GET /api/translations/electoral/:country_code
+  def show(conn, %{"country_code" => code}) do
+    json(conn, %{data: ElectoralTerms.get_by_country(String.upcase(code))})
+  end
+end
+
+==========================================================
+# lib/kollective_web/router.ex
+scope "/api", KollectiveWeb do
+  pipe_through :api
+
+  get "/translations/electoral", TranslationController, :index
+  get "/translations/electoral/:country_code", TranslationController, :show
+end
+
+
+===========================================================
+// Example React usage
+const [terms, setTerms] = useState(null);
+
+useEffect(() => {
+  fetch(`/api/translations/electoral/${user.country}`)
+    .then(res => res.json())
+    .then(json => setTerms(json.data));
+}, [user.country]);
+
+// In your form:
+<label>{terms?.district_l1 || "District"}</label>
+
+*/
+

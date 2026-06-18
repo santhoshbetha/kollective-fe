@@ -203,5 +203,5 @@ Summary
 
     useStatusImporter is for when the server gives you data (like a status) and you want to save its pieces.
     useRelationships is for when the server didn't give you enough data (like follow status) and you need to go ask for it in a batch.
-=========================================================================================
+================================================================================================================
 

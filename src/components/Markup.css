@@ -1,0 +1,60 @@
+/* Container for the parsed content */
+[data-markup] {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.5;
+}
+
+/* Hide the invisible 'span' and 'prefix' elements often sent by Mastodon/Pleroma */
+[data-markup] .invisible {
+  display: none;
+}
+
+[data-markup] .ellipsis::after {
+  content: "…";
+}
+
+/* Link styling for mentions and hashtags */
+[data-markup] a {
+  color: var(--color-primary, #1da1f2);
+  text-decoration: none;
+}
+
+[data-markup] a:hover {
+  text-decoration: underline;
+}
+
+/* Specific styling for the custom components we injected */
+[data-markup] .hashtag {
+  font-weight: 500;
+}
+
+[data-markup] .mention {
+  font-weight: 500;
+}
+
+/* Ensure emojified images stay inline with text */
+[data-markup] img.emoji {
+  display: inline-block;
+  height: 1.2em;
+  width: auto;
+  margin: -0.2em 0.1em 0;
+  vertical-align: middle;
+}
+
+/* Handle paragraphs and spacing in bios/statuses */
+[data-markup] p {
+  margin-bottom: 0.5em;
+}
+
+[data-markup] p:last-child {
+  margin-bottom: 0;
+}
+
+/*
+Key Logic in the CSS:
+
+    .invisible & .ellipsis: Mastodon often sends links with hidden text (like https://google.com being sent as <span class="invisible">https://</span>google.com). This CSS hides the "invisible" parts to make the link look clean.
+    [data-markup] Selector: We use this attribute to scope the styles so they don't accidentally leak into other parts of your UI.
+    Variable Usage: It uses var(--color-primary) which is a common practice in Soapbox to ensure the theme colors stay consistent.
+*/

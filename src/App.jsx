@@ -142,6 +142,7 @@ function App() {
 
                   <Routes>
                     <Route path="/" element={<WrappedRoute page={HomePage} />} />
+                    <Route path="/post/:id" element={<PostDetailsPage />} />
                     <Route path="/statuses" element={<WrappedRoute page={StatusPage} />} />
                     <Route path="/communities" element={<WrappedRoute page={CommunitiesPage} />} />
                     <Route path="/explore" element={<WrappedRoute page={ExplorePage} />} />
@@ -151,7 +152,7 @@ function App() {
                     <Route path="/broadcasting" element={<WrappedRoute page={BroadcastingPage} />} />
                     <Route path="/videos" element={<WrappedRoute page={VideosPage} />} />
                     <Route path="/videos/:id" element={<VideoDetailsPage />} />
-                    <Route path="/post/:id" element={<PostDetailsPage />} />
+
                     <Route path="/polls" element={<WrappedRoute page={PollsPage} />} />
                     <Route path="/polls/create" element={<WrappedRoute page={CreatePollPage} />} />
                     <Route path="/chats" element={<WrappedRoute page={ChatsPage} />} />
@@ -175,6 +176,11 @@ function App() {
                 <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/auth/confirmation/new" element={<ConfirmationNewPage />} />
               </Routes>
+            )}
+            {pathname.startsWith('/posts/') && (
+              <Route path="/posts/:statusId" element={<StatusDetails />}>
+                <Route path="media/:index" element={<StatusDetails />} />
+              </Route>
             )}
           </div>
         </div>

@@ -1,8 +1,8 @@
 import Layout from "../components/Layout";
 import { TrendingUp, Sparkles, Star, Hash } from "lucide-react"
 import { ContentTabs } from "../components/ContentTabs";
-import { useTrendingStatuses } from "../features/trends/hooks/useTrendingStatuses";
-import { useTrendingTags } from "../features/trends/hooks/useTrendingTags";
+//import { useTrendingStatuses } from "../features/trends/hooks/useTrendingStatuses";
+//import { useTrendingTags } from "../features/trends/hooks/useTrendingTags";
 
 const tabs = [
   {
@@ -32,8 +32,8 @@ const tabs = [
 ]
 
 const ExplorePage = () => {
-  const statuses = useTrendingStatuses();
-  const tags = useTrendingTags();
+  //const statuses = useTrendingStatuses();
+ // const tags = useTrendingTags();
   return (
     <>
       <Layout.Main>

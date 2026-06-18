@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
-import CreatePostModal from "./create-post-modal";
+//import CreatePostModal from "./create-post-modal";
 
 const navItems = [
   {
@@ -176,13 +176,17 @@ const SidebarNavigation = ({ onItemClick, onCreatePost }) => {
           </div>
         </div>
       </div>
-      <CreatePostModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        onCreatePost={handleCreatePost}
-      />
+
     </div>
   );
 };
 
 export default SidebarNavigation;
+
+/*
+      <CreatePostModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onCreatePost={handleCreatePost}
+      />
+*/

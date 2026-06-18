@@ -1,0 +1,21 @@
+/*
+Cloudflare Workers to automatically generate
+Thumbnails for these event photos so the chat doesn't lag with full-size images
+
+2. Configuration 
+You must bind your R2 bucket to the Worker so it has permission to read your event photos. 
+
+*/
+
+// wrangler.jsonc
+{
+  "name": "event-image-proxy",
+  "main": "worker/index.js",  // <-- Points to your new folder
+  "compatibility_date": "2024-01-01",
+  "r2_buckets": [
+    {
+      "binding": "MY_BUCKET",
+      "bucket_name": "your-event-photos-bucket"
+    }
+  ]
+}

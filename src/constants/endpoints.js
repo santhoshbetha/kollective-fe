@@ -36,4 +36,6 @@ export const API_ENDPOINTS = {
   // Events
   EVENTS: '/api/v1/events',
   EVENT_STATUSES: (id) => `/api/v1/events/${id}/statuses`,
+
+
 };

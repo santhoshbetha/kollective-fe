@@ -11,7 +11,7 @@ const StatusPage = ({ children }) => {
           <h1 className="text-3xl font-bold mb-2">Status</h1>
           <p className="text-muted-foreground">Check your account status and platform updates</p>
         </div>
-        {children}
+          {children}
 
         <CtaBanner />
       </Layout.Main>

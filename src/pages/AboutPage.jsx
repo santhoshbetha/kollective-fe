@@ -7,9 +7,9 @@ const AboutPage = () => {
 
     const faqs = [
         {
-        question: "What is SocialFeed?",
+        question: "What is Kollective99?",
         answer:
-            "SocialFeed is a community-driven platform where you can share your thoughts, connect with others, and engage in meaningful conversations. Whether you want to reach your local community or a global audience, we give you the tools to make your voice heard.",
+            "Kollective99 is a community-driven platform where you can share your thoughts, connect with others, and engage in meaningful conversations. Whether you want to reach your local community or a global audience, we give you the tools to make your voice heard.",
         },
         {
         question: "How do I get started?",
@@ -22,9 +22,9 @@ const AboutPage = () => {
             "You can share regular posts, voice posts about concerning issues, videos, create polls, organize events, broadcast live, and much more. Choose your target audience from local to global reach.",
         },
         {
-        question: "Is SocialFeed free to use?",
+        question: "Is Kollective99 free to use?",
         answer:
-            "Yes, SocialFeed is free to use. We believe in making social connections accessible to everyone without barriers.",
+            "Yes, Kollective99 is free to use. We believe in making social connections accessible to everyone without barriers.",
         },
         {
         question: "How do I control who sees my content?",
@@ -113,7 +113,7 @@ const AboutPage = () => {
         <div className="py-12 space-y-8">
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-bold bg-linear-to-r from-[#E2023F] via-orange-500 to-yellow-500 bg-clip-text text-transparent">Frequently Asked Questions</h2>
-            <p className="text-muted-foreground">Everything you need to know about SocialFeed</p>
+            <p className="text-muted-foreground">Everything you need to know about Kollective99</p>
           </div>
 
           <div className="space-y-4">

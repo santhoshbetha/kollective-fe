@@ -214,10 +214,10 @@ const HomePage = () => {
 export default HomePage;
 
 /*
- <LinkFooter />
-       <Timeline hiddenWhenEmpty
-        type="home" 
-        endpoint="/api/v1/timelines/home" 
-      />
+  <LinkFooter />
+    <Timeline hiddenWhenEmpty
+    type="home" 
+    endpoint="/api/v1/timelines/home" 
+  />
 */
 

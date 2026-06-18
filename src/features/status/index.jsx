@@ -98,7 +98,7 @@ By implementing the above, you can delete these original files from the Soapbox 
 
     DetailedStatus.js & StatusItem.js: Replaced by the unified Status component.
     FavoriteButton.js & BoostButton.js: Replaced by performAction in the hook.
-    StatusContent.js: Logic merged into the main component.
+    PostContent.js: Logic merged into the main component.
 */
 
 /*

@@ -1,24 +1,24 @@
-export const statusKeys = {
-  // 1. The base 'namespace' for all status-related data
-  all: ['status'],
+export const postKeys = {
+  // 1. The base 'namespace' for all post-related data
+  all: ['post'],
 
    // 2. The sub-category for conversation threads (contexts)
-  // Returns: ['status', 'context']
-  contexts: () => [...statusKeys.all, 'context'],
+  // Returns: ['post', 'context']
+  contexts: () => [...postKeys.all, 'context'],
 
  // 3. The specific context for a single ID
-  // Returns: ['status', 'context', '123']
-  context: (id) => [...statusKeys.contexts(), id],
+  // Returns: ['post', 'context', '123']
+  context: (id) => [...postKeys.contexts(), id],
 
  // 4. Other keys for comparison
-  details: () => [...statusKeys.all, 'detail'],
-  detail: (id) => [...statusKeys.details(), id],
+  details: () => [...postKeys.all, 'detail'],
+  detail: (id) => [...postKeys.details(), id],
 
-  lists: () => [...statusKeys.all, 'list'],
-  list: (type, params = {}) => [...statusKeys.lists(), { type, ...params }],
+  lists: () => [...postKeys.all, 'list'],
+  list: (type, params = {}) => [...postKeys.lists(), { type, ...params }],
   
-  timelines: () => [...statusKeys.all, 'timeline'],
-  timeline: (type) => [...statusKeys.timelines(), type],
+  timelines: () => [...postKeys.all, 'timeline'],
+  timeline: (type) => [...postKeys.timelines(), type],
 };
 
 export const accountKeys = {
@@ -32,25 +32,25 @@ export const accountKeys = {
 /*
 usage:
 
-useStatus.js:
-// BEFORE: queryKey: ['status', statusId]
+usePostjs:
+// BEFORE: queryKey: ['post', postId]
 // AFTER:
-queryKey: statusKeys.detail(statusId),
+queryKey: postKeys.detail(postId),
 
 useRelationships.js:
 // BEFORE: ['relationship', ...listKey]
 // AFTER:
 const expandedPath = [...accountKeys.relationships(), ...listKey];
 
-useStatusImporter.js:
+usePostImporter.js:
 // Seeding becomes much safer:
-queryClient.setQueryData(accountKeys.detail(status.account.id), status.account);
-queryClient.setQueryData(statusKeys.detail(status.id), status);
+queryClient.setQueryData(accountKeys.detail(post.account.id), post.account);
+queryClient.setQueryData(postKeys.detail(post.id), post);
 
 
 Why this is "Production Grade"
 
-    1. Refactoring: If you want to change 'status' to 'post', you change it in one line in the factory, 
+    1. Refactoring: If you want to change 'post' to 'post', you change it in one line in the factory, 
        and the entire app updates.
     2. Invalidation: If you want to clear every relationship in the cache (e.g., when the user logs out),
        you just call queryClient.invalidateQueries({ queryKey: accountKeys.relationships() }).
